@@ -23,6 +23,7 @@ import { NewAccountsList } from "./pages/profiles/list";
 import { BookingList } from "./pages/bookings/list";
 import { BookingShow } from "./pages/bookings/show";
 import { LoginPage } from "./pages/Login";
+import { AdminDashboard } from "./pages/AdminDashboard";
 
 const AppShell = () => {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ const AppShell = () => {
     <>
       <nav className="top-nav">
         <div className="top-nav__left">
-          <Link to="/profiles" className="brand">
+          <Link to="/" className="brand">
             {brandLabel}
           </Link>
           {role !== "pilot" && <Link to="/profiles">New Accounts</Link>}
@@ -76,10 +77,11 @@ const AppShell = () => {
           <Route
             index
             element={
-              <Navigate
-                to={role === "pilot" ? "/bookings" : "/profiles"}
-                replace
-              />
+              role === "pilot" ? (
+                <Navigate to="/bookings" replace />
+              ) : (
+                <AdminDashboard role={role} />
+              )
             }
           />
           <Route

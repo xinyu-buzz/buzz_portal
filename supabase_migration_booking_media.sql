@@ -66,7 +66,8 @@ FOR SELECT USING (
         SELECT 1 FROM public.bookings b
         WHERE b.id = booking_id
           AND (
-            b.pilot_id = auth.uid()
+            b.customer_id = auth.uid()
+            OR b.pilot_id = auth.uid()
             OR EXISTS (SELECT 1 FROM public.booking_crew bc WHERE bc.booking_id = b.id AND bc.pilot_id = auth.uid())
             OR EXISTS (SELECT 1 FROM public.booking_editors be WHERE be.booking_id = b.id AND be.editor_id = auth.uid())
           )
@@ -80,7 +81,8 @@ FOR INSERT WITH CHECK (
         SELECT 1 FROM public.bookings b
         WHERE b.id = booking_id
           AND (
-            b.pilot_id = auth.uid()
+            b.customer_id = auth.uid()
+            OR b.pilot_id = auth.uid()
             OR EXISTS (SELECT 1 FROM public.booking_crew bc WHERE bc.booking_id = b.id AND bc.pilot_id = auth.uid())
             OR EXISTS (SELECT 1 FROM public.booking_editors be WHERE be.booking_id = b.id AND be.editor_id = auth.uid())
           )
@@ -103,7 +105,8 @@ FOR SELECT USING (
                 SELECT 1 FROM public.bookings b
                 WHERE b.id = m.booking_id
                   AND (
-                    b.pilot_id = auth.uid()
+                    b.customer_id = auth.uid()
+                    OR b.pilot_id = auth.uid()
                     OR EXISTS (SELECT 1 FROM public.booking_crew bc WHERE bc.booking_id = b.id AND bc.pilot_id = auth.uid())
                     OR EXISTS (SELECT 1 FROM public.booking_editors be WHERE be.booking_id = b.id AND be.editor_id = auth.uid())
                   )
@@ -121,7 +124,8 @@ FOR INSERT WITH CHECK (
         SELECT 1 FROM public.bookings b
         WHERE b.id = split_part(storage.objects.name, '/', 2)::uuid
           AND (
-            b.pilot_id = auth.uid()
+            b.customer_id = auth.uid()
+            OR b.pilot_id = auth.uid()
             OR EXISTS (SELECT 1 FROM public.booking_crew bc WHERE bc.booking_id = b.id AND bc.pilot_id = auth.uid())
             OR EXISTS (SELECT 1 FROM public.booking_editors be WHERE be.booking_id = b.id AND be.editor_id = auth.uid())
           )
@@ -137,7 +141,8 @@ FOR DELETE USING (
         SELECT 1 FROM public.bookings b
         WHERE b.id = split_part(storage.objects.name, '/', 2)::uuid
           AND (
-            b.pilot_id = auth.uid()
+            b.customer_id = auth.uid()
+            OR b.pilot_id = auth.uid()
             OR EXISTS (SELECT 1 FROM public.booking_crew bc WHERE bc.booking_id = b.id AND bc.pilot_id = auth.uid())
             OR EXISTS (SELECT 1 FROM public.booking_editors be WHERE be.booking_id = b.id AND be.editor_id = auth.uid())
           )

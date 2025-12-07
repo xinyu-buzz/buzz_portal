@@ -11,6 +11,11 @@ type BookingRow = {
   description: string;
 };
 
+type BookingCrewRow = {
+  booking_id: string;
+  bookings: BookingRow;
+};
+
 const DEFAULT_CUSTOMER_ID = "4374b3b2-4a28-4a3e-beec-5729b1d779fb";
 const RANK_OPTIONS = [
   { value: "0", label: "Ensign" },
@@ -49,6 +54,48 @@ export const BookingList = () => {
     status: "available",
   });
 
+  const loadPilotBookings = async (pilotId: string) => {
+    const [{ data: direct, error: directError }, { data: crewData, error: crewError }] =
+      await Promise.all([
+        supabaseClient
+          .from("bookings")
+          .select("id,location_name,status,scheduled_date,created_at,description")
+          .eq("pilot_id", pilotId)
+          .neq("status", "cancelled")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabaseClient
+          .from("booking_crew")
+          .select(
+            "booking_id,bookings!inner(id,location_name,status,scheduled_date,created_at,description,specialization)"
+          )
+          .eq("pilot_id", pilotId)
+          .eq("bookings.specialization", "automotive")
+          .neq("bookings.status", "cancelled"),
+      ]);
+
+    if (directError) {
+      console.error("Failed to load direct pilot bookings", directError);
+    }
+    if (crewError) {
+      console.error("Failed to load crew pilot bookings", crewError);
+    }
+
+    const merged = new Map<string, BookingRow>();
+    (direct || []).forEach((row) => merged.set(row.id, row));
+    (crewData as BookingCrewRow[] | null | undefined)?.forEach((row) => {
+      if (row.bookings) {
+        merged.set(row.booking_id, row.bookings);
+      }
+    });
+
+    const combined = Array.from(merged.values()).sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    setRows(combined);
+  };
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -63,21 +110,7 @@ export const BookingList = () => {
           setLoading(false);
           return;
         }
-        const { data, error } = await supabaseClient
-          .from("bookings")
-          .select(
-            "id,location_name,status,scheduled_date,created_at,description"
-          )
-          .eq("pilot_id", userData.user.id)
-          .eq("status", "accepted")
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (error) {
-          console.error("Failed to load bookings", error);
-        } else {
-          setRows(data || []);
-        }
+        await loadPilotBookings(userData.user.id);
         setLoading(false);
         return;
       }
@@ -239,14 +272,11 @@ export const BookingList = () => {
     const storedRole = localStorage.getItem("buzz_portal_role");
     if (storedRole === "pilot") {
       const { data: userData } = await supabaseClient.auth.getUser();
-      const { data } = await supabaseClient
-        .from("bookings")
-        .select("id,location_name,status,scheduled_date,created_at,description")
-        .eq("pilot_id", userData?.user?.id || "")
-        .eq("status", "accepted")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      setRows(data || []);
+      if (userData?.user?.id) {
+        await loadPilotBookings(userData.user.id);
+      } else {
+        setRows([]);
+      }
     } else {
       const { data } = await supabaseClient
         .from("bookings")

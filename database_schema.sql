@@ -58,6 +58,32 @@ CREATE TABLE public.booking_crew (
   CONSTRAINT booking_crew_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id),
   CONSTRAINT booking_crew_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.booking_editors (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  booking_id uuid NOT NULL,
+  editor_id uuid NOT NULL,
+  assigned_by uuid,
+  assigned_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT booking_editors_pkey PRIMARY KEY (id),
+  CONSTRAINT booking_editors_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id),
+  CONSTRAINT booking_editors_editor_id_fkey FOREIGN KEY (editor_id) REFERENCES public.profiles(id),
+  CONSTRAINT booking_editors_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.booking_media_files (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  booking_id uuid NOT NULL,
+  uploaded_by uuid NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['pilot'::text, 'editor'::text, 'system'::text])),
+  kind text NOT NULL DEFAULT 'raw'::text CHECK (kind = ANY (ARRAY['raw'::text, 'proxy'::text, 'final'::text, 'notes'::text])),
+  storage_path text NOT NULL,
+  file_name text,
+  file_size bigint,
+  mime_type text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT booking_media_files_pkey PRIMARY KEY (id),
+  CONSTRAINT booking_media_files_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id),
+  CONSTRAINT booking_media_files_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.bookings (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   customer_id uuid NOT NULL,
@@ -195,6 +221,18 @@ CREATE TABLE public.drone_registrations (
   expires text,
   CONSTRAINT drone_registrations_pkey PRIMARY KEY (id),
   CONSTRAINT drone_registrations_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.email_change_tokens (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  old_email text NOT NULL,
+  new_email text NOT NULL,
+  token text NOT NULL CHECK (token ~ '^\d{6}$'::text),
+  verified boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT email_change_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT email_change_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.exam_appointments (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

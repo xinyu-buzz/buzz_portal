@@ -8,6 +8,7 @@ type ProfileRow = {
   created_at: string;
   first_name: string | null;
   last_name: string | null;
+  call_sign?: string | null;
 };
 
 export const NewAccountsList = () => {
@@ -27,7 +28,7 @@ export const NewAccountsList = () => {
       setLoading(true);
       const query = supabaseClient
         .from("profiles")
-        .select("id,email,user_type,created_at,first_name,last_name")
+        .select("id,email,user_type,created_at,first_name,last_name,call_sign")
         .order("created_at", { ascending: false })
         .limit(200);
 
@@ -100,7 +101,8 @@ export const NewAccountsList = () => {
               <tr key={row.id}>
                 <td>{row.email}</td>
                 <td>
-                  {[row.first_name, row.last_name].filter(Boolean).join(" ") ||
+                  {(row.user_type === "pilot" && row.call_sign) ||
+                    [row.first_name, row.last_name].filter(Boolean).join(" ") ||
                     "—"}
                 </td>
                 <td>{row.user_type}</td>

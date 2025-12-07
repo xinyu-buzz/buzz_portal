@@ -114,7 +114,7 @@ export const BookingShow = () => {
 
       const { data: optionsData, error: optionsError } = await supabaseClient
         .from("profiles")
-        .select("id,email,first_name,last_name")
+        .select("id,email,first_name,last_name,call_sign")
         .eq("user_type", "pilot")
         .order("email", { ascending: true });
 
@@ -122,6 +122,7 @@ export const BookingShow = () => {
         console.error(bookingError);
         setError("Could not load booking.");
       } else {
+        console.log("📋 Loaded booking:", bookingData);
         setBooking(bookingData as Booking);
         setSelectedPilot(bookingData?.pilot_id || "");
       }
@@ -143,6 +144,7 @@ export const BookingShow = () => {
           optionsData?.map((p) => ({
             id: p.id as string,
             label:
+              (p as any).call_sign ||
               [p.first_name, p.last_name].filter(Boolean).join(" ") ||
               (p.email as string),
           })) || [];
@@ -165,9 +167,10 @@ export const BookingShow = () => {
       const { data, error } = await supabaseClient
         .from("booking_crew")
         .select(
-          "id,pilot_id,role,profiles:pilot_id(first_name,last_name,email)"
+          "id,pilot_id,role,profiles:pilot_id(first_name,last_name,email,call_sign)"
         )
         .eq("booking_id", bookingId);
+      console.log("🔍 Raw crew data from Supabase:", data, "Error:", error);
       if (error) {
         console.error(error);
         return;
@@ -178,10 +181,14 @@ export const BookingShow = () => {
           pilot_id: row.pilot_id as string,
           role: row.role as "lead" | "crew",
           label:
+            row.profiles?.call_sign ||
             [row.profiles?.first_name, row.profiles?.last_name]
               .filter(Boolean)
-              .join(" ") || row.profiles?.email || "Unknown pilot",
+              .join(" ") ||
+            row.profiles?.email ||
+            "Unknown pilot",
         })) || [];
+      console.log("🔍 Loaded crew members:", members);
       setCrew(members);
       if (members.some((m) => m.role === "lead")) {
         setSelectedPilot(
@@ -414,6 +421,54 @@ export const BookingShow = () => {
     }
   };
 
+  const displayedPilots = useMemo(() => {
+    console.log("🎯 Computing displayedPilots:", {
+      specialization: booking?.specialization,
+      crewLength: crew.length,
+      crew,
+      selectedPilot,
+      bookingPilotId: booking?.pilot_id,
+    });
+
+    if (booking?.specialization === "automotive") {
+      const hasLeadInCrew = crew.some((m) => m.role === "lead");
+      const leadFromBooking =
+        !hasLeadInCrew && selectedPilot
+          ? {
+              id: `lead-${selectedPilot}`,
+              pilot_id: selectedPilot,
+              role: "lead" as const,
+              label:
+                pilotOptions.find((p) => p.id === selectedPilot)?.label ||
+                "Pilot",
+            }
+          : null;
+
+      const result = [...(leadFromBooking ? [leadFromBooking] : []), ...crew].sort(
+        (a, b) => {
+          if (a.role === b.role) return 0;
+          return a.role === "lead" ? -1 : 1;
+        }
+      );
+      console.log("🎯 Automotive displayedPilots result:", result);
+      return result;
+    }
+
+    if (selectedPilot) {
+      return [
+        {
+          id: selectedPilot,
+          pilot_id: selectedPilot,
+          role: "lead" as const,
+          label:
+            pilotOptions.find((p) => p.id === selectedPilot)?.label || "Pilot",
+        },
+      ];
+    }
+
+    return [];
+  }, [booking?.specialization, crew, pilotOptions, selectedPilot]);
+
   const handleUpdate = async (e: FormEvent) => {
     e.preventDefault();
     if (!bookingId) return;
@@ -547,23 +602,7 @@ export const BookingShow = () => {
           <h3 style={{ marginTop: 0 }}>Pilots</h3>
           {pilotError && <p style={{ color: "red" }}>{pilotError}</p>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            {(booking.specialization === "automotive" && crew.length
-              ? crew.sort((a) =>
-                  a.role === "lead" ? -1 : 1,
-                )
-              : selectedPilot
-              ? [
-                  {
-                    id: selectedPilot,
-                    pilot_id: selectedPilot,
-                    role: "lead" as const,
-                    label:
-                      pilotOptions.find((p) => p.id === selectedPilot)?.label ||
-                      "Pilot",
-                  },
-                ]
-              : []
-            ).map((member) => (
+            {displayedPilots.map((member) => (
               <div
                 key={member.id}
                 style={{
@@ -590,7 +629,7 @@ export const BookingShow = () => {
               </button>
             )}
           </div>
-          {!selectedPilot &&
+          {!displayedPilots.length &&
             booking.specialization !== "automotive" &&
             !crew.length && (
               <div
