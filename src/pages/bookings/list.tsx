@@ -11,6 +11,15 @@ type BookingRow = {
   description: string;
 };
 
+const DEFAULT_CUSTOMER_ID = "4374b3b2-4a28-4a3e-beec-5729b1d779fb";
+const RANK_OPTIONS = [
+  { value: "0", label: "Ensign" },
+  { value: "1", label: "Sub Lieutenant" },
+  { value: "2", label: "Lieutenant" },
+  { value: "3", label: "Commander" },
+  { value: "4", label: "Captain" },
+];
+
 export const BookingList = () => {
   const { show } = useNavigation();
   const [rows, setRows] = useState<BookingRow[]>([]);
@@ -25,7 +34,7 @@ export const BookingList = () => {
   >([]);
   const [suggesting, setSuggesting] = useState(false);
   const [form, setForm] = useState({
-    customer_id: "",
+    customer_id: DEFAULT_CUSTOMER_ID,
     pilot_id: "",
     location_name: "",
     location_lat: "",
@@ -172,8 +181,9 @@ export const BookingList = () => {
       !form.location_name ||
       !form.location_lat ||
       !form.location_lng ||
-      !form.description ||
-      !form.payment_amount
+      !form.payment_amount ||
+      !form.specialization ||
+      form.required_minimum_rank === ""
     ) {
       setCreateError("Please fill all required fields.");
       setSubmitting(false);
@@ -185,16 +195,18 @@ export const BookingList = () => {
       location_name: form.location_name,
       location_lat: parseFloat(form.location_lat),
       location_lng: parseFloat(form.location_lng),
-      description: form.description,
+      specialization: form.specialization,
       payment_amount: parseFloat(form.payment_amount),
       status: form.status || "available",
     };
 
+    if (form.description) payload.description = form.description;
     if (form.pilot_id) payload.pilot_id = form.pilot_id;
     if (form.scheduled_date) payload.scheduled_date = new Date(form.scheduled_date).toISOString();
-    if (form.specialization) payload.specialization = form.specialization;
     if (form.estimated_flight_hours) payload.estimated_flight_hours = parseFloat(form.estimated_flight_hours);
-    if (form.required_minimum_rank) payload.required_minimum_rank = parseInt(form.required_minimum_rank, 10);
+    if (form.required_minimum_rank !== "") {
+      payload.required_minimum_rank = parseInt(form.required_minimum_rank, 10);
+    }
 
     const { error } = await supabaseClient.from("bookings").insert(payload);
     if (error) {
@@ -208,7 +220,7 @@ export const BookingList = () => {
     setShowCreate(false);
     setSubmitting(false);
     setForm({
-      customer_id: "",
+      customer_id: DEFAULT_CUSTOMER_ID,
       pilot_id: "",
       location_name: "",
       location_lat: "",
@@ -354,7 +366,7 @@ export const BookingList = () => {
             </div>
             <form className="modal-form" onSubmit={handleCreate}>
               {createError && <div className="alert error">{createError}</div>}
-              <label className="input-label">Customer ID *</label>
+              <label className="input-label">Customer ID * (default to UUID of admin@buzzbuzzin.com)</label>
               <input
                 name="customer_id"
                 value={form.customer_id}
@@ -372,6 +384,26 @@ export const BookingList = () => {
                 className="text-input"
                 placeholder="Pilot UUID"
               />
+
+              <label className="input-label">Specialization *</label>
+              <select
+                name="specialization"
+                value={form.specialization}
+                onChange={onChange}
+                className="text-input"
+                required
+              >
+                <option value="">Select specialization</option>
+                <option value="automotive">Automotive</option>
+                <option value="motion_picture">Motion picture</option>
+                <option value="real_estate">Real estate</option>
+                <option value="agriculture">Agriculture</option>
+                <option value="inspections">Inspections</option>
+                <option value="search_rescue">Search & Rescue</option>
+                <option value="logistics">Logistics</option>
+                <option value="drone_art">Drone art</option>
+                <option value="surveillance_security">Surveillance & Security</option>
+              </select>
 
               <label className="input-label">Location name *</label>
               <input
@@ -421,32 +453,13 @@ export const BookingList = () => {
                 </div>
               )}
               <p style={{ margin: "4px 0", color: "#9ca3b5", fontSize: 12 }}>
-                Uses OpenStreetMap for address lookup. You can still edit lat/lng manually.
+                Uses OpenStreetMap for address lookup. Coordinates are set automatically.
               </p>
 
-              <label className="input-label">Latitude *</label>
-              <input
-                name="location_lat"
-                value={form.location_lat}
-                onChange={onChange}
-                className="text-input"
-                type="number"
-                step="0.000001"
-                required
-              />
+              <input type="hidden" name="location_lat" value={form.location_lat} />
+              <input type="hidden" name="location_lng" value={form.location_lng} />
 
-              <label className="input-label">Longitude *</label>
-              <input
-                name="location_lng"
-                value={form.location_lng}
-                onChange={onChange}
-                className="text-input"
-                type="number"
-                step="0.000001"
-                required
-              />
-
-              <label className="input-label">Description *</label>
+              <label className="input-label">Description</label>
               <textarea
                 name="description"
                 value={form.description}
@@ -454,7 +467,6 @@ export const BookingList = () => {
                 className="text-input"
                 rows={3}
                 placeholder="Describe the booking"
-                required
               />
 
               <label className="input-label">Payment amount (USD) *</label>
@@ -477,25 +489,6 @@ export const BookingList = () => {
                 type="datetime-local"
               />
 
-              <label className="input-label">Specialization</label>
-              <select
-                name="specialization"
-                value={form.specialization}
-                onChange={onChange}
-                className="text-input"
-              >
-                <option value="">Select specialization</option>
-                <option value="automotive">Automotive</option>
-                <option value="motion_picture">Motion picture</option>
-                <option value="real_estate">Real estate</option>
-                <option value="agriculture">Agriculture</option>
-                <option value="inspections">Inspections</option>
-                <option value="search_rescue">Search & Rescue</option>
-                <option value="logistics">Logistics</option>
-                <option value="drone_art">Drone art</option>
-                <option value="surveillance_security">Surveillance & Security</option>
-              </select>
-
               <label className="input-label">Estimated flight hours</label>
               <input
                 name="estimated_flight_hours"
@@ -506,15 +499,20 @@ export const BookingList = () => {
                 step="0.1"
               />
 
-              <label className="input-label">Required minimum rank</label>
-              <input
+              <label className="input-label">Required minimum rank *</label>
+              <select
                 name="required_minimum_rank"
                 value={form.required_minimum_rank}
                 onChange={onChange}
                 className="text-input"
-                type="number"
-                min="0"
-              />
+                required
+              >
+                {RANK_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
 
               <label className="input-label">Status</label>
               <select name="status" value={form.status} onChange={onChange} className="text-input">
