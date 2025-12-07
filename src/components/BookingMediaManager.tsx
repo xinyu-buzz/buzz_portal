@@ -22,6 +22,17 @@ export const BookingMediaManager = ({
   bookingId,
   uploaderRole = "pilot",
 }: Props) => {
+  const sanitizeFileName = (name: string) => {
+    const cleaned = name
+      .normalize("NFKD")
+      .replace(/\s+/g, "-")
+      .replace(/[^\w.-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase();
+    return cleaned || "upload";
+  };
+
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -59,7 +70,8 @@ export const BookingMediaManager = ({
     setUploading(true);
     setError(null);
 
-    const path = `booking/${bookingId}/${Date.now()}-${file.name}`;
+    const safeName = sanitizeFileName(file.name);
+    const path = `booking/${bookingId}/${Date.now()}-${safeName}`;
     const { error: uploadError } = await supabaseClient.storage
       .from("booking-media")
       .upload(path, file, {
