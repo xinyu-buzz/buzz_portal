@@ -141,7 +141,10 @@ function App() {
               <Route
                 path="*"
                 element={
-                  <Authenticated fallback={<Navigate to="/login" replace />}>
+                  <Authenticated
+                    key="app-auth"
+                    fallback={<Navigate to="/login" replace />}
+                  >
                     <AppShell />
                   </Authenticated>
                 }
