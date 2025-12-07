@@ -81,12 +81,12 @@ export const LoginPage = () => {
         <div className="auth-logo">
           <img
             src="/android-chrome-512x512.png"
-            alt="Buzz Inc."
+            alt="Buzz"
             className="logo-img"
           />
           <div>
             <p className="eyebrow">{portalLabel}</p>
-            <h1>Buzz Inc.</h1>
+            <h1>Buzz</h1>
             <p className="subhead">{subhead}</p>
           </div>
         </div>

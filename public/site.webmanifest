@@ -1,7 +1,7 @@
 {
   "name": "Buzz Portal",
   "short_name": "Buzz Portal",
-  "description": "Internal portal for Buzz Inc.",
+  "description": "Internal portal for Buzz",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
