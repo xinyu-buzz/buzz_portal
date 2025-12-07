@@ -19,12 +19,18 @@ export const BookingList = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const [suggestions, setSuggestions] = useState<
+    { title: string; subtitle?: string; latitude: number; longitude: number }[]
+  >([]);
+  const [suggesting, setSuggesting] = useState(false);
   const [form, setForm] = useState({
     customer_id: "",
     pilot_id: "",
     location_name: "",
     location_lat: "",
     location_lng: "",
+    address: "",
     description: "",
     payment_amount: "",
     scheduled_date: "",
@@ -89,6 +95,73 @@ export const BookingList = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!form.address || form.address.length < 3) {
+        setSuggestions([]);
+        return;
+      }
+      setSuggesting(true);
+      try {
+        // Use OpenStreetMap Nominatim for free geocoding (no API key needed)
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            form.address
+          )}&limit=5&addressdetails=1`,
+          {
+            headers: {
+              "Accept-Language": "en",
+            },
+          }
+        );
+        if (!resp.ok) {
+          setSuggesting(false);
+          return;
+        }
+        const data = await resp.json();
+        const items: {
+          title: string;
+          subtitle?: string;
+          latitude: number;
+          longitude: number;
+        }[] = [];
+        data.forEach((place: any) => {
+          if (place.lat && place.lon) {
+            items.push({
+              title: place.name || place.display_name?.split(",")[0] || form.address,
+              subtitle: place.display_name,
+              latitude: parseFloat(place.lat),
+              longitude: parseFloat(place.lon),
+            });
+          }
+        });
+        setSuggestions(items);
+      } catch (err) {
+        console.error("suggestions", err);
+      } finally {
+        setSuggesting(false);
+      }
+    };
+    const t = setTimeout(fetchSuggestions, 400); // Slightly longer delay for Nominatim rate limiting
+    return () => clearTimeout(t);
+  }, [form.address]);
+
+  const selectSuggestion = (s: {
+    title: string;
+    subtitle?: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    setForm((prev) => ({
+      ...prev,
+      address: s.subtitle || s.title,
+      location_lat: s.latitude.toString(),
+      location_lng: s.longitude.toString(),
+      location_name: prev.location_name || s.title,
+    }));
+    setSuggestions([]);
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -140,6 +213,7 @@ export const BookingList = () => {
       location_name: "",
       location_lat: "",
       location_lng: "",
+      address: "",
       description: "",
       payment_amount: "",
       scheduled_date: "",
@@ -170,6 +244,48 @@ export const BookingList = () => {
       setRows(data || []);
     }
     setLoading(false);
+  };
+
+  const geocodeAddress = async () => {
+    if (!form.address) {
+      setCreateError("Enter an address to look up coordinates.");
+      return;
+    }
+    setGeocoding(true);
+    setCreateError(null);
+    try {
+      // Use OpenStreetMap Nominatim for free geocoding (no API key needed)
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          form.address
+        )}&limit=1&addressdetails=1`,
+        {
+          headers: {
+            "Accept-Language": "en",
+          },
+        }
+      );
+      if (!resp.ok) {
+        setCreateError("Geocoding failed. Please try again.");
+        setGeocoding(false);
+        return;
+      }
+      const data = await resp.json();
+      if (data.length > 0 && data[0].lat && data[0].lon) {
+        setForm((prev) => ({
+          ...prev,
+          location_lat: data[0].lat,
+          location_lng: data[0].lon,
+        }));
+      } else {
+        setCreateError("No coordinates found for that address.");
+      }
+    } catch (err) {
+      console.error(err);
+      setCreateError("Geocoding error. See console for details.");
+    } finally {
+      setGeocoding(false);
+    }
   };
 
   return (
@@ -266,6 +382,47 @@ export const BookingList = () => {
                 placeholder="e.g., Downtown Rooftop"
                 required
               />
+
+              <label className="input-label">Address (search)</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  name="address"
+                  value={form.address}
+                  onChange={onChange}
+                  className="text-input"
+                  placeholder="Type address to fetch coordinates"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={geocodeAddress}
+                  disabled={geocoding}
+                >
+                  {geocoding ? "Looking..." : "Lookup"}
+                </button>
+              </div>
+              {suggestions.length > 0 && (
+                <div className="suggestions">
+                  {suggestions.map((s, idx) => (
+                    <button
+                      type="button"
+                      key={`${s.title}-${idx}`}
+                      className="suggestion-item"
+                      onClick={() => selectSuggestion(s)}
+                    >
+                      <div className="suggestion-title">{s.title}</div>
+                      {s.subtitle && (
+                        <div className="suggestion-sub">{s.subtitle}</div>
+                      )}
+                    </button>
+                  ))}
+                  {suggesting && <div className="suggestion-sub">Loading…</div>}
+                </div>
+              )}
+              <p style={{ margin: "4px 0", color: "#9ca3b5", fontSize: 12 }}>
+                Uses OpenStreetMap for address lookup. You can still edit lat/lng manually.
+              </p>
 
               <label className="input-label">Latitude *</label>
               <input
