@@ -142,7 +142,7 @@ function App() {
                 path="*"
                 element={
                   <Authenticated
-                    key="app-auth"
+                    key="authenticated"
                     fallback={<Navigate to="/login" replace />}
                   >
                     <AppShell />

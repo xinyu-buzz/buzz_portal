@@ -548,8 +548,8 @@ export const BookingShow = () => {
           {pilotError && <p style={{ color: "red" }}>{pilotError}</p>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             {(booking.specialization === "automotive" && crew.length
-              ? crew.sort((a, b) =>
-                  a.role === "lead" ? -1 : b.role === "lead" ? 1 : 0,
+              ? crew.sort((a) =>
+                  a.role === "lead" ? -1 : 1,
                 )
               : selectedPilot
               ? [
