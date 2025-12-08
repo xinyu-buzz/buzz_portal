@@ -3,6 +3,17 @@ import { supabaseClient } from "../../utility";
 
 export type PortalRole = "admin" | "owner" | "pilot" | "editor" | "client";
 
+const rolePriority: PortalRole[] = ["owner", "admin", "editor", "pilot", "client"];
+
+const uniq = (roles: PortalRole[]) => Array.from(new Set(roles));
+
+const sortByPriority = (roles: PortalRole[]) =>
+  uniq(roles).sort(
+    (a, b) => rolePriority.indexOf(a) - rolePriority.indexOf(b)
+  );
+
+const normalizeEmail = (email?: string | null) => email?.toLowerCase() || null;
+
 export const getPortalLabel = (role: PortalRole | null) => {
   if (role === "owner" || role === "admin") return "Admin Portal";
   if (role === "pilot") return "Pilot Portal";
@@ -19,26 +30,73 @@ export const portalBasePath = (role: PortalRole | null) => {
   return "/login";
 };
 
-export const resolveUserRole = async (): Promise<PortalRole | null> => {
-  const stored = localStorage.getItem("buzz_portal_role") as PortalRole | null;
-  let resolved: PortalRole | null = stored;
+/**
+ * Fetch all portal roles a user is eligible for.
+ * Admin/editor roles come from employee_profiles; pilot/client from profiles.user_type.
+ */
+export const getAvailablePortalRoles = async (): Promise<PortalRole[]> => {
+  const available: PortalRole[] = [];
 
   try {
     const { data } = await supabaseClient.auth.getUser();
-    const email = data?.user?.email?.toLowerCase();
+    const userId = data?.user?.id;
+    const email = normalizeEmail(data?.user?.email);
+
     if (email) {
       const { data: emp } = await supabaseClient
         .from("employee_profiles")
         .select("role")
         .eq("email", email)
         .maybeSingle();
-      if (emp?.role) {
-        resolved = emp.role as PortalRole;
-        localStorage.setItem("buzz_portal_role", emp.role);
+
+      if (emp?.role === "owner" || emp?.role === "admin" || emp?.role === "editor") {
+        available.push(emp.role as PortalRole);
+      }
+    }
+
+    if (userId) {
+      const { data: profile } = await supabaseClient
+        .from("profiles")
+        .select("user_type")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profile?.user_type === "pilot") {
+        available.push("pilot");
+      }
+      if (profile?.user_type === "customer") {
+        available.push("client");
       }
     }
   } catch (err) {
-    console.error("Failed to resolve role", err);
+    console.error("Failed to load available roles", err);
+  }
+
+  return sortByPriority(available);
+};
+
+/**
+ * Resolve the user's active portal role, honoring a preferred role when valid.
+ * Preference order:
+ * 1) Preferred role (e.g., chosen at login) if user is eligible.
+ * 2) Previously stored role if still eligible.
+ * 3) First eligible role by priority.
+ */
+export const resolveUserRole = async (
+  preferredRole?: PortalRole | null
+): Promise<PortalRole | null> => {
+  const stored = localStorage.getItem("buzz_portal_role") as PortalRole | null;
+  const desired = preferredRole ?? stored ?? null;
+
+  const available = await getAvailablePortalRoles();
+
+  const resolved =
+    (desired && available.includes(desired) && desired) ||
+    available[0] ||
+    null;
+
+  if (resolved) {
+    localStorage.setItem("buzz_portal_role", resolved);
   }
 
   return resolved;

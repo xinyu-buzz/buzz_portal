@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabaseClient } from "../utility";
-import { portalBasePath } from "../portals/shared/role";
+import { portalBasePath, resolveUserRole } from "../portals/shared/role";
 
 const roles = ["admin", "pilot", "editor", "client"] as const;
 
@@ -45,14 +45,7 @@ export const LoginPage = () => {
       return;
     }
 
-    // Resolve role from employee_profiles when available; fallback to selected role
-    const { data: emp } = await supabaseClient
-      .from("employee_profiles")
-      .select("role")
-      .eq("email", email.toLowerCase())
-      .maybeSingle();
-    const resolvedRole = emp?.role ?? role;
-
+    const resolvedRole = (await resolveUserRole(role as any)) ?? role;
     localStorage.setItem("buzz_portal_role", resolvedRole);
     if (remember) {
       localStorage.setItem("buzz_portal_email", email);
