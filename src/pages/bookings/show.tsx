@@ -813,7 +813,12 @@ export const BookingShow = () => {
         </div>
       </section>
 
-      <BookingMediaManager bookingId={bookingId} uploaderRole="pilot" />
+      <BookingMediaManager
+        bookingId={bookingId}
+        uploaderRole={
+          role === "editor" ? "editor" : role === "pilot" ? "pilot" : "system"
+        }
+      />
 
       {showEdit && (
         <div className="modal-backdrop">

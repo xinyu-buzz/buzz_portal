@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabaseClient } from "../utility";
 
@@ -42,6 +42,17 @@ const dashboardCards: DashboardCard[] = [
 
 export const AdminDashboard: FC<AdminDashboardProps> = ({ role: _role }) => {
   const [displayName, setDisplayName] = useState<string>("there");
+  const visibleCards = useMemo(
+    () =>
+      dashboardCards.filter((card) => {
+        if (card.key === "accounts" && _role === "editor") return false;
+        if (card.key === "admin") {
+          return _role === "admin" || _role === "owner";
+        }
+        return true;
+      }),
+    [_role]
+  );
 
   useEffect(() => {
     const loadName = async () => {
@@ -69,12 +80,12 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role: _role }) => {
   return (
     <div className="page-shell">
       <div className="dashboard-hero">
-        <h1>Welcome {displayName}!</h1>
+        <h1>Welcome back, {displayName}!</h1>
         <p className="muted-text">Pick where to go next</p>
       </div>
 
       <div className="card-grid">
-        {dashboardCards.map((card) => (
+        {visibleCards.map((card) => (
           <div
             className={`nav-card${card.comingSoon ? " nav-card--soon" : ""}`}
             key={card.key}

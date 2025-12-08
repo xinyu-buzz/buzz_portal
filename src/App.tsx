@@ -85,7 +85,9 @@ const AppShell = () => {
           <Link to="/welcome" className="brand">
             {brandLabel}
           </Link>
-          {role !== "pilot" && <Link to="/profiles">New Accounts</Link>}
+          {role !== "pilot" && role !== "editor" && (
+            <Link to="/profiles">New Accounts</Link>
+          )}
           <Link to="/bookings">Bookings</Link>
         </div>
         <div className="top-nav__right">
@@ -110,7 +112,7 @@ const AppShell = () => {
           <Route
             path="/profiles"
             element={
-              role === "pilot" ? (
+              role === "pilot" || role === "editor" ? (
                 <Navigate to="/bookings" replace />
               ) : (
                 <NewAccountsList />
