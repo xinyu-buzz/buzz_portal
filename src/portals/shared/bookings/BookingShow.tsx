@@ -97,6 +97,8 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
   });
 
   const isAdminLike = role === "admin" || role === "owner";
+  const isAdminPortal = basePath?.startsWith("/admin");
+  const showAdminActions = isAdminLike && isAdminPortal;
 
   useEffect(() => {
     if (!bookingId) return;
@@ -634,7 +636,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           <h1>Booking</h1>
           <p>{booking.location_name}</p>
         </div>
-        {isAdminLike && (
+        {showAdminActions && (
           <button
             className="ghost-btn"
             onClick={() => setShowEdit(true)}
@@ -687,7 +689,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                 </span>
               </div>
             ))}
-            {isAdminLike && (
+            {showAdminActions && (
               <>
                 <button
                   className="ghost-btn"
@@ -727,7 +729,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
               </div>
             )}
         </div>
-        {isAdminLike && showPilotPicker && (
+        {showAdminActions && showPilotPicker && (
           <div className="modal-backdrop">
             <div className="modal-card">
               <div
@@ -821,7 +823,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                 Unassigned
               </div>
             )}
-            {isAdminLike && (
+            {showAdminActions && (
               <>
                 <button
                   className="ghost-btn"
@@ -843,7 +845,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
             )}
           </div>
           {removeEditorsError && <p style={{ color: "red" }}>{removeEditorsError}</p>}
-          {isAdminLike && showEditorPicker && (
+          {showAdminActions && showEditorPicker && (
             <div className="modal-backdrop">
               <div className="modal-card">
                 <div
