@@ -99,10 +99,7 @@ function App() {
               syncWithLocation: true,
               warnWhenUnsavedChanges: true,
               projectId: "7bfsGC-5DoEI4-5uF75J",
-              title: {
-                default: "Buzz Portal",
-                template: "%s | Buzz Portal",
-              },
+              title: { text: "Buzz Portal" },
             }}
             resources={[
               {
