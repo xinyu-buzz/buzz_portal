@@ -370,7 +370,13 @@ export const BookingList = () => {
                 </td>
                 <td>{new Date(row.created_at).toLocaleString()}</td>
                 <td>
-                  <button onClick={() => show("bookings", row.id)}>Open</button>
+                  <button
+                    className="primary-btn"
+                    style={{ padding: "8px 12px", fontSize: 13 }}
+                    onClick={() => show("bookings", row.id)}
+                  >
+                    Open
+                  </button>
                 </td>
               </tr>
             ))}

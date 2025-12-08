@@ -24,24 +24,46 @@ import { BookingList } from "./pages/bookings/list";
 import { BookingShow } from "./pages/bookings/show";
 import { LoginPage } from "./pages/Login";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { AdminCenter } from "./pages/AdminCenter";
 
 const AppShell = () => {
   const navigate = useNavigate();
   const [brandLabel, setBrandLabel] = useState("Buzz Portal");
-  const [role, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(
+    () => localStorage.getItem("buzz_portal_role") || null
+  );
 
   useEffect(() => {
-    const readRole = () => {
-      const role = localStorage.getItem("buzz_portal_role");
-      setRole(role);
+    const readRole = async () => {
+      const stored = localStorage.getItem("buzz_portal_role");
+      let resolved = stored;
+      try {
+        const { data } = await supabaseClient.auth.getUser();
+        const email = data?.user?.email?.toLowerCase();
+        if (email) {
+          const { data: emp } = await supabaseClient
+            .from("employee_profiles")
+            .select("role")
+            .eq("email", email)
+            .maybeSingle();
+          if (emp?.role) {
+            resolved = emp.role;
+            localStorage.setItem("buzz_portal_role", emp.role);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to resolve role", err);
+      }
+
+      setRole(resolved);
       const label =
-        role === "admin"
+        resolved === "owner" || resolved === "admin"
           ? "Admin Portal"
-          : role === "pilot"
+          : resolved === "pilot"
           ? "Pilot Portal"
-          : role === "editor"
+          : resolved === "editor"
           ? "Editor Portal"
-          : role === "client"
+          : resolved === "client"
           ? "Client Portal"
           : "Buzz Portal";
       setBrandLabel(label);
@@ -60,7 +82,7 @@ const AppShell = () => {
     <>
       <nav className="top-nav">
         <div className="top-nav__left">
-          <Link to="/" className="brand">
+          <Link to="/welcome" className="brand">
             {brandLabel}
           </Link>
           {role !== "pilot" && <Link to="/profiles">New Accounts</Link>}
@@ -80,10 +102,11 @@ const AppShell = () => {
               role === "pilot" ? (
                 <Navigate to="/bookings" replace />
               ) : (
-                <AdminDashboard role={role} />
+                <Navigate to="/welcome" replace />
               )
             }
           />
+          <Route path="/welcome" element={<AdminDashboard role={role} />} />
           <Route
             path="/profiles"
             element={
@@ -96,6 +119,16 @@ const AppShell = () => {
           />
           <Route path="/bookings" element={<BookingList />} />
           <Route path="/bookings/:id" element={<BookingShow />} />
+          <Route
+            path="/admin-center"
+            element={
+              role === "admin" || role === "owner" ? (
+                <AdminCenter />
+              ) : (
+                <Navigate to="/bookings" replace />
+              )
+            }
+          />
           <Route path="*" element={<WelcomePage />} />
         </Routes>
       </div>

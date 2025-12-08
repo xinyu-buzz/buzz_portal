@@ -1,6 +1,9 @@
 import { AuthProvider } from "@refinedev/core";
 import { supabaseClient } from "./utility";
 
+const isBuzzEmail = (email?: string | null) =>
+  typeof email === "string" && email.toLowerCase().endsWith("@buzzbuzzin.com");
+
 const authProvider: AuthProvider = {
   login: async ({ email, password, providerName }) => {
     // sign in with oauth
@@ -16,7 +19,7 @@ const authProvider: AuthProvider = {
             error,
           };
         }
-
+        // OAuth will be validated in check(); proceed to redirect
         if (data?.url) {
           return {
             success: true,
@@ -39,6 +42,27 @@ const authProvider: AuthProvider = {
       }
 
       if (data?.user) {
+        if (!isBuzzEmail(data.user.email)) {
+          await supabaseClient.auth.signOut();
+          return {
+            success: false,
+            error: {
+              message: "Login restricted to @buzzbuzzin.com accounts.",
+              name: "Invalid email domain",
+            },
+          };
+        }
+
+        // Fetch employee role to persist locally (used by UI routing/labels)
+        const { data: emp } = await supabaseClient
+          .from("employee_profiles")
+          .select("role")
+          .eq("email", data.user.email?.toLowerCase() || "")
+          .maybeSingle();
+        if (emp?.role) {
+          localStorage.setItem("buzz_portal_role", emp.role);
+        }
+
         return {
           success: true,
           redirectTo: "/",
@@ -61,6 +85,16 @@ const authProvider: AuthProvider = {
   },
   register: async ({ email, password }) => {
     try {
+      if (!isBuzzEmail(email)) {
+        return {
+          success: false,
+          error: {
+            message: "Registration restricted to @buzzbuzzin.com accounts.",
+            name: "Invalid email domain",
+          },
+        };
+      }
+
       const { data, error } = await supabaseClient.auth.signUp({
         email,
         password,
@@ -184,8 +218,8 @@ const authProvider: AuthProvider = {
   },
   check: async () => {
     try {
-      const { data } = await supabaseClient.auth.getSession();
-      const { session } = data;
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const { session } = sessionData;
 
       if (!session) {
         return {
@@ -193,6 +227,20 @@ const authProvider: AuthProvider = {
           error: {
             message: "Check failed",
             name: "Session not found",
+          },
+          logout: true,
+          redirectTo: "/login",
+        };
+      }
+
+      const userEmail = session.user.email;
+      if (!isBuzzEmail(userEmail)) {
+        await supabaseClient.auth.signOut();
+        return {
+          authenticated: false,
+          error: {
+            message: "Access restricted to @buzzbuzzin.com accounts.",
+            name: "Invalid email domain",
           },
           logout: true,
           redirectTo: "/login",

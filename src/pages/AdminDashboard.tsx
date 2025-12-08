@@ -1,5 +1,7 @@
 import type { FC } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabaseClient } from "../utility";
 
 type AdminDashboardProps = {
   role: string | null;
@@ -18,7 +20,7 @@ const dashboardCards: DashboardCard[] = [
   {
     key: "accounts",
     title: "New Accounts",
-    description: "Review and approve the latest signups and user profiles.",
+    description: "Review the latest signups and user profiles.",
     to: "/profiles",
     actionLabel: "Review accounts",
   },
@@ -32,28 +34,43 @@ const dashboardCards: DashboardCard[] = [
   {
     key: "admin",
     title: "Admin Center",
-    description: "Manage roles, permissions, and org-level settings (coming soon).",
-    comingSoon: true,
-    actionLabel: "Coming soon",
+    description: "Manage roles, permissions, and org-level settings.",
+    to: "/admin-center",
+    actionLabel: "Open admin center",
   },
 ];
 
-const formatPortalLabel = (role: string | null) => {
-  if (role === "admin") return "Admin Portal";
-  if (role) return `${role.charAt(0).toUpperCase()}${role.slice(1)} Portal`;
-  return "Buzz Portal";
-};
-
 export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
+  const [displayName, setDisplayName] = useState<string>("there");
+
+  useEffect(() => {
+    const loadName = async () => {
+      try {
+        const { data } = await supabaseClient.auth.getUser();
+        const email = data?.user?.email?.toLowerCase();
+        if (!email) return;
+        const { data: emp } = await supabaseClient
+          .from("employee_profiles")
+          .select("name")
+          .eq("email", email)
+          .maybeSingle();
+        if (emp?.name) {
+          setDisplayName(emp.name);
+        } else {
+          setDisplayName(email.split("@")[0] || "there");
+        }
+      } catch (err) {
+        console.error("Failed to load display name", err);
+      }
+    };
+    loadName();
+  }, []);
+
   return (
     <div className="page-shell">
       <div className="dashboard-hero">
-        <p className="eyebrow">{formatPortalLabel(role)}</p>
-        <h1>Pick where to go next</h1>
-        <p className="muted-text">
-          Quick links into the areas you use most. Cards stay pinned here as
-          we add more admin tools.
-        </p>
+        <h1>Welcome {displayName}!</h1>
+        <p className="muted-text">Pick where to go next</p>
       </div>
 
       <div className="card-grid">

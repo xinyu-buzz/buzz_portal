@@ -44,13 +44,28 @@ export const LoginPage = () => {
       return;
     }
 
-    localStorage.setItem("buzz_portal_role", role);
+    // Resolve role from employee_profiles when available; fallback to selected role
+    const { data: emp } = await supabaseClient
+      .from("employee_profiles")
+      .select("role")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+    const resolvedRole = emp?.role ?? role;
+
+    localStorage.setItem("buzz_portal_role", resolvedRole);
     if (remember) {
       localStorage.setItem("buzz_portal_email", email);
     } else {
       localStorage.removeItem("buzz_portal_email");
     }
-    navigate("/profiles");
+
+    if (resolvedRole === "admin" || resolvedRole === "owner") {
+      navigate("/welcome");
+    } else if (resolvedRole === "pilot") {
+      navigate("/bookings");
+    } else {
+      navigate("/profiles");
+    }
     setLoading(false);
   };
 
