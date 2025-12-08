@@ -40,7 +40,7 @@ const dashboardCards: DashboardCard[] = [
   },
 ];
 
-export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
+export const AdminDashboard: FC<AdminDashboardProps> = ({ role: _role }) => {
   const [displayName, setDisplayName] = useState<string>("there");
 
   useEffect(() => {
