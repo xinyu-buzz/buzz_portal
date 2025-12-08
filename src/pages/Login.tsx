@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabaseClient } from "../utility";
+import { portalBasePath } from "../portals/shared/role";
 
 const roles = ["admin", "pilot", "editor", "client"] as const;
 
@@ -59,13 +60,8 @@ export const LoginPage = () => {
       localStorage.removeItem("buzz_portal_email");
     }
 
-    if (resolvedRole === "admin" || resolvedRole === "owner") {
-      navigate("/welcome");
-    } else if (resolvedRole === "pilot") {
-      navigate("/bookings");
-    } else {
-      navigate("/profiles");
-    }
+    const destination = portalBasePath(resolvedRole as any);
+    navigate(destination === "/login" ? "/login" : destination);
     setLoading(false);
   };
 

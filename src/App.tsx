@@ -1,142 +1,89 @@
-import { Authenticated, Refine, WelcomePage } from "@refinedev/core";
+import { Authenticated, Refine } from "@refinedev/core";
 import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-
 import routerProvider, {
   DocumentTitleHandler,
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
 import { dataProvider, liveProvider } from "@refinedev/supabase";
-import {
-  BrowserRouter,
-  Route,
-  Routes,
-  Navigate,
-  Link,
-  useNavigate,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 import "./App.css";
 import authProvider from "./authProvider";
 import { supabaseClient } from "./utility";
-import { NewAccountsList } from "./pages/profiles/list";
-import { BookingList } from "./pages/bookings/list";
-import { BookingShow } from "./pages/bookings/show";
 import { LoginPage } from "./pages/Login";
-import { AdminDashboard } from "./pages/AdminDashboard";
-import { AdminCenter } from "./pages/AdminCenter";
+import { AdminPortal } from "./portals/admin/AdminPortal";
+import { PilotPortal } from "./portals/pilot/PilotPortal";
+import { EditorPortal } from "./portals/editor/EditorPortal";
+import { ClientPortal } from "./portals/client/ClientPortal";
+import { PortalRoute } from "./portals/shared/PortalRoute";
+import { portalBasePath, resolveUserRole } from "./portals/shared/role";
 
-const AppShell = () => {
-  const navigate = useNavigate();
-  const [brandLabel, setBrandLabel] = useState("Buzz Portal");
-  const [role, setRole] = useState<string | null>(
-    () => localStorage.getItem("buzz_portal_role") || null
-  );
+const LandingRedirect = () => {
+  const [target, setTarget] = useState<string | null>(null);
 
   useEffect(() => {
-    const readRole = async () => {
-      const stored = localStorage.getItem("buzz_portal_role");
-      let resolved = stored;
-      try {
-        const { data } = await supabaseClient.auth.getUser();
-        const email = data?.user?.email?.toLowerCase();
-        if (email) {
-          const { data: emp } = await supabaseClient
-            .from("employee_profiles")
-            .select("role")
-            .eq("email", email)
-            .maybeSingle();
-          if (emp?.role) {
-            resolved = emp.role;
-            localStorage.setItem("buzz_portal_role", emp.role);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to resolve role", err);
-      }
-
-      setRole(resolved);
-      const label =
-        resolved === "owner" || resolved === "admin"
-          ? "Admin Portal"
-          : resolved === "pilot"
-          ? "Pilot Portal"
-          : resolved === "editor"
-          ? "Editor Portal"
-          : resolved === "client"
-          ? "Client Portal"
-          : "Buzz Portal";
-      setBrandLabel(label);
+    let mounted = true;
+    const route = async () => {
+      const role = await resolveUserRole();
+      if (!mounted) return;
+      setTarget(portalBasePath(role));
     };
-    readRole();
-    window.addEventListener("storage", readRole);
-    return () => window.removeEventListener("storage", readRole);
+    route();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
-    navigate("/login");
-  };
-
-  return (
-    <>
-      <nav className="top-nav">
-        <div className="top-nav__left">
-          <Link to="/welcome" className="brand">
-            {brandLabel}
-          </Link>
-          {role !== "pilot" && role !== "editor" && (
-            <Link to="/profiles">New Accounts</Link>
-          )}
-          <Link to="/bookings">Bookings</Link>
-        </div>
-        <div className="top-nav__right">
-          <button className="ghost-btn" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
-      </nav>
+  if (!target) {
+    return (
       <div className="page-shell">
-        <Routes>
-          <Route
-            index
-            element={
-              role === "pilot" ? (
-                <Navigate to="/bookings" replace />
-              ) : (
-                <Navigate to="/welcome" replace />
-              )
-            }
-          />
-          <Route path="/welcome" element={<AdminDashboard role={role} />} />
-          <Route
-            path="/profiles"
-            element={
-              role === "pilot" || role === "editor" ? (
-                <Navigate to="/bookings" replace />
-              ) : (
-                <NewAccountsList />
-              )
-            }
-          />
-          <Route path="/bookings" element={<BookingList />} />
-          <Route path="/bookings/:id" element={<BookingShow />} />
-          <Route
-            path="/admin-center"
-            element={
-              role === "admin" || role === "owner" ? (
-                <AdminCenter />
-              ) : (
-                <Navigate to="/bookings" replace />
-              )
-            }
-          />
-          <Route path="*" element={<WelcomePage />} />
-        </Routes>
+        <p>Loading portal...</p>
       </div>
-    </>
-  );
+    );
+  }
+
+  return <Navigate to={target} replace />;
 };
+
+const ProtectedRoutes = () => (
+  <Routes>
+    <Route path="/" element={<LandingRedirect />} />
+    <Route
+      path="/admin/*"
+      element={
+        <PortalRoute allowed={["admin", "owner"]}>
+          <AdminPortal />
+        </PortalRoute>
+      }
+    />
+    <Route
+      path="/pilot/*"
+      element={
+        <PortalRoute allowed={["pilot"]}>
+          <PilotPortal />
+        </PortalRoute>
+      }
+    />
+    <Route
+      path="/editor/*"
+      element={
+        <PortalRoute allowed={["editor"]}>
+          <EditorPortal />
+        </PortalRoute>
+      }
+    />
+    <Route
+      path="/client/*"
+      element={
+        <PortalRoute allowed={["client"]}>
+          <ClientPortal />
+        </PortalRoute>
+      }
+    />
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>
+);
 
 function App() {
   return (
@@ -160,20 +107,20 @@ function App() {
             resources={[
               {
                 name: "profiles",
-                list: "/profiles",
+                list: "/admin/profiles",
               },
               {
                 name: "bookings",
-                list: "/bookings",
-                show: "/bookings/:id",
+                list: "/admin/bookings",
+                show: "/admin/bookings/:id",
               },
               {
                 name: "booking_media_files",
-                list: "/bookings/:id",
+                list: "/admin/bookings/:id",
               },
               {
                 name: "booking_editors",
-                list: "/bookings/:id",
+                list: "/admin/bookings/:id",
               },
             ]}
           >
@@ -186,7 +133,7 @@ function App() {
                     key="authenticated"
                     fallback={<Navigate to="/login" replace />}
                   >
-                    <AppShell />
+                    <ProtectedRoutes />
                   </Authenticated>
                 }
               />
