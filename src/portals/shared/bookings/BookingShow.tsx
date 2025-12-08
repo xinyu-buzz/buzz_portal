@@ -70,6 +70,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
   const [showEditorPicker, setShowEditorPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pilotError, setPilotError] = useState<string | null>(null);
+  const [removeEditorsError, setRemoveEditorsError] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -102,24 +103,34 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
 
     const loadBooking = async () => {
       setLoading(true);
-      const { data: bookingData, error: bookingError } = await supabaseClient
-        .from("bookings")
-        .select(
-          "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank"
-        )
-        .eq("id", bookingId)
-        .single();
-
-      const { data: editorsData, error: editorsError } = await supabaseClient
-        .from("booking_editors")
-        .select("editor_id")
-        .eq("booking_id", bookingId);
-
-      const { data: optionsData, error: optionsError } = await supabaseClient
-        .from("profiles")
-        .select("id,email,first_name,last_name,call_sign")
-        .eq("user_type", "pilot")
-        .order("email", { ascending: true });
+      const [
+        { data: bookingData, error: bookingError },
+        { data: editorsData, error: editorsError },
+        { data: pilotData, error: pilotOptionsError },
+        { data: employeeEditorData, error: employeeEditorsError },
+      ] = await Promise.all([
+        supabaseClient
+          .from("bookings")
+          .select(
+            "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank"
+          )
+          .eq("id", bookingId)
+          .single(),
+        supabaseClient
+          .from("booking_editors")
+          .select("editor_id")
+          .eq("booking_id", bookingId),
+        supabaseClient
+          .from("profiles")
+          .select("id,email,first_name,last_name,call_sign")
+          .eq("user_type", "pilot")
+          .order("email", { ascending: true }),
+        supabaseClient
+          .from("employee_profiles")
+          .select("id,email,name")
+          .eq("role", "editor")
+          .order("email", { ascending: true }),
+      ]);
 
       if (bookingError) {
         console.error(bookingError);
@@ -139,20 +150,31 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
         setInitialEditors(ids);
       }
 
-      if (optionsError) {
-        console.error(optionsError);
-        setError("Could not load editor list.");
+      if (pilotOptionsError) {
+        console.error(pilotOptionsError);
+        setError("Could not load pilot list.");
       } else {
-        const mapped =
-          optionsData?.map((p) => ({
+        const pilots =
+          pilotData?.map((p) => ({
             id: p.id as string,
             label:
               (p as any).call_sign ||
               [p.first_name, p.last_name].filter(Boolean).join(" ") ||
               (p.email as string),
           })) || [];
-        setEditorOptions(mapped);
-        setPilotOptions(mapped);
+        setPilotOptions(pilots);
+      }
+
+      if (employeeEditorsError) {
+        console.error(employeeEditorsError);
+        setError("Could not load editor list.");
+      } else {
+        const editors =
+          employeeEditorData?.map((emp) => ({
+            id: emp.id as string,
+            label: (emp as any).name || (emp.email as string),
+          })) || [];
+        setEditorOptions(editors);
       }
       setLoading(false);
     };
@@ -280,6 +302,28 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
     setSaving(false);
   };
 
+  const removeEditors = async () => {
+    if (!bookingId || !selectedEditors.length) return;
+    setSaving(true);
+    setRemoveEditorsError(null);
+    const { error } = await supabaseClient
+      .from("booking_editors")
+      .delete()
+      .eq("booking_id", bookingId);
+
+    if (error) {
+      console.error(error);
+      setRemoveEditorsError(error.message);
+      setSaving(false);
+      return;
+    }
+
+    setSelectedEditors([]);
+    setInitialEditors([]);
+    setSaving(false);
+    setShowEditorPicker(false);
+  };
+
   const savePilot = async () => {
     if (!bookingId) return;
     setPilotSaving(true);
@@ -301,6 +345,32 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
     }
 
     setBooking(data as Booking);
+    setPilotSaving(false);
+    setShowPilotPicker(false);
+  };
+
+  const removePilot = async () => {
+    if (!bookingId) return;
+    setPilotSaving(true);
+    setPilotError(null);
+    const { data, error: pilotUpdateError } = await supabaseClient
+      .from("bookings")
+      .update({ pilot_id: null })
+      .eq("id", bookingId)
+      .select(
+        "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank"
+      )
+      .single();
+
+    if (pilotUpdateError) {
+      console.error(pilotUpdateError);
+      setPilotError(pilotUpdateError.message);
+      setPilotSaving(false);
+      return;
+    }
+
+    setBooking(data as Booking);
+    setSelectedPilot("");
     setPilotSaving(false);
     setShowPilotPicker(false);
   };
@@ -618,13 +688,24 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
               </div>
             ))}
             {isAdminLike && (
-              <button
-                className="ghost-btn"
-                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                onClick={() => setShowPilotPicker(true)}
-              >
-                ➕ Add pilot
-              </button>
+              <>
+                <button
+                  className="ghost-btn"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  onClick={() => setShowPilotPicker(true)}
+                  disabled={pilotSaving}
+                >
+                  ➕ Add pilot
+                </button>
+                <button
+                  className="ghost-btn"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  onClick={removePilot}
+                  disabled={pilotSaving || (!selectedPilot && !displayedPilots.length)}
+                >
+                  ✖ Remove pilot
+                </button>
+              </>
             )}
           </div>
           {!displayedPilots.length &&
@@ -741,15 +822,27 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
               </div>
             )}
             {isAdminLike && (
-              <button
-                className="ghost-btn"
-                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                onClick={() => setShowEditorPicker(true)}
-              >
-                ➕ Add editors
-              </button>
+              <>
+                <button
+                  className="ghost-btn"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  onClick={() => setShowEditorPicker(true)}
+                  disabled={saving}
+                >
+                  ➕ Add editors
+                </button>
+                <button
+                  className="ghost-btn"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  onClick={removeEditors}
+                  disabled={saving || !selectedEditors.length}
+                >
+                  ✖ Remove editors
+                </button>
+              </>
             )}
           </div>
+          {removeEditorsError && <p style={{ color: "red" }}>{removeEditorsError}</p>}
           {isAdminLike && showEditorPicker && (
             <div className="modal-backdrop">
               <div className="modal-card">
@@ -793,7 +886,11 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                   {!editorOptions.length && <p>No editors found.</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                  <button onClick={saveEditors} disabled={saving}>
+                  <button
+                    onClick={saveEditors}
+                    disabled={saving}
+                    className="ghost-btn"
+                  >
                     {saving ? "Saving..." : "Save assignments"}
                   </button>
                   <button
