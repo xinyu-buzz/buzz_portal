@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabaseClient } from "../utility";
-import { portalBasePath, resolveUserRole } from "../portals/shared/role";
+import {
+  PERMISSION_ERROR_MESSAGE,
+  portalBasePath,
+  validatePortalSelection,
+} from "../portals/shared/role";
 
 const roles = ["admin", "pilot", "editor", "client"] as const;
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<typeof roles[number]>("pilot");
@@ -28,6 +33,14 @@ export const LoginPage = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const locationError =
+      (location.state as { error?: string } | null)?.error || null;
+    if (locationError) {
+      setError(locationError);
+    }
+  }, [location.state]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -45,8 +58,15 @@ export const LoginPage = () => {
       return;
     }
 
-    const resolvedRole = (await resolveUserRole(role as any)) ?? role;
-    localStorage.setItem("buzz_portal_role", resolvedRole);
+    const { role: resolvedRole, error: roleError } =
+      await validatePortalSelection(role as any);
+
+    if (roleError || !resolvedRole) {
+      setError(roleError || PERMISSION_ERROR_MESSAGE);
+      setLoading(false);
+      return;
+    }
+
     if (remember) {
       localStorage.setItem("buzz_portal_email", email);
     } else {

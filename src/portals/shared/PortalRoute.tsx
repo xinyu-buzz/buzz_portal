@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import type { PortalRole } from "./role";
-import { useResolvedRole } from "./role";
+import { PERMISSION_ERROR_MESSAGE, useResolvedRole } from "./role";
 
 type PortalRouteProps = {
   allowed: PortalRole[];
@@ -16,7 +16,7 @@ export const PortalRoute = ({
   redirectTo = "/login",
   busyFallback,
 }: PortalRouteProps) => {
-  const { role, loading } = useResolvedRole();
+  const { role, loading } = useResolvedRole({ fallbackToFirst: false });
 
   if (loading) {
     return (
@@ -29,7 +29,13 @@ export const PortalRoute = ({
   }
 
   if (!role || !allowed.includes(role)) {
-    return <Navigate to={redirectTo} replace />;
+    return (
+      <Navigate
+        to={redirectTo}
+        replace
+        state={{ error: PERMISSION_ERROR_MESSAGE }}
+      />
+    );
   }
 
   return <>{children}</>;

@@ -17,17 +17,49 @@ import { PilotPortal } from "./portals/pilot/PilotPortal";
 import { EditorPortal } from "./portals/editor/EditorPortal";
 import { ClientPortal } from "./portals/client/ClientPortal";
 import { PortalRoute } from "./portals/shared/PortalRoute";
-import { portalBasePath, resolveUserRole } from "./portals/shared/role";
+import {
+  PERMISSION_ERROR_MESSAGE,
+  portalBasePath,
+  resolveUserRole,
+  validatePortalSelection,
+} from "./portals/shared/role";
 
 const LandingRedirect = () => {
   const [target, setTarget] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const route = async () => {
-      const role = await resolveUserRole();
+      const stored = localStorage.getItem("buzz_portal_role");
+      const { role, error: roleError } = stored
+        ? await validatePortalSelection((stored as any) || null)
+        : { role: null, error: null };
+
       if (!mounted) return;
-      setTarget(portalBasePath(role));
+
+      if (role) {
+        setTarget(portalBasePath(role));
+        return;
+      }
+
+      if (stored && roleError) {
+        setError(roleError || PERMISSION_ERROR_MESSAGE);
+        setTarget("/login");
+        return;
+      }
+
+      const fallbackRole = await resolveUserRole(undefined, {
+        fallbackToFirst: true,
+      });
+      if (!mounted) return;
+
+      if (fallbackRole) {
+        setTarget(portalBasePath(fallbackRole));
+      } else {
+        setError(roleError || PERMISSION_ERROR_MESSAGE);
+        setTarget("/login");
+      }
     };
     route();
     return () => {
@@ -41,6 +73,10 @@ const LandingRedirect = () => {
         <p>Loading portal...</p>
       </div>
     );
+  }
+
+  if (error) {
+    return <Navigate to="/login" replace state={{ error }} />;
   }
 
   return <Navigate to={target} replace />;

@@ -14,6 +14,9 @@ const sortByPriority = (roles: PortalRole[]) =>
 
 const normalizeEmail = (email?: string | null) => email?.toLowerCase() || null;
 
+export const PERMISSION_ERROR_MESSAGE =
+  "You do not have the permission to enter the portal you have chosen. Please choose the correct portal.";
+
 export const getPortalLabel = (role: PortalRole | null) => {
   if (role === "owner" || role === "admin") return "Admin Portal";
   if (role === "pilot") return "Pilot Portal";
@@ -75,34 +78,68 @@ export const getAvailablePortalRoles = async (): Promise<PortalRole[]> => {
   return sortByPriority(available);
 };
 
+export type RoleValidationResult = {
+  role: PortalRole | null;
+  available: PortalRole[];
+  error: string | null;
+};
+
 /**
- * Resolve the user's active portal role, honoring a preferred role when valid.
- * Preference order:
- * 1) Preferred role (e.g., chosen at login) if user is eligible.
- * 2) Previously stored role if still eligible.
- * 3) First eligible role by priority.
+ * Validate a specific portal selection. Does not silently fall back.
+ * Stores the chosen role only when eligible.
+ */
+export const validatePortalSelection = async (
+  selected: PortalRole | null
+): Promise<RoleValidationResult> => {
+  const available = await getAvailablePortalRoles();
+
+  if (selected && available.includes(selected)) {
+    localStorage.setItem("buzz_portal_role", selected);
+    return { role: selected, available, error: null };
+  }
+
+  if (selected) {
+    localStorage.removeItem("buzz_portal_role");
+    return { role: null, available, error: PERMISSION_ERROR_MESSAGE };
+  }
+
+  const error =
+    available.length === 0
+      ? PERMISSION_ERROR_MESSAGE
+      : null;
+
+  return { role: null, available, error };
+};
+
+/**
+ * Resolve the user's active portal role with optional fallback.
+ * - If preferred/stored role is eligible, use it.
+ * - Optionally fall back to first eligible role by priority.
  */
 export const resolveUserRole = async (
-  preferredRole?: PortalRole | null
+  preferredRole?: PortalRole | null,
+  options: { fallbackToFirst?: boolean } = { fallbackToFirst: true }
 ): Promise<PortalRole | null> => {
   const stored = localStorage.getItem("buzz_portal_role") as PortalRole | null;
   const desired = preferredRole ?? stored ?? null;
 
-  const available = await getAvailablePortalRoles();
-
-  const resolved =
-    (desired && available.includes(desired) && desired) ||
-    available[0] ||
-    null;
-
-  if (resolved) {
-    localStorage.setItem("buzz_portal_role", resolved);
+  const { role, available } = await validatePortalSelection(desired);
+  if (role) {
+    return role;
   }
 
-  return resolved;
+  if (options.fallbackToFirst && available[0]) {
+    localStorage.setItem("buzz_portal_role", available[0]);
+    return available[0];
+  }
+
+  return null;
 };
 
-export const useResolvedRole = () => {
+export const useResolvedRole = (
+  options: { fallbackToFirst?: boolean } = { fallbackToFirst: true }
+) => {
+  const fallbackToFirst = options?.fallbackToFirst ?? true;
   const [role, setRole] = useState<PortalRole | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -110,7 +147,9 @@ export const useResolvedRole = () => {
     let mounted = true;
     const load = async () => {
       setLoading(true);
-      const resolved = await resolveUserRole();
+      const resolved = await resolveUserRole(undefined, {
+        fallbackToFirst,
+      });
       if (!mounted) return;
       setRole(resolved);
       setLoading(false);
@@ -119,11 +158,11 @@ export const useResolvedRole = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [fallbackToFirst]);
 
   const refresh = async () => {
     setLoading(true);
-    const resolved = await resolveUserRole();
+    const resolved = await resolveUserRole(undefined, { fallbackToFirst });
     setRole(resolved);
     setLoading(false);
     return resolved;
