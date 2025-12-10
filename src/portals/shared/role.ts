@@ -93,6 +93,12 @@ export const validatePortalSelection = async (
 ): Promise<RoleValidationResult> => {
   const available = await getAvailablePortalRoles();
 
+  // Owners can enter the admin portal; treat their owner role as eligible for admin.
+  if (selected === "admin" && available.includes("owner")) {
+    localStorage.setItem("buzz_portal_role", "admin");
+    return { role: "admin", available, error: null };
+  }
+
   if (selected && available.includes(selected)) {
     localStorage.setItem("buzz_portal_role", selected);
     return { role: selected, available, error: null };

@@ -103,9 +103,26 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
     setRows(combined);
   };
 
+  const loadClientBookings = async (customerId: string) => {
+    const { data, error } = await supabaseClient
+      .from("bookings")
+      .select("id,location_name,status,scheduled_date,created_at,description")
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error("Failed to load client bookings", error);
+      setRows([]);
+      return;
+    }
+
+    setRows(data || []);
+  };
+
   const load = async () => {
     setLoading(true);
-    if (isPilot) {
+    if (isPilot || role === "client") {
       const { data: userData, error: userError } = await supabaseClient.auth.getUser();
       if (userError || !userData?.user) {
         console.error("No user session", userError);
@@ -113,7 +130,11 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
         setLoading(false);
         return;
       }
-      await loadPilotBookings(userData.user.id);
+      if (isPilot) {
+        await loadPilotBookings(userData.user.id);
+      } else {
+        await loadClientBookings(userData.user.id);
+      }
       setLoading(false);
       return;
     }
