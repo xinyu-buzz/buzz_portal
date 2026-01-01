@@ -33,6 +33,7 @@ type Booking = {
   specialization: string | null;
   estimated_flight_hours: number | null;
   required_minimum_rank: number | null;
+  is_internal_test: boolean;
 };
 
 type EditorOption = {
@@ -94,6 +95,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
     estimated_flight_hours: "",
     required_minimum_rank: "0",
     status: "available",
+    is_internal_test: "false",
   });
 
   const isAdminLike = role === "admin" || role === "owner";
@@ -114,7 +116,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
         supabaseClient
           .from("bookings")
           .select(
-            "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank"
+            "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank,is_internal_test"
           )
           .eq("id", bookingId)
           .single(),
@@ -249,6 +251,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           ? booking.required_minimum_rank.toString()
           : "0",
       status: booking.status || "available",
+      is_internal_test: booking.is_internal_test ? "true" : "false",
     });
   }, [booking]);
 
@@ -335,7 +338,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
       .update({ pilot_id: selectedPilot || null })
       .eq("id", bookingId)
       .select(
-        "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank"
+        "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank,is_internal_test"
       )
       .single();
 
@@ -360,7 +363,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
       .update({ pilot_id: null })
       .eq("id", bookingId)
       .select(
-        "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank"
+        "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank,is_internal_test"
       )
       .single();
 
@@ -567,6 +570,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
       specialization: editForm.specialization,
       payment_amount: parseFloat(editForm.payment_amount),
       status: editForm.status || "available",
+      is_internal_test: editForm.is_internal_test === "true",
     };
 
     if (editForm.description) payload.description = editForm.description;
@@ -585,7 +589,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
       .update(payload)
       .eq("id", bookingId)
       .select(
-        "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank"
+        "id,customer_id,location_name,description,status,scheduled_date,created_at,pilot_id,location_lat,location_lng,payment_amount,specialization,estimated_flight_hours,required_minimum_rank,is_internal_test"
       )
       .single();
 
@@ -674,6 +678,17 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
         <p>
           <strong>Specialization:</strong>{" "}
           {booking.specialization ? booking.specialization : "—"}
+        </p>
+        <p>
+          <strong>Internal Test:</strong>{" "}
+          <span
+            style={{
+              color: booking.is_internal_test ? "#ffa500" : "#4caf50",
+              fontWeight: 600,
+            }}
+          >
+            {booking.is_internal_test ? "Yes" : "No"}
+          </span>
         </p>
       </section>
 
@@ -964,27 +979,43 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                 placeholder="Pilot UUID"
               />
 
-              <label className="input-label">Specialization *</label>
-              <select
-                name="specialization"
-                value={editForm.specialization}
-                onChange={onFormChange}
-                className="text-input"
-                required
-              >
-                <option value="">Select specialization</option>
-                <option value="automotive">Automotive</option>
-                <option value="motion_picture">Motion picture</option>
-                <option value="real_estate">Real estate</option>
-                <option value="agriculture">Agriculture</option>
-                <option value="inspections">Inspections</option>
-                <option value="search_rescue">Search & Rescue</option>
-                <option value="logistics">Logistics</option>
-                <option value="drone_art">Drone art</option>
-                <option value="surveillance_security">
-                  Surveillance & Security
-                </option>
-              </select>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label className="input-label">Specialization *</label>
+                  <select
+                    name="specialization"
+                    value={editForm.specialization}
+                    onChange={onFormChange}
+                    className="text-input"
+                    required
+                  >
+                    <option value="">Select specialization</option>
+                    <option value="automotive">Automotive</option>
+                    <option value="motion_picture">Motion picture</option>
+                    <option value="real_estate">Real estate</option>
+                    <option value="agriculture">Agriculture</option>
+                    <option value="inspections">Inspections</option>
+                    <option value="search_rescue">Search & Rescue</option>
+                    <option value="logistics">Logistics</option>
+                    <option value="drone_art">Drone art</option>
+                    <option value="surveillance_security">
+                      Surveillance & Security
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label className="input-label">Internal Test</label>
+                  <select
+                    name="is_internal_test"
+                    value={editForm.is_internal_test}
+                    onChange={onFormChange}
+                    className="text-input"
+                  >
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </select>
+                </div>
+              </div>
 
               <label className="input-label">Location name *</label>
               <input

@@ -57,6 +57,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
     estimated_flight_hours: "",
     required_minimum_rank: "0",
     status: "available",
+    is_internal_test: "false",
   });
 
   const isPilot = role === "pilot";
@@ -258,6 +259,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
       specialization: form.specialization,
       payment_amount: parseFloat(form.payment_amount),
       status: form.status || "available",
+      is_internal_test: form.is_internal_test === "true",
     };
 
     if (form.description) payload.description = form.description;
@@ -292,6 +294,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
       estimated_flight_hours: "",
       required_minimum_rank: "0",
       status: "available",
+      is_internal_test: "false",
     });
     await load();
   };
@@ -426,25 +429,41 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
                 placeholder="Pilot UUID"
               />
 
-              <label className="input-label">Specialization *</label>
-              <select
-                name="specialization"
-                value={form.specialization}
-                onChange={onChange}
-                className="text-input"
-                required
-              >
-                <option value="">Select specialization</option>
-                <option value="automotive">Automotive</option>
-                <option value="motion_picture">Motion picture</option>
-                <option value="real_estate">Real estate</option>
-                <option value="agriculture">Agriculture</option>
-                <option value="inspections">Inspections</option>
-                <option value="search_rescue">Search & Rescue</option>
-                <option value="logistics">Logistics</option>
-                <option value="drone_art">Drone art</option>
-                <option value="surveillance_security">Surveillance & Security</option>
-              </select>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label className="input-label">Specialization *</label>
+                  <select
+                    name="specialization"
+                    value={form.specialization}
+                    onChange={onChange}
+                    className="text-input"
+                    required
+                  >
+                    <option value="">Select specialization</option>
+                    <option value="automotive">Automotive</option>
+                    <option value="motion_picture">Motion picture</option>
+                    <option value="real_estate">Real estate</option>
+                    <option value="agriculture">Agriculture</option>
+                    <option value="inspections">Inspections</option>
+                    <option value="search_rescue">Search & Rescue</option>
+                    <option value="logistics">Logistics</option>
+                    <option value="drone_art">Drone art</option>
+                    <option value="surveillance_security">Surveillance & Security</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="input-label">Internal Test</label>
+                  <select
+                    name="is_internal_test"
+                    value={form.is_internal_test}
+                    onChange={onChange}
+                    className="text-input"
+                  >
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </select>
+                </div>
+              </div>
 
               <label className="input-label">Location name *</label>
               <input
