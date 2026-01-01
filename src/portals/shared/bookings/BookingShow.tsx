@@ -637,14 +637,24 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           <p>{booking.location_name}</p>
         </div>
         {showAdminActions && (
-          <button
-            className="ghost-btn"
-            onClick={() => setShowEdit(true)}
-            aria-label="Edit booking"
-            title="Edit booking"
-          >
-            Edit
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="ghost-btn"
+              onClick={() => navigate(`${basePath}/bookings/${bookingId}/incident-logs`)}
+              aria-label="View incident logs"
+              title="View incident logs"
+            >
+              Incident Logs
+            </button>
+            <button
+              className="ghost-btn"
+              onClick={() => setShowEdit(true)}
+              aria-label="Edit booking"
+              title="Edit booking"
+            >
+              Edit
+            </button>
+          </div>
         )}
       </div>
       {error && <p style={{ color: "red" }}>{error}</p>}

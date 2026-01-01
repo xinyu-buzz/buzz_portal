@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { PortalLayout } from "../shared/PortalLayout";
 import { BookingList } from "../shared/bookings/BookingList";
 import { BookingShow } from "../shared/bookings/BookingShow";
+import { IncidentLogList } from "../shared/bookings/IncidentLogList";
 import { AdminDashboard } from "./AdminDashboard";
 import { AdminCenter } from "./AdminCenter";
 import { NewAccountsList } from "./NewAccountsList";
@@ -34,6 +35,10 @@ export const AdminPortal = () => {
         <Route
           path="bookings/:id"
           element={<BookingShow basePath="/admin" role={effectiveRole} />}
+        />
+        <Route
+          path="bookings/:id/incident-logs"
+          element={<IncidentLogList />}
         />
         <Route path="admin-center" element={<AdminCenter />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
