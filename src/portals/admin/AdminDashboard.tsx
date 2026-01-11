@@ -41,13 +41,24 @@ const dashboardCards: DashboardCard[] = [
   },
 ];
 
+const dashboardCardsWithNewsletter: DashboardCard[] = [
+  ...dashboardCards,
+  {
+    key: "newsletter",
+    title: "Newsletter",
+    description: "Write and send newsletters to your subscribers.",
+    to: "/admin/newsletter",
+    actionLabel: "Compose newsletter",
+  },
+];
+
 export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
   const [displayName, setDisplayName] = useState<string>("there");
   const visibleCards = useMemo(
     () =>
-      dashboardCards.filter((card) => {
+      dashboardCardsWithNewsletter.filter((card) => {
         if (card.key === "accounts" && role === "editor") return false;
-        if (card.key === "admin") {
+        if (card.key === "admin" || card.key === "newsletter") {
           return role === "admin" || role === "owner";
         }
         return true;
@@ -80,19 +91,15 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
 
   return (
     <div className="page-shell">
-      <div className="dashboard-hero">
-        <h1>Welcome back, {displayName}!</h1>
-        <p className="muted-text">Pick where to go next</p>
-      </div>
+      <h1 style={{ marginBottom: '24px' }}>Welcome back, {displayName}!</h1>
 
-      <div className="card-grid">
+      <div className="card-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
         {visibleCards.map((card) => (
           <div
             className={`nav-card${card.comingSoon ? " nav-card--soon" : ""}`}
             key={card.key}
           >
             <div className="nav-card__body">
-              <p className="nav-card__eyebrow">Workspace</p>
               <h2>{card.title}</h2>
               <p className="nav-card__desc">{card.description}</p>
             </div>

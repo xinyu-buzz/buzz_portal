@@ -6,6 +6,7 @@ import { IncidentLogList } from "../shared/bookings/IncidentLogList";
 import { AdminDashboard } from "./AdminDashboard";
 import { AdminCenter } from "./AdminCenter";
 import { NewAccountsList } from "./NewAccountsList";
+import { Newsletter } from "./Newsletter";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -22,6 +23,7 @@ export const AdminPortal = () => {
         { to: "/admin/profiles", label: "New Accounts" },
         { to: "/admin/bookings", label: "Bookings" },
         { to: "/admin/admin-center", label: "Admin Center" },
+        { to: "/admin/newsletter", label: "Newsletter" },
       ]}
     >
       <Routes>
@@ -41,6 +43,7 @@ export const AdminPortal = () => {
           element={<IncidentLogList />}
         />
         <Route path="admin-center" element={<AdminCenter />} />
+        <Route path="newsletter" element={<Newsletter />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </PortalLayout>

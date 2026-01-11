@@ -151,9 +151,33 @@ CREATE TABLE public.bookings (
   original_amount numeric,
   credits_applied numeric DEFAULT 0,
   final_amount numeric,
+  is_internal_test boolean NOT NULL DEFAULT false,
+  is_voluntary boolean DEFAULT false,
+  hourly_rate numeric DEFAULT 0,
+  final_hours_worked double precision,
+  assignment_type text CHECK (assignment_type IS NULL OR (assignment_type = ANY (ARRAY['ground_search'::text, 'air_search'::text, 'water_rescue'::text, 'medical_emergency'::text, 'fire_emergency'::text, 'disaster_response'::text, 'missing_person'::text]))),
+  government_agency text CHECK (government_agency IS NULL OR (government_agency = ANY (ARRAY['police_department'::text, 'fire_department'::text, 'sheriff_office'::text, 'state_emergency_management'::text]))),
+  uses_beacon_program boolean DEFAULT false,
+  number_of_pilots integer DEFAULT 1,
   CONSTRAINT bookings_pkey PRIMARY KEY (id),
   CONSTRAINT bookings_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.profiles(id),
   CONSTRAINT bookings_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.contact_submissions (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  email text NOT NULL,
+  company text,
+  phone text,
+  category text NOT NULL CHECK (category = ANY (ARRAY['technical'::text, 'support'::text, 'academy'::text, 'media'::text, 'bd'::text, 'partnerships'::text])),
+  destination_email text NOT NULL,
+  subject text NOT NULL,
+  message text NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  error_message text,
+  CONSTRAINT contact_submissions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.course_enrollments (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -448,6 +472,16 @@ CREATE TABLE public.messages (
   CONSTRAINT messages_from_user_id_fkey FOREIGN KEY (from_user_id) REFERENCES public.profiles(id),
   CONSTRAINT messages_to_user_id_fkey FOREIGN KEY (to_user_id) REFERENCES public.profiles(id),
   CONSTRAINT messages_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.newsletter_subscriptions (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  email text NOT NULL UNIQUE,
+  subscribed_at timestamp with time zone NOT NULL DEFAULT now(),
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'unsubscribed'::text])),
+  welcome_email_sent boolean DEFAULT false,
+  welcome_email_error text,
+  unsubscribed_at timestamp with time zone,
+  CONSTRAINT newsletter_subscriptions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.pilot_licenses (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
