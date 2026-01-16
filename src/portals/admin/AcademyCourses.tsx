@@ -19,6 +19,7 @@ type TrainingCourse = {
   requires_flight_review_passed: boolean;
   requires_roc_a_passed: boolean;
   external_url: string | null;
+  cover_image_url: string | null;
 };
 
 const PROVIDERS = ["Buzz", "Red Cross", "USFA", "FEMA", "Amazon", "T-Mobile", "Other"];
@@ -37,6 +38,9 @@ export const AcademyCourses = () => {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -96,6 +100,39 @@ export const AcademyCourses = () => {
     }
   };
 
+  const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        setError('Please select a valid image file (JPEG, PNG, WebP, or GIF)');
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size must be less than 5MB');
+        return;
+      }
+
+      setCoverImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setError(null);
+    }
+  };
+
+  const removeCoverImage = () => {
+    setCoverImageFile(null);
+    setCoverImagePreview(null);
+  };
+
   const resetForm = () => {
     setForm({
       title: "",
@@ -111,6 +148,8 @@ export const AcademyCourses = () => {
       requires_roc_a_passed: false,
       external_url: "",
     });
+    setCoverImageFile(null);
+    setCoverImagePreview(null);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -122,6 +161,43 @@ export const AcademyCourses = () => {
       setError("Please fill all required fields.");
       setSubmitting(false);
       return;
+    }
+
+    let coverImageUrl: string | null = null;
+
+    // Upload cover image if provided
+    if (coverImageFile) {
+      setUploadingCover(true);
+      try {
+        const fileExt = coverImageFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabaseClient.storage
+          .from('course-covers')
+          .upload(filePath, coverImageFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        // Get public URL
+        const { data: publicUrlData } = supabaseClient.storage
+          .from('course-covers')
+          .getPublicUrl(filePath);
+
+        coverImageUrl = publicUrlData.publicUrl;
+      } catch (uploadError: any) {
+        console.error('Upload error:', uploadError);
+        setError(`Failed to upload cover image: ${uploadError.message}`);
+        setSubmitting(false);
+        setUploadingCover(false);
+        return;
+      }
+      setUploadingCover(false);
     }
 
     const payload: Record<string, any> = {
@@ -143,6 +219,10 @@ export const AcademyCourses = () => {
 
     if (form.external_url) {
       payload.external_url = form.external_url;
+    }
+
+    if (coverImageUrl) {
+      payload.cover_image_url = coverImageUrl;
     }
 
     const { error: insertError } = await supabaseClient
@@ -175,6 +255,53 @@ export const AcademyCourses = () => {
       return;
     }
 
+    let coverImageUrl: string | null = editingCourse.cover_image_url;
+
+    // Upload new cover image if provided
+    if (coverImageFile) {
+      setUploadingCover(true);
+      try {
+        // Delete old cover image if exists
+        if (editingCourse.cover_image_url) {
+          const oldFilePath = editingCourse.cover_image_url.split('/').pop();
+          if (oldFilePath) {
+            await supabaseClient.storage
+              .from('course-covers')
+              .remove([oldFilePath]);
+          }
+        }
+
+        const fileExt = coverImageFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabaseClient.storage
+          .from('course-covers')
+          .upload(filePath, coverImageFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        // Get public URL
+        const { data: publicUrlData } = supabaseClient.storage
+          .from('course-covers')
+          .getPublicUrl(filePath);
+
+        coverImageUrl = publicUrlData.publicUrl;
+      } catch (uploadError: any) {
+        console.error('Upload error:', uploadError);
+        setError(`Failed to upload cover image: ${uploadError.message}`);
+        setSubmitting(false);
+        setUploadingCover(false);
+        return;
+      }
+      setUploadingCover(false);
+    }
+
     const payload: Record<string, any> = {
       title: form.title,
       description: form.description,
@@ -198,6 +325,12 @@ export const AcademyCourses = () => {
       payload.external_url = form.external_url;
     } else {
       payload.external_url = null;
+    }
+
+    if (coverImageUrl) {
+      payload.cover_image_url = coverImageUrl;
+    } else {
+      payload.cover_image_url = null;
     }
 
     const { data, error: updateError } = await supabaseClient
@@ -253,6 +386,10 @@ export const AcademyCourses = () => {
       requires_roc_a_passed: course.requires_roc_a_passed,
       external_url: course.external_url || "",
     });
+    // Set preview if there's an existing cover image
+    if (course.cover_image_url) {
+      setCoverImagePreview(course.cover_image_url);
+    }
     setShowEdit(true);
   };
 
@@ -692,6 +829,72 @@ export const AcademyCourses = () => {
                 type="url"
               />
 
+              <label className="input-label">Course Cover Image</label>
+              <div style={{ marginBottom: 16 }}>
+                {coverImagePreview ? (
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <img
+                      src={coverImagePreview}
+                      alt="Course cover preview"
+                      style={{
+                        width: '100%',
+                        maxWidth: '400px',
+                        height: 'auto',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        marginBottom: '8px'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={removeCoverImage}
+                      style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 600
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      border: '2px dashed rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      padding: '32px',
+                      textAlign: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => document.getElementById('cover-image-input')?.click()}
+                  >
+                    <div style={{ fontSize: '48px', marginBottom: '8px' }}>📷</div>
+                    <p style={{ color: '#9ca3b5', margin: 0 }}>
+                      Click to upload course cover
+                    </p>
+                    <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
+                      JPEG, PNG, WebP, or GIF (max 5MB)
+                    </p>
+                  </div>
+                )}
+                <input
+                  id="cover-image-input"
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  onChange={handleCoverImageChange}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
               {form.provider !== "Buzz" && (
                 <>
                   <label className="input-label">External URL</label>
@@ -745,8 +948,10 @@ export const AcademyCourses = () => {
               </div>
 
               <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-                <button type="submit" className="primary-btn" disabled={submitting}>
-                  {submitting
+                <button type="submit" className="primary-btn" disabled={submitting || uploadingCover}>
+                  {uploadingCover
+                    ? "Uploading image..."
+                    : submitting
                     ? showCreate
                       ? "Creating..."
                       : "Updating..."
@@ -758,7 +963,7 @@ export const AcademyCourses = () => {
                   type="button"
                   className="ghost-btn"
                   onClick={closeModals}
-                  disabled={submitting}
+                  disabled={submitting || uploadingCover}
                 >
                   Cancel
                 </button>
