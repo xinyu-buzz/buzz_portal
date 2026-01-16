@@ -44,6 +44,13 @@ const dashboardCards: DashboardCard[] = [
 const dashboardCardsWithNewsletter: DashboardCard[] = [
   ...dashboardCards,
   {
+    key: "academy",
+    title: "Academy Courses",
+    description: "Manage the courses on buzz academy, titles, descriptions, prerequisites, and more.",
+    to: "/admin/academy-courses",
+    actionLabel: "Manage courses",
+  },
+  {
     key: "newsletter",
     title: "Newsletter",
     description: "Write and send newsletters to your subscribers.",
@@ -58,7 +65,7 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
     () =>
       dashboardCardsWithNewsletter.filter((card) => {
         if (card.key === "accounts" && role === "editor") return false;
-        if (card.key === "admin" || card.key === "newsletter") {
+        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy") {
           return role === "admin" || role === "owner";
         }
         return true;
