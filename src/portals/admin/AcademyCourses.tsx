@@ -32,7 +32,7 @@ export const AcademyCourses = () => {
   const [editingCourse, setEditingCourse] = useState<TrainingCourse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -263,7 +263,6 @@ export const AcademyCourses = () => {
     <div className="page-card">
       <div className="page-header">
         <h1>Academy Courses</h1>
-        <p>Manage training courses for Buzz Academy.</p>
         <button className="primary-btn" onClick={() => setShowCreate(true)}>
           + New course
         </button>
@@ -590,14 +589,26 @@ export const AcademyCourses = () => {
                 </div>
                 <div>
                   <label className="input-label">Duration *</label>
-                  <input
-                    name="duration"
-                    value={form.duration}
-                    onChange={onChange}
-                    className="text-input"
-                    placeholder="e.g., 2 hours, 3 days"
-                    required
-                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <input
+                      name="duration"
+                      type="number"
+                      value={form.duration.replace(/[^\d]/g, "")}
+                      onChange={(e) => {
+                        const numericValue = e.target.value;
+                        setForm((prev) => ({ 
+                          ...prev, 
+                          duration: numericValue ? `${numericValue} hours` : "" 
+                        }));
+                      }}
+                      className="text-input"
+                      placeholder="25"
+                      min="1"
+                      style={{ flex: 1 }}
+                      required
+                    />
+                    <span style={{ color: "#9ca3b5", fontSize: "14px" }}>hours</span>
+                  </div>
                 </div>
               </div>
 
