@@ -1,0 +1,64 @@
+SUPABASE STORAGE POLICY SETUP - course-covers bucket
+=====================================================
+
+The bucket exists but needs RLS policies. Follow these steps:
+
+1. Go to Supabase Dashboard > Storage > course-covers bucket
+2. Click on "Policies" tab
+3. Click "New Policy" for EACH of the following:
+
+POLICY 1: Allow authenticated users to INSERT
+----------------------------------------------
+Policy Name: authenticated_insert_course_covers
+Allowed operation: INSERT
+Target roles: authenticated
+WITH CHECK expression: bucket_id = 'course-covers'
+
+SQL equivalent:
+CREATE POLICY "authenticated_insert_course_covers"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'course-covers');
+
+POLICY 2: Allow public to SELECT (read)
+----------------------------------------
+Policy Name: public_select_course_covers
+Allowed operation: SELECT
+Target roles: public
+USING expression: bucket_id = 'course-covers'
+
+SQL equivalent:
+CREATE POLICY "public_select_course_covers"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'course-covers');
+
+POLICY 3: Allow authenticated users to UPDATE
+----------------------------------------------
+Policy Name: authenticated_update_course_covers
+Allowed operation: UPDATE
+Target roles: authenticated
+USING expression: bucket_id = 'course-covers'
+
+SQL equivalent:
+CREATE POLICY "authenticated_update_course_covers"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'course-covers');
+
+POLICY 4: Allow authenticated users to DELETE
+----------------------------------------------
+Policy Name: authenticated_delete_course_covers
+Allowed operation: DELETE
+Target roles: authenticated
+USING expression: bucket_id = 'course-covers'
+
+SQL equivalent:
+CREATE POLICY "authenticated_delete_course_covers"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'course-covers');
+
+=====================================================
+ALTERNATIVE: If the dashboard UI doesn't work, try running these as the postgres superuser
+(you may need to contact Supabase support or use the SQL editor with proper permissions).

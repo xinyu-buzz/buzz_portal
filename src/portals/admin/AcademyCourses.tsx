@@ -167,11 +167,20 @@ export const AcademyCourses = () => {
 
     // Upload cover image if provided
     if (coverImageFile) {
+      // #region agent log
+      const session = await supabaseClient.auth.getSession();
+      fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:CREATE_UPLOAD_START',message:'Starting cover upload',data:{hasSession:!!session.data.session,userId:session.data.session?.user?.id,fileName:coverImageFile.name,fileSize:coverImageFile.size,fileType:coverImageFile.type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C,E'})}).catch(()=>{});
+      // #endregion
+
       setUploadingCover(true);
       try {
         const fileExt = coverImageFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `${fileName}`;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:CREATE_BEFORE_UPLOAD',message:'Before storage upload',data:{filePath,fileExt,bucketName:'course-covers'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+        // #endregion
 
         const { error: uploadError } = await supabaseClient.storage
           .from('course-covers')
@@ -179,6 +188,10 @@ export const AcademyCourses = () => {
             cacheControl: '3600',
             upsert: false
           });
+
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:CREATE_AFTER_UPLOAD',message:'After storage upload attempt',data:{hasError:!!uploadError,errorMessage:uploadError?.message,errorDetails:JSON.stringify(uploadError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,D'})}).catch(()=>{});
+        // #endregion
 
         if (uploadError) {
           throw uploadError;
@@ -190,7 +203,14 @@ export const AcademyCourses = () => {
           .getPublicUrl(filePath);
 
         coverImageUrl = publicUrlData.publicUrl;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:CREATE_SUCCESS',message:'Upload successful',data:{coverImageUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+        // #endregion
       } catch (uploadError: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:CREATE_CATCH_ERROR',message:'Upload failed in catch',data:{errorMessage:uploadError?.message,errorName:uploadError?.name,errorCode:uploadError?.code,fullError:JSON.stringify(uploadError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,D'})}).catch(()=>{});
+        // #endregion
         console.error('Upload error:', uploadError);
         setError(`Failed to upload cover image: ${uploadError.message}`);
         setSubmitting(false);
@@ -259,12 +279,21 @@ export const AcademyCourses = () => {
 
     // Upload new cover image if provided
     if (coverImageFile) {
+      // #region agent log
+      const session = await supabaseClient.auth.getSession();
+      fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:UPDATE_UPLOAD_START',message:'Starting update cover upload',data:{hasSession:!!session.data.session,userId:session.data.session?.user?.id,fileName:coverImageFile.name,fileSize:coverImageFile.size,fileType:coverImageFile.type,oldCoverUrl:editingCourse.cover_image_url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C,E'})}).catch(()=>{});
+      // #endregion
+
       setUploadingCover(true);
       try {
         // Delete old cover image if exists
         if (editingCourse.cover_image_url) {
           const oldFilePath = editingCourse.cover_image_url.split('/').pop();
           if (oldFilePath) {
+            // #region agent log
+            fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:UPDATE_DELETE_OLD',message:'Attempting to delete old image',data:{oldFilePath},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+
             await supabaseClient.storage
               .from('course-covers')
               .remove([oldFilePath]);
@@ -275,12 +304,20 @@ export const AcademyCourses = () => {
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `${fileName}`;
 
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:UPDATE_BEFORE_UPLOAD',message:'Before storage upload',data:{filePath,fileExt},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+        // #endregion
+
         const { error: uploadError } = await supabaseClient.storage
           .from('course-covers')
           .upload(filePath, coverImageFile, {
             cacheControl: '3600',
             upsert: false
           });
+
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:UPDATE_AFTER_UPLOAD',message:'After storage upload attempt',data:{hasError:!!uploadError,errorMessage:uploadError?.message,errorDetails:JSON.stringify(uploadError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,D'})}).catch(()=>{});
+        // #endregion
 
         if (uploadError) {
           throw uploadError;
@@ -292,7 +329,14 @@ export const AcademyCourses = () => {
           .getPublicUrl(filePath);
 
         coverImageUrl = publicUrlData.publicUrl;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:UPDATE_SUCCESS',message:'Upload successful',data:{coverImageUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+        // #endregion
       } catch (uploadError: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3f50e357-e4fc-486f-8d1d-6d21395dc435',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AcademyCourses.tsx:UPDATE_CATCH_ERROR',message:'Upload failed in catch',data:{errorMessage:uploadError?.message,errorName:uploadError?.name,errorCode:uploadError?.code,fullError:JSON.stringify(uploadError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,D'})}).catch(()=>{});
+        // #endregion
         console.error('Upload error:', uploadError);
         setError(`Failed to upload cover image: ${uploadError.message}`);
         setSubmitting(false);
