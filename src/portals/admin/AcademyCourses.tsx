@@ -168,7 +168,6 @@ export const AcademyCourses = () => {
       requires_uas_ground_school: form.requires_uas_ground_school,
       requires_flight_review_passed: form.requires_flight_review_passed,
       requires_roc_a_passed: form.requires_roc_a_passed,
-      updated_at: new Date().toISOString(),
     };
 
     if (form.instructor_picture_url) {
@@ -177,13 +176,14 @@ export const AcademyCourses = () => {
       payload.instructor_picture_url = null;
     }
 
-    const { error: updateError } = await supabaseClient
+    const { data, error: updateError } = await supabaseClient
       .from("training_courses")
       .update(payload)
-      .eq("id", editingCourse.id);
+      .eq("id", editingCourse.id)
+      .select();
 
     if (updateError) {
-      console.error(updateError);
+      console.error("Update error:", updateError);
       setError(updateError.message);
       setSubmitting(false);
       return;
