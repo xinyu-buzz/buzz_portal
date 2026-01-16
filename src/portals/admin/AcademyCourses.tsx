@@ -7,7 +7,7 @@ type TrainingCourse = {
   description: string;
   duration: string;
   level: "Beginner" | "Intermediate" | "Advanced";
-  category: "Mandatory" | "Extension" | "Intermediate" | "Advanced" | "Specialized";
+  category: "Mandatory" | "Extension" | "Intermediate" | "Advanced" | "Specialized" | "General";
   instructor: string;
   rating: number;
   students_count: number;
@@ -18,11 +18,12 @@ type TrainingCourse = {
   requires_uas_ground_school: boolean;
   requires_flight_review_passed: boolean;
   requires_roc_a_passed: boolean;
+  external_url: string | null;
 };
 
 const PROVIDERS = ["Buzz", "Red Cross", "USFA", "FEMA", "Amazon", "T-Mobile", "Other"];
 const LEVELS = ["Beginner", "Intermediate", "Advanced"];
-const CATEGORIES = ["Mandatory", "Extension", "Intermediate", "Advanced", "Specialized"];
+const CATEGORIES = ["Mandatory", "Extension", "Intermediate", "Advanced", "Specialized", "General"];
 
 export const AcademyCourses = () => {
   const [rows, setRows] = useState<TrainingCourse[]>([]);
@@ -48,6 +49,7 @@ export const AcademyCourses = () => {
     requires_uas_ground_school: false,
     requires_flight_review_passed: false,
     requires_roc_a_passed: false,
+    external_url: "",
   });
 
   const load = async () => {
@@ -79,7 +81,18 @@ export const AcademyCourses = () => {
       const checked = (e.target as HTMLInputElement).checked;
       setForm((prev) => ({ ...prev, [name]: checked }));
     } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      setForm((prev) => {
+        const newForm = { ...prev, [name]: value };
+        // If provider changes to non-Buzz, set category to "General"
+        if (name === "provider" && value !== "Buzz") {
+          newForm.category = "General";
+        }
+        // If provider changes to Buzz and category is "General", set to "Mandatory"
+        if (name === "provider" && value === "Buzz" && prev.category === "General") {
+          newForm.category = "Mandatory";
+        }
+        return newForm;
+      });
     }
   };
 
@@ -96,6 +109,7 @@ export const AcademyCourses = () => {
       requires_uas_ground_school: false,
       requires_flight_review_passed: false,
       requires_roc_a_passed: false,
+      external_url: "",
     });
   };
 
@@ -104,7 +118,7 @@ export const AcademyCourses = () => {
     setSubmitting(true);
     setError(null);
 
-    if (!form.title || !form.description || !form.duration || !form.instructor) {
+    if (!form.title || !form.description || !form.duration || !form.instructor || !form.category) {
       setError("Please fill all required fields.");
       setSubmitting(false);
       return;
@@ -125,6 +139,10 @@ export const AcademyCourses = () => {
 
     if (form.instructor_picture_url) {
       payload.instructor_picture_url = form.instructor_picture_url;
+    }
+
+    if (form.external_url) {
+      payload.external_url = form.external_url;
     }
 
     const { error: insertError } = await supabaseClient
@@ -151,7 +169,7 @@ export const AcademyCourses = () => {
     setSubmitting(true);
     setError(null);
 
-    if (!form.title || !form.description || !form.duration || !form.instructor) {
+    if (!form.title || !form.description || !form.duration || !form.instructor || !form.category) {
       setError("Please fill all required fields.");
       setSubmitting(false);
       return;
@@ -174,6 +192,12 @@ export const AcademyCourses = () => {
       payload.instructor_picture_url = form.instructor_picture_url;
     } else {
       payload.instructor_picture_url = null;
+    }
+
+    if (form.external_url) {
+      payload.external_url = form.external_url;
+    } else {
+      payload.external_url = null;
     }
 
     const { data, error: updateError } = await supabaseClient
@@ -227,6 +251,7 @@ export const AcademyCourses = () => {
       requires_uas_ground_school: course.requires_uas_ground_school,
       requires_flight_review_passed: course.requires_flight_review_passed,
       requires_roc_a_passed: course.requires_roc_a_passed,
+      external_url: course.external_url || "",
     });
     setShowEdit(true);
   };
@@ -666,6 +691,20 @@ export const AcademyCourses = () => {
                 placeholder="https://example.com/image.jpg"
                 type="url"
               />
+
+              {form.provider !== "Buzz" && (
+                <>
+                  <label className="input-label">External URL</label>
+                  <input
+                    name="external_url"
+                    value={form.external_url}
+                    onChange={onChange}
+                    className="text-input"
+                    placeholder="https://example.com/course"
+                    type="url"
+                  />
+                </>
+              )}
 
               <div style={{ marginTop: 16, marginBottom: 8 }}>
                 <label className="input-label" style={{ fontWeight: 600 }}>
