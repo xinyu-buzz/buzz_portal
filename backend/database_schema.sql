@@ -237,8 +237,10 @@ CREATE TABLE public.course_tests (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  section_id uuid,
   CONSTRAINT course_tests_pkey PRIMARY KEY (id),
-  CONSTRAINT course_tests_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id)
+  CONSTRAINT course_tests_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id),
+  CONSTRAINT course_tests_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.course_sections(id)
 );
 CREATE TABLE public.course_units (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -254,6 +256,8 @@ CREATE TABLE public.course_units (
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   pdf_url jsonb,
   section_id uuid,
+  prerequisite_units ARRAY,
+  prerequisite_tests ARRAY,
   CONSTRAINT course_units_pkey PRIMARY KEY (id),
   CONSTRAINT course_units_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id),
   CONSTRAINT course_units_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.course_sections(id)
@@ -582,10 +586,17 @@ CREATE TABLE public.test_results (
   answers jsonb,
   attempt_number integer DEFAULT 1,
   completed_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  result_file_urls ARRAY DEFAULT '{}'::text[],
+  upload_status text DEFAULT 'not_submitted'::text CHECK (upload_status = ANY (ARRAY['not_submitted'::text, 'pending'::text, 'approved'::text, 'rejected'::text])),
+  uploaded_at timestamp with time zone,
+  reviewed_at timestamp with time zone,
+  reviewer_notes text,
+  reviewed_by uuid,
   CONSTRAINT test_results_pkey PRIMARY KEY (id),
   CONSTRAINT test_results_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id),
   CONSTRAINT test_results_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.course_tests(id),
-  CONSTRAINT test_results_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id)
+  CONSTRAINT test_results_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id),
+  CONSTRAINT test_results_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.topgun_pilots (
   pilot_id uuid NOT NULL,

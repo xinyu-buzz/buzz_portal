@@ -51,6 +51,13 @@ const dashboardCardsWithNewsletter: DashboardCard[] = [
     actionLabel: "Manage courses",
   },
   {
+    key: "academy-manager",
+    title: "Academy Manager",
+    description: "Review and manage test results, approve or reject submitted test forms from students.",
+    to: "/admin/academy-manager",
+    actionLabel: "Manage test results",
+  },
+  {
     key: "newsletter",
     title: "Newsletter",
     description: "Write and send newsletters to your subscribers.",
@@ -65,7 +72,7 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
     () =>
       dashboardCardsWithNewsletter.filter((card) => {
         if (card.key === "accounts" && role === "editor") return false;
-        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy") {
+        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy" || card.key === "academy-manager") {
           return role === "admin" || role === "owner";
         }
         return true;
