@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabaseClient } from "../../utility";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import { TestQuestionsManager } from "./TestQuestionsManager";
 
 const PDF_ITEM_TYPE = "PDF_ITEM";
 const SECTION_ITEM_TYPE = "SECTION_ITEM";
@@ -331,9 +332,10 @@ type DraggableTestItemProps = {
   onEdit: () => void;
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  onManageQuestions?: () => void;
 };
 
-const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove }: DraggableTestItemProps) => {
+const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove, onManageQuestions }: DraggableTestItemProps) => {
   const ref = useRef<HTMLTableRowElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -408,6 +410,15 @@ const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove 
           >
             Edit
           </button>
+          {test.test_type === "multiple_choice" && onManageQuestions && (
+            <button
+              className="primary-btn"
+              style={{ padding: "6px 10px", fontSize: 12, backgroundColor: '#6b8cae' }}
+              onClick={onManageQuestions}
+            >
+              More
+            </button>
+          )}
           <button
             className="ghost-btn"
             style={{ padding: "6px 10px", fontSize: 12 }}
@@ -493,6 +504,8 @@ export const CourseUnitsManager = () => {
   const [showSectionForm, setShowSectionForm] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [showTestForm, setShowTestForm] = useState(false);
+  const [showQuestionsManager, setShowQuestionsManager] = useState(false);
+  const [managingTest, setManagingTest] = useState<CourseTest | null>(null);
   const [editingSection, setEditingSection] = useState<CourseSection | null>(null);
   const [editingUnit, setEditingUnit] = useState<CourseUnit | null>(null);
   const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
@@ -1355,6 +1368,10 @@ export const CourseUnitsManager = () => {
                     onEdit={() => openTestForm(test)}
                     onDelete={() => handleDeleteTest(test.id)}
                     onMove={moveTest}
+                    onManageQuestions={test.test_type === "multiple_choice" ? () => {
+                      setManagingTest(test);
+                      setShowQuestionsManager(true);
+                    } : undefined}
                   />
                 ))}
               </tbody>
@@ -1892,6 +1909,18 @@ export const CourseUnitsManager = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Test Questions Manager Modal */}
+      {showQuestionsManager && managingTest && (
+        <TestQuestionsManager
+          testId={managingTest.id}
+          testName={managingTest.test_name}
+          onClose={() => {
+            setShowQuestionsManager(false);
+            setManagingTest(null);
+          }}
+        />
       )}
     </div>
   );
