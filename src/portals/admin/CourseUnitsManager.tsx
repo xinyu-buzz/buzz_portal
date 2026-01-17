@@ -32,6 +32,8 @@ type CourseUnit = {
   updated_at: string;
   pdf_url: any;
   section_id: string | null;
+  prerequisite_units: number[];
+  prerequisite_tests: string[];
 };
 
 type TrainingCourse = {
@@ -93,6 +95,8 @@ export const CourseUnitsManager = () => {
     order_index: 0,
     is_mandatory: false,
     section_id: "",
+    prerequisite_units: [] as number[],
+    prerequisite_tests: [] as string[],
   });
 
   const [testForm, setTestForm] = useState({
@@ -283,6 +287,8 @@ export const CourseUnitsManager = () => {
         order_index: unit.order_index,
         is_mandatory: unit.is_mandatory,
         section_id: unit.section_id || "",
+        prerequisite_units: unit.prerequisite_units || [],
+        prerequisite_tests: unit.prerequisite_tests || [],
       });
       // Set current PDF URL if exists
       setCurrentPdfUrl(unit.pdf_url || null);
@@ -297,6 +303,8 @@ export const CourseUnitsManager = () => {
         order_index: units.length + 1,
         is_mandatory: false,
         section_id: "",
+        prerequisite_units: [],
+        prerequisite_tests: [],
       });
       setCurrentPdfUrl(null);
       setPdfFile(null);
@@ -315,6 +323,8 @@ export const CourseUnitsManager = () => {
       order_index: 0,
       is_mandatory: false,
       section_id: "",
+      prerequisite_units: [],
+      prerequisite_tests: [],
     });
     setPdfFile(null);
     setCurrentPdfUrl(null);
@@ -344,6 +354,24 @@ export const CourseUnitsManager = () => {
   const removePdf = () => {
     setPdfFile(null);
     setCurrentPdfUrl(null);
+  };
+
+  const togglePrerequisiteUnit = (unitNumber: number) => {
+    setUnitForm(prev => ({
+      ...prev,
+      prerequisite_units: prev.prerequisite_units.includes(unitNumber)
+        ? prev.prerequisite_units.filter(u => u !== unitNumber)
+        : [...prev.prerequisite_units, unitNumber].sort((a, b) => a - b)
+    }));
+  };
+
+  const togglePrerequisiteTest = (testId: string) => {
+    setUnitForm(prev => ({
+      ...prev,
+      prerequisite_tests: prev.prerequisite_tests.includes(testId)
+        ? prev.prerequisite_tests.filter(t => t !== testId)
+        : [...prev.prerequisite_tests, testId]
+    }));
   };
 
   const handleUnitSubmit = async (e: React.FormEvent) => {
@@ -401,6 +429,8 @@ export const CourseUnitsManager = () => {
         is_mandatory: unitForm.is_mandatory,
         section_id: unitForm.section_id || null,
         pdf_url: pdfUrl,
+        prerequisite_units: unitForm.prerequisite_units,
+        prerequisite_tests: unitForm.prerequisite_tests,
         updated_at: new Date().toISOString(),
       };
 
@@ -453,6 +483,11 @@ export const CourseUnitsManager = () => {
     if (!sectionId) return "Unassigned";
     const section = sections.find(s => s.id === sectionId);
     return section?.name || "Unknown";
+  };
+
+  const getTestName = (testId: string) => {
+    const test = tests.find(t => t.id === testId);
+    return test?.test_name || "Unknown Test";
   };
 
   // Test handlers
@@ -692,6 +727,7 @@ export const CourseUnitsManager = () => {
                 <th>Order</th>
                 <th>Title</th>
                 <th>Section</th>
+                <th>Prerequisites</th>
                 <th>Mandatory</th>
                 <th>Actions</th>
               </tr>
@@ -702,6 +738,19 @@ export const CourseUnitsManager = () => {
                   <td>{unit.order_index}</td>
                   <td>UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}</td>
                   <td>{getSectionName(unit.section_id)}</td>
+                  <td>
+                    {(() => {
+                      const prereqs = [];
+                      if (unit.prerequisite_units && unit.prerequisite_units.length > 0) {
+                        prereqs.push(`Units: ${unit.prerequisite_units.sort((a, b) => a - b).join(", ")}`);
+                      }
+                      if (unit.prerequisite_tests && unit.prerequisite_tests.length > 0) {
+                        const testNames = unit.prerequisite_tests.map(id => getTestName(id)).join(", ");
+                        prereqs.push(`Tests: ${testNames}`);
+                      }
+                      return prereqs.length > 0 ? prereqs.join(" | ") : "None";
+                    })()}
+                  </td>
                   <td>{unit.is_mandatory ? "Yes" : "No"}</td>
                   <td>
                     <div style={{ display: "flex", gap: 8 }}>
@@ -1059,6 +1108,94 @@ export const CourseUnitsManager = () => {
                   </option>
                 ))}
               </select>
+
+              <label className="input-label">Prerequisite Units</label>
+              <div 
+                style={{ 
+                  maxHeight: "200px", 
+                  overflowY: "auto", 
+                  border: "1px solid rgba(255, 255, 255, 0.2)", 
+                  borderRadius: "8px", 
+                  padding: "12px",
+                  backgroundColor: "rgba(255, 255, 255, 0.02)",
+                  marginBottom: "16px"
+                }}
+              >
+                {units.length === 0 || (editingUnit && units.length === 1) ? (
+                  <p style={{ color: "#9ca3b5", margin: 0 }}>No other units available</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {units
+                      .filter(u => !editingUnit || u.unit_number !== editingUnit.unit_number)
+                      .map((unit) => (
+                        <label 
+                          key={unit.id} 
+                          style={{ 
+                            display: "flex", 
+                            alignItems: "center", 
+                            gap: 8,
+                            padding: "8px",
+                            backgroundColor: unitForm.prerequisite_units.includes(unit.unit_number) 
+                              ? "rgba(107, 140, 174, 0.2)" 
+                              : "transparent",
+                            borderRadius: "4px",
+                            cursor: "pointer"
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={unitForm.prerequisite_units.includes(unit.unit_number)}
+                            onChange={() => togglePrerequisiteUnit(unit.unit_number)}
+                          />
+                          <span>Unit {unit.unit_number}: {stripUnitPrefix(unit.title)}</span>
+                        </label>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <label className="input-label">Prerequisite Tests</label>
+              <div 
+                style={{ 
+                  maxHeight: "200px", 
+                  overflowY: "auto", 
+                  border: "1px solid rgba(255, 255, 255, 0.2)", 
+                  borderRadius: "8px", 
+                  padding: "12px",
+                  backgroundColor: "rgba(255, 255, 255, 0.02)",
+                  marginBottom: "16px"
+                }}
+              >
+                {tests.length === 0 ? (
+                  <p style={{ color: "#9ca3b5", margin: 0 }}>No tests available</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {tests.map((test) => (
+                      <label 
+                        key={test.id} 
+                        style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: 8,
+                          padding: "8px",
+                          backgroundColor: unitForm.prerequisite_tests.includes(test.id) 
+                            ? "rgba(107, 140, 174, 0.2)" 
+                            : "transparent",
+                          borderRadius: "4px",
+                          cursor: "pointer"
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={unitForm.prerequisite_tests.includes(test.id)}
+                          onChange={() => togglePrerequisiteTest(test.id)}
+                        />
+                        <span>{test.test_name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
                 <input
