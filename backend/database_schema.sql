@@ -255,6 +255,7 @@ CREATE TABLE public.course_units (
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   pdf_url jsonb,
+  pdf_names jsonb,
   section_id uuid,
   prerequisite_units ARRAY,
   prerequisite_tests ARRAY,

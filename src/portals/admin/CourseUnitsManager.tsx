@@ -1,6 +1,145 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabaseClient } from "../../utility";
+import { DndProvider, useDrag, useDrop } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+
+const PDF_ITEM_TYPE = "PDF_ITEM";
+
+type DraggablePDFItemProps = {
+  index: number;
+  url: string;
+  name: string;
+  onNameChange: (index: number, name: string) => void;
+  onRemove: (index: number) => void;
+  onMove: (dragIndex: number, hoverIndex: number) => void;
+};
+
+const DraggablePDFItem = ({ index, url, name, onNameChange, onRemove, onMove }: DraggablePDFItemProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag, preview] = useDrag({
+    type: PDF_ITEM_TYPE,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver }, drop] = useDrop({
+    accept: PDF_ITEM_TYPE,
+    hover: (item: { index: number }, monitor) => {
+      if (!ref.current) return;
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      if (dragIndex === hoverIndex) return;
+
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+
+      onMove(dragIndex, hoverIndex);
+      item.index = hoverIndex;
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        padding: '12px',
+        backgroundColor: isOver ? 'rgba(107, 140, 174, 0.2)' : 'rgba(107, 140, 174, 0.1)',
+        borderRadius: '8px',
+        border: '1px solid rgba(107, 140, 174, 0.3)',
+        marginBottom: '8px',
+        opacity: isDragging ? 0.5 : 1,
+        cursor: 'grab',
+        transition: 'background-color 0.2s',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+        {/* Drag handle */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            cursor: 'grab',
+            padding: '4px',
+            color: '#9ca3b5',
+          }}
+        >
+          <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
+        </div>
+
+        {/* PDF icon */}
+        <span style={{ fontSize: '24px' }}>📄</span>
+
+        {/* Editable name input */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => onNameChange(index, e.target.value)}
+            className="text-input"
+            style={{
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '14px',
+              marginBottom: '4px',
+            }}
+            placeholder="Enter PDF name"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: '12px',
+              color: '#6b8cae',
+              display: 'block',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            View PDF
+          </a>
+        </div>
+
+        {/* Remove button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(index);
+          }}
+          style={{
+            backgroundColor: 'rgba(220, 38, 38, 0.9)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '6px 12px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 600,
+          }}
+        >
+          Remove
+        </button>
+      </div>
+    </div>
+  );
+};
 
 type CourseSection = {
   id: string;
@@ -31,6 +170,7 @@ type CourseUnit = {
   created_at: string;
   updated_at: string;
   pdf_url: any;
+  pdf_names: string[] | null;
   section_id: string | null;
   prerequisite_units: number[];
   prerequisite_tests: string[];
@@ -78,7 +218,9 @@ export const CourseUnitsManager = () => {
   const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pendingPdfName, setPendingPdfName] = useState<string>("");
   const [currentPdfUrls, setCurrentPdfUrls] = useState<string[]>([]);
+  const [currentPdfNames, setCurrentPdfNames] = useState<string[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const [sectionForm, setSectionForm] = useState({
@@ -293,7 +435,13 @@ export const CourseUnitsManager = () => {
       // Set current PDF URLs if exists (pdf_url is an array)
       const pdfUrls = Array.isArray(unit.pdf_url) ? unit.pdf_url : (unit.pdf_url ? [unit.pdf_url] : []);
       setCurrentPdfUrls(pdfUrls);
+      // Set PDF names - use existing names or generate defaults
+      const pdfNames = Array.isArray(unit.pdf_names) 
+        ? unit.pdf_names 
+        : pdfUrls.map((_, i) => `PDF ${i + 1}`);
+      setCurrentPdfNames(pdfNames);
       setPdfFile(null);
+      setPendingPdfName("");
     } else {
       setEditingUnit(null);
       setUnitForm({
@@ -308,7 +456,9 @@ export const CourseUnitsManager = () => {
         prerequisite_tests: [],
       });
       setCurrentPdfUrls([]);
+      setCurrentPdfNames([]);
       setPdfFile(null);
+      setPendingPdfName("");
     }
     setShowUnitForm(true);
   };
@@ -328,7 +478,9 @@ export const CourseUnitsManager = () => {
       prerequisite_tests: [],
     });
     setPdfFile(null);
+    setPendingPdfName("");
     setCurrentPdfUrls([]);
+    setCurrentPdfNames([]);
     setError(null);
   };
 
@@ -348,17 +500,45 @@ export const CourseUnitsManager = () => {
       }
 
       setPdfFile(file);
+      // Pre-fill the name with filename (without extension)
+      const nameWithoutExt = file.name.replace(/\.pdf$/i, '');
+      setPendingPdfName(nameWithoutExt);
       setError(null);
     }
   };
 
   const removePdf = () => {
     setPdfFile(null);
+    setPendingPdfName("");
   };
 
-  const removeExistingPdf = (urlToRemove: string) => {
-    setCurrentPdfUrls(prev => prev.filter(url => url !== urlToRemove));
+  const removeExistingPdf = (index: number) => {
+    setCurrentPdfUrls(prev => prev.filter((_, i) => i !== index));
+    setCurrentPdfNames(prev => prev.filter((_, i) => i !== index));
   };
+
+  const updatePdfName = (index: number, newName: string) => {
+    setCurrentPdfNames(prev => {
+      const updated = [...prev];
+      updated[index] = newName;
+      return updated;
+    });
+  };
+
+  const movePdf = useCallback((dragIndex: number, hoverIndex: number) => {
+    setCurrentPdfUrls(prev => {
+      const updated = [...prev];
+      const [draggedUrl] = updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedUrl);
+      return updated;
+    });
+    setCurrentPdfNames(prev => {
+      const updated = [...prev];
+      const [draggedName] = updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedName);
+      return updated;
+    });
+  }, []);
 
   const togglePrerequisiteUnit = (unitNumber: number) => {
     setUnitForm(prev => ({
@@ -387,6 +567,7 @@ export const CourseUnitsManager = () => {
 
     try {
       let pdfUrls: string[] = [...currentPdfUrls];
+      let pdfNames: string[] = [...currentPdfNames];
 
       // Upload PDF if provided
       if (pdfFile) {
@@ -410,8 +591,9 @@ export const CourseUnitsManager = () => {
             .from('course-materials')
             .getPublicUrl(filePath);
 
-          // Add the new PDF to the array
+          // Add the new PDF to the arrays
           pdfUrls.push(publicUrlData.publicUrl);
+          pdfNames.push(pendingPdfName || `PDF ${pdfUrls.length}`);
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
           setError(`Failed to upload PDF: ${uploadError.message}`);
@@ -434,6 +616,7 @@ export const CourseUnitsManager = () => {
         is_mandatory: unitForm.is_mandatory,
         section_id: unitForm.section_id || null,
         pdf_url: pdfUrls.length > 0 ? pdfUrls : null,
+        pdf_names: pdfNames.length > 0 ? pdfNames : null,
         prerequisite_units: unitForm.prerequisite_units,
         prerequisite_tests: unitForm.prerequisite_tests,
         updated_at: new Date().toISOString(),
@@ -982,61 +1165,25 @@ export const CourseUnitsManager = () => {
 
               <label className="input-label">Unit PDF Material</label>
               <div style={{ marginBottom: 16 }}>
-                {/* Display existing PDFs */}
+                {/* Display existing PDFs with drag-and-drop */}
                 {currentPdfUrls.length > 0 && (
                   <div style={{ marginBottom: 12 }}>
-                    <p style={{ fontSize: '14px', color: '#9ca3b5', marginBottom: 8 }}>Current PDFs:</p>
-                    {currentPdfUrls.map((pdfUrl, index) => (
-                      <div 
-                        key={index}
-                        style={{ 
-                          padding: '12px', 
-                          backgroundColor: 'rgba(107, 140, 174, 0.1)', 
-                          borderRadius: '8px',
-                          border: '1px solid rgba(107, 140, 174, 0.3)',
-                          marginBottom: '8px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                            <span style={{ fontSize: '24px' }}>📄</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>PDF {index + 1}</p>
-                              <a 
-                                href={pdfUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                style={{ 
-                                  fontSize: '12px', 
-                                  color: '#6b8cae',
-                                  wordBreak: 'break-all',
-                                  display: 'block'
-                                }}
-                              >
-                                View PDF
-                              </a>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeExistingPdf(pdfUrl)}
-                            style={{
-                              backgroundColor: 'rgba(220, 38, 38, 0.9)',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              padding: '6px 12px',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              marginLeft: '8px'
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                    <p style={{ fontSize: '14px', color: '#9ca3b5', marginBottom: 8 }}>
+                      Current PDFs (drag to reorder):
+                    </p>
+                    <DndProvider backend={HTML5Backend}>
+                      {currentPdfUrls.map((pdfUrl, index) => (
+                        <DraggablePDFItem
+                          key={`${pdfUrl}-${index}`}
+                          index={index}
+                          url={pdfUrl}
+                          name={currentPdfNames[index] || `PDF ${index + 1}`}
+                          onNameChange={updatePdfName}
+                          onRemove={removeExistingPdf}
+                          onMove={movePdf}
+                        />
+                      ))}
+                    </DndProvider>
                   </div>
                 )}
 
@@ -1048,32 +1195,47 @@ export const CourseUnitsManager = () => {
                     borderRadius: '8px',
                     border: '1px solid rgba(107, 140, 174, 0.3)'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '24px' }}>📄</span>
-                        <div>
-                          <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>{pdfFile.name}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: '#9ca3b5' }}>
-                            {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '24px' }}>📄</span>
+                          <div>
+                            <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>{pdfFile.name}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#9ca3b5' }}>
+                              {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={removePdf}
+                          style={{
+                            backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '6px 12px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600
+                          }}
+                        >
+                          Remove
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setPdfFile(null)}
-                        style={{
-                          backgroundColor: 'rgba(220, 38, 38, 0.9)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '6px 12px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 600
-                        }}
-                      >
-                        Remove
-                      </button>
+                      <div>
+                        <label style={{ fontSize: '12px', color: '#9ca3b5', display: 'block', marginBottom: '4px' }}>
+                          Display Name:
+                        </label>
+                        <input
+                          type="text"
+                          value={pendingPdfName}
+                          onChange={(e) => setPendingPdfName(e.target.value)}
+                          className="text-input"
+                          style={{ width: '100%', padding: '8px 12px' }}
+                          placeholder="Enter a name for this PDF"
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (
