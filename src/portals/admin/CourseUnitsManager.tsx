@@ -240,9 +240,11 @@ type DraggableUnitItemProps = {
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
   stripUnitPrefix: (title: string) => string;
+  isFirstInSection: boolean;
+  sectionColor: string;
 };
 
-const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit, onDelete, onMove, stripUnitPrefix }: DraggableUnitItemProps) => {
+const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit, onDelete, onMove, stripUnitPrefix, isFirstInSection, sectionColor }: DraggableUnitItemProps) => {
   const ref = useRef<HTMLTableRowElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -285,8 +287,9 @@ const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit
       ref={ref}
       style={{
         opacity: isDragging ? 0.5 : 1,
-        backgroundColor: isOver ? 'rgba(107, 140, 174, 0.15)' : 'transparent',
+        backgroundColor: isOver ? 'rgba(107, 140, 174, 0.15)' : sectionColor,
         cursor: 'grab',
+        borderTop: isFirstInSection && index > 0 ? '2px solid rgba(107, 140, 174, 0.4)' : undefined,
       }}
     >
       <td>
@@ -1249,7 +1252,7 @@ export const CourseUnitsManager = () => {
       </div>
 
       {/* Units Section */}
-      <div>
+      <div style={{ marginBottom: 40 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h2 style={{ margin: 0 }}>Units</h2>
           <button className="primary-btn" onClick={() => openUnitForm()}>
@@ -1284,6 +1287,15 @@ export const CourseUnitsManager = () => {
                   }
                   const prerequisitesText = prereqs.length > 0 ? prereqs.join(" | ") : "None";
                   
+                  // Check if this is the first unit in a new section
+                  const isFirstInSection = index === 0 || units[index - 1].section_id !== unit.section_id;
+                  
+                  // Assign alternating colors to different sections
+                  const sectionIndex = sections.findIndex(s => s.id === unit.section_id);
+                  const sectionColor = sectionIndex % 2 === 0 
+                    ? 'rgba(107, 140, 174, 0.05)' 
+                    : 'rgba(107, 140, 174, 0.02)';
+                  
                   return (
                     <DraggableUnitItem
                       key={unit.id}
@@ -1295,6 +1307,8 @@ export const CourseUnitsManager = () => {
                       onDelete={() => handleDeleteUnit(unit.id)}
                       onMove={moveUnit}
                       stripUnitPrefix={stripUnitPrefix}
+                      isFirstInSection={isFirstInSection}
+                      sectionColor={sectionColor}
                     />
                   );
                 })}
