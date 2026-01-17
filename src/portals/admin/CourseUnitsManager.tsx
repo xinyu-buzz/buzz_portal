@@ -78,7 +78,7 @@ export const CourseUnitsManager = () => {
   const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [currentPdfUrl, setCurrentPdfUrl] = useState<string | null>(null);
+  const [currentPdfUrls, setCurrentPdfUrls] = useState<string[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const [sectionForm, setSectionForm] = useState({
@@ -290,8 +290,9 @@ export const CourseUnitsManager = () => {
         prerequisite_units: unit.prerequisite_units || [],
         prerequisite_tests: unit.prerequisite_tests || [],
       });
-      // Set current PDF URL if exists
-      setCurrentPdfUrl(unit.pdf_url || null);
+      // Set current PDF URLs if exists (pdf_url is an array)
+      const pdfUrls = Array.isArray(unit.pdf_url) ? unit.pdf_url : (unit.pdf_url ? [unit.pdf_url] : []);
+      setCurrentPdfUrls(pdfUrls);
       setPdfFile(null);
     } else {
       setEditingUnit(null);
@@ -306,7 +307,7 @@ export const CourseUnitsManager = () => {
         prerequisite_units: [],
         prerequisite_tests: [],
       });
-      setCurrentPdfUrl(null);
+      setCurrentPdfUrls([]);
       setPdfFile(null);
     }
     setShowUnitForm(true);
@@ -327,7 +328,7 @@ export const CourseUnitsManager = () => {
       prerequisite_tests: [],
     });
     setPdfFile(null);
-    setCurrentPdfUrl(null);
+    setCurrentPdfUrls([]);
     setError(null);
   };
 
@@ -353,7 +354,10 @@ export const CourseUnitsManager = () => {
 
   const removePdf = () => {
     setPdfFile(null);
-    setCurrentPdfUrl(null);
+  };
+
+  const removeExistingPdf = (urlToRemove: string) => {
+    setCurrentPdfUrls(prev => prev.filter(url => url !== urlToRemove));
   };
 
   const togglePrerequisiteUnit = (unitNumber: number) => {
@@ -382,7 +386,7 @@ export const CourseUnitsManager = () => {
     setError(null);
 
     try {
-      let pdfUrl: string | null = currentPdfUrl;
+      let pdfUrls: string[] = [...currentPdfUrls];
 
       // Upload PDF if provided
       if (pdfFile) {
@@ -406,7 +410,8 @@ export const CourseUnitsManager = () => {
             .from('course-materials')
             .getPublicUrl(filePath);
 
-          pdfUrl = publicUrlData.publicUrl;
+          // Add the new PDF to the array
+          pdfUrls.push(publicUrlData.publicUrl);
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
           setError(`Failed to upload PDF: ${uploadError.message}`);
@@ -428,7 +433,7 @@ export const CourseUnitsManager = () => {
         order_index: unitForm.order_index,
         is_mandatory: unitForm.is_mandatory,
         section_id: unitForm.section_id || null,
-        pdf_url: pdfUrl,
+        pdf_url: pdfUrls.length > 0 ? pdfUrls : null,
         prerequisite_units: unitForm.prerequisite_units,
         prerequisite_tests: unitForm.prerequisite_tests,
         updated_at: new Date().toISOString(),
@@ -977,47 +982,66 @@ export const CourseUnitsManager = () => {
 
               <label className="input-label">Unit PDF Material</label>
               <div style={{ marginBottom: 16 }}>
-                {currentPdfUrl && !pdfFile ? (
-                  <div style={{ 
-                    padding: '12px', 
-                    backgroundColor: 'rgba(107, 140, 174, 0.1)', 
-                    borderRadius: '8px',
-                    border: '1px solid rgba(107, 140, 174, 0.3)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '24px' }}>📄</span>
-                        <div>
-                          <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>Current PDF</p>
-                          <a 
-                            href={currentPdfUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            style={{ fontSize: '12px', color: '#6b8cae' }}
-                          >
-                            View PDF
-                          </a>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={removePdf}
-                        style={{
-                          backgroundColor: 'rgba(220, 38, 38, 0.9)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '6px 12px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 600
+                {/* Display existing PDFs */}
+                {currentPdfUrls.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ fontSize: '14px', color: '#9ca3b5', marginBottom: 8 }}>Current PDFs:</p>
+                    {currentPdfUrls.map((pdfUrl, index) => (
+                      <div 
+                        key={index}
+                        style={{ 
+                          padding: '12px', 
+                          backgroundColor: 'rgba(107, 140, 174, 0.1)', 
+                          borderRadius: '8px',
+                          border: '1px solid rgba(107, 140, 174, 0.3)',
+                          marginBottom: '8px'
                         }}
                       >
-                        Remove
-                      </button>
-                    </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <span style={{ fontSize: '24px' }}>📄</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>PDF {index + 1}</p>
+                              <a 
+                                href={pdfUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ 
+                                  fontSize: '12px', 
+                                  color: '#6b8cae',
+                                  wordBreak: 'break-all',
+                                  display: 'block'
+                                }}
+                              >
+                                View PDF
+                              </a>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeExistingPdf(pdfUrl)}
+                            style={{
+                              backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '6px 12px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              marginLeft: '8px'
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : pdfFile ? (
+                )}
+
+                {/* New PDF upload */}
+                {pdfFile ? (
                   <div style={{ 
                     padding: '12px', 
                     backgroundColor: 'rgba(107, 140, 174, 0.1)', 
