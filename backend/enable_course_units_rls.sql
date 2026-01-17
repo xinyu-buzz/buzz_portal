@@ -134,3 +134,70 @@ USING (
 GRANT SELECT ON public.course_units TO anon;
 GRANT SELECT ON public.course_units TO authenticated;
 GRANT ALL ON public.course_units TO authenticated;
+
+-- Enable RLS on course_tests
+ALTER TABLE public.course_tests ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Allow public read access to course_tests" ON public.course_tests;
+DROP POLICY IF EXISTS "Allow admins to insert course_tests" ON public.course_tests;
+DROP POLICY IF EXISTS "Allow admins to update course_tests" ON public.course_tests;
+DROP POLICY IF EXISTS "Allow admins to delete course_tests" ON public.course_tests;
+
+-- Policy 1: Allow everyone to read course tests
+CREATE POLICY "Allow public read access to course_tests"
+ON public.course_tests
+FOR SELECT
+TO public
+USING (true);
+
+-- Policy 2: Allow authenticated admins/owners to INSERT
+CREATE POLICY "Allow admins to insert course_tests"
+ON public.course_tests
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.employee_profiles
+    WHERE email = (SELECT auth.jwt() ->> 'email')
+    AND role IN ('admin', 'owner')
+  )
+);
+
+-- Policy 3: Allow authenticated admins/owners to UPDATE
+CREATE POLICY "Allow admins to update course_tests"
+ON public.course_tests
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.employee_profiles
+    WHERE email = (SELECT auth.jwt() ->> 'email')
+    AND role IN ('admin', 'owner')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.employee_profiles
+    WHERE email = (SELECT auth.jwt() ->> 'email')
+    AND role IN ('admin', 'owner')
+  )
+);
+
+-- Policy 4: Allow authenticated admins/owners to DELETE
+CREATE POLICY "Allow admins to delete course_tests"
+ON public.course_tests
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.employee_profiles
+    WHERE email = (SELECT auth.jwt() ->> 'email')
+    AND role IN ('admin', 'owner')
+  )
+);
+
+-- Grant necessary permissions for course_tests
+GRANT SELECT ON public.course_tests TO anon;
+GRANT SELECT ON public.course_tests TO authenticated;
+GRANT ALL ON public.course_tests TO authenticated;

@@ -40,18 +40,39 @@ type TrainingCourse = {
   provider: string;
 };
 
+type CourseTest = {
+  id: string;
+  course_id: string;
+  test_name: string;
+  test_description: string | null;
+  test_type: "multiple_choice" | "practical" | "written" | "oral";
+  passing_score: number;
+  required_for_progression: boolean;
+  required_units: number[];
+  order_index: number;
+  questions: any;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+const TEST_TYPES = ["multiple_choice", "practical", "written", "oral"] as const;
+
 export const CourseUnitsManager = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const [course, setCourse] = useState<TrainingCourse | null>(null);
   const [sections, setSections] = useState<CourseSection[]>([]);
   const [units, setUnits] = useState<CourseUnit[]>([]);
+  const [tests, setTests] = useState<CourseTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSectionForm, setShowSectionForm] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
+  const [showTestForm, setShowTestForm] = useState(false);
   const [editingSection, setEditingSection] = useState<CourseSection | null>(null);
   const [editingUnit, setEditingUnit] = useState<CourseUnit | null>(null);
+  const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [sectionForm, setSectionForm] = useState({
@@ -68,6 +89,17 @@ export const CourseUnitsManager = () => {
     order_index: 0,
     is_mandatory: false,
     section_id: "",
+  });
+
+  const [testForm, setTestForm] = useState({
+    test_name: "",
+    test_description: "",
+    test_type: "multiple_choice" as const,
+    passing_score: 70,
+    required_for_progression: true,
+    required_units: [] as number[],
+    order_index: 0,
+    is_active: true,
   });
 
   useEffect(() => {
@@ -118,6 +150,16 @@ export const CourseUnitsManager = () => {
 
       if (unitsError) throw unitsError;
       setUnits(unitsData || []);
+
+      // Load tests
+      const { data: testsData, error: testsError } = await supabaseClient
+        .from("course_tests")
+        .select("*")
+        .eq("course_id", courseId)
+        .order("order_index", { ascending: true });
+
+      if (testsError) throw testsError;
+      setTests(testsData || []);
     } catch (err: any) {
       console.error("Error loading data:", err);
       setError(err.message);
@@ -219,12 +261,17 @@ export const CourseUnitsManager = () => {
     }
   };
 
+  // Helper to strip "UNIT X - " prefix from title if present
+  const stripUnitPrefix = (title: string): string => {
+    return title.replace(/^UNIT\s*\d+\s*-\s*/i, "");
+  };
+
   // Unit handlers
   const openUnitForm = (unit?: CourseUnit) => {
     if (unit) {
       setEditingUnit(unit);
       setUnitForm({
-        title: unit.title,
+        title: stripUnitPrefix(unit.title),
         description: unit.description || "",
         content: unit.content || "",
         unit_number: unit.unit_number,
@@ -270,8 +317,11 @@ export const CourseUnitsManager = () => {
     setError(null);
 
     try {
+      // Prepend "UNIT X - " to the title for database storage
+      const fullTitle = `UNIT ${unitForm.unit_number} - ${unitForm.title}`;
+      
       const payload: any = {
-        title: unitForm.title,
+        title: fullTitle,
         description: unitForm.description,
         content: unitForm.content,
         unit_number: unitForm.unit_number,
@@ -332,6 +382,126 @@ export const CourseUnitsManager = () => {
     return section?.name || "Unknown";
   };
 
+  // Test handlers
+  const openTestForm = (test?: CourseTest) => {
+    if (test) {
+      setEditingTest(test);
+      setTestForm({
+        test_name: test.test_name,
+        test_description: test.test_description || "",
+        test_type: test.test_type,
+        passing_score: test.passing_score,
+        required_for_progression: test.required_for_progression,
+        required_units: test.required_units || [],
+        order_index: test.order_index,
+        is_active: test.is_active,
+      });
+    } else {
+      setEditingTest(null);
+      setTestForm({
+        test_name: "",
+        test_description: "",
+        test_type: "multiple_choice",
+        passing_score: 70,
+        required_for_progression: true,
+        required_units: [],
+        order_index: tests.length + 1,
+        is_active: true,
+      });
+    }
+    setShowTestForm(true);
+  };
+
+  const closeTestForm = () => {
+    setShowTestForm(false);
+    setEditingTest(null);
+    setTestForm({
+      test_name: "",
+      test_description: "",
+      test_type: "multiple_choice",
+      passing_score: 70,
+      required_for_progression: true,
+      required_units: [],
+      order_index: 0,
+      is_active: true,
+    });
+    setError(null);
+  };
+
+  const handleTestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!courseId) return;
+    
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const payload: any = {
+        test_name: testForm.test_name,
+        test_description: testForm.test_description,
+        test_type: testForm.test_type,
+        passing_score: testForm.passing_score,
+        required_for_progression: testForm.required_for_progression,
+        required_units: testForm.required_units,
+        order_index: testForm.order_index,
+        is_active: testForm.is_active,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (editingTest) {
+        // Update
+        const { error: updateError } = await supabaseClient
+          .from("course_tests")
+          .update(payload)
+          .eq("id", editingTest.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Create
+        payload.course_id = courseId;
+        const { error: insertError } = await supabaseClient
+          .from("course_tests")
+          .insert(payload);
+
+        if (insertError) throw insertError;
+      }
+
+      closeTestForm();
+      await loadData();
+    } catch (err: any) {
+      console.error("Error saving test:", err);
+      setError(err.message);
+    }
+
+    setSubmitting(false);
+  };
+
+  const handleDeleteTest = async (testId: string) => {
+    if (!confirm("Are you sure you want to delete this test?")) return;
+
+    try {
+      const { error: deleteError } = await supabaseClient
+        .from("course_tests")
+        .delete()
+        .eq("id", testId);
+
+      if (deleteError) throw deleteError;
+      await loadData();
+    } catch (err: any) {
+      console.error("Error deleting test:", err);
+      setError(err.message);
+    }
+  };
+
+  const toggleUnitSelection = (unitNumber: number) => {
+    setTestForm(prev => ({
+      ...prev,
+      required_units: prev.required_units.includes(unitNumber)
+        ? prev.required_units.filter(u => u !== unitNumber)
+        : [...prev.required_units, unitNumber].sort((a, b) => a - b)
+    }));
+  };
+
   if (loading) {
     return (
       <div className="page-card">
@@ -367,7 +537,7 @@ export const CourseUnitsManager = () => {
         </div>
       </div>
 
-      {error && !showSectionForm && !showUnitForm && (
+      {error && !showSectionForm && !showUnitForm && !showTestForm && (
         <div className="alert error" style={{ marginBottom: 16 }}>
           {error}
         </div>
@@ -443,7 +613,6 @@ export const CourseUnitsManager = () => {
             <thead>
               <tr>
                 <th>Order</th>
-                <th>Unit #</th>
                 <th>Title</th>
                 <th>Section</th>
                 <th>Mandatory</th>
@@ -454,8 +623,7 @@ export const CourseUnitsManager = () => {
               {units.map((unit) => (
                 <tr key={unit.id}>
                   <td>{unit.order_index}</td>
-                  <td>{unit.unit_number}</td>
-                  <td>{unit.title}</td>
+                  <td>UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}</td>
                   <td>{getSectionName(unit.section_id)}</td>
                   <td>{unit.is_mandatory ? "Yes" : "No"}</td>
                   <td>
@@ -471,6 +639,72 @@ export const CourseUnitsManager = () => {
                         className="ghost-btn"
                         style={{ padding: "6px 10px", fontSize: 12 }}
                         onClick={() => handleDeleteUnit(unit.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Tests Section */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>Tests</h2>
+          <button className="primary-btn" onClick={() => openTestForm()}>
+            + New Test
+          </button>
+        </div>
+
+        {tests.length === 0 ? (
+          <p style={{ color: "#9ca3b5" }}>No tests yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Test Name</th>
+                <th>Type</th>
+                <th>Passing Score</th>
+                <th>Required Units</th>
+                <th>Required</th>
+                <th>Active</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tests.map((test) => (
+                <tr key={test.id}>
+                  <td>{test.order_index}</td>
+                  <td>{test.test_name}</td>
+                  <td style={{ textTransform: "capitalize" }}>
+                    {test.test_type.replace("_", " ")}
+                  </td>
+                  <td>{test.passing_score}%</td>
+                  <td>
+                    {test.required_units && test.required_units.length > 0
+                      ? test.required_units.sort((a, b) => a - b).join(", ")
+                      : "None"}
+                  </td>
+                  <td>{test.required_for_progression ? "Yes" : "No"}</td>
+                  <td>{test.is_active ? "Yes" : "No"}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        className="primary-btn"
+                        style={{ padding: "6px 10px", fontSize: 12 }}
+                        onClick={() => openTestForm(test)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="ghost-btn"
+                        style={{ padding: "6px 10px", fontSize: 12 }}
+                        onClick={() => handleDeleteTest(test.id)}
                       >
                         Delete
                       </button>
@@ -575,15 +809,33 @@ export const CourseUnitsManager = () => {
             <form className="modal-form" onSubmit={handleUnitSubmit}>
               {error && <div className="alert error">{error}</div>}
 
-              <label className="input-label">Title *</label>
-              <input
-                name="title"
-                value={unitForm.title}
-                onChange={(e) => setUnitForm({ ...unitForm, title: e.target.value })}
-                className="text-input"
-                placeholder="Unit title"
-                required
-              />
+              <label className="input-label">Unit Number & Title *</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+                  <span style={{ color: "#9ca3b5", fontWeight: 500 }}>UNIT</span>
+                  <input
+                    name="unit_number"
+                    type="number"
+                    value={unitForm.unit_number}
+                    onChange={(e) => setUnitForm({ ...unitForm, unit_number: parseInt(e.target.value) || 0 })}
+                    className="text-input"
+                    placeholder="1"
+                    min="1"
+                    style={{ width: "80px" }}
+                    required
+                  />
+                  <span style={{ color: "#9ca3b5", fontWeight: 500 }}>-</span>
+                </div>
+                <input
+                  name="title"
+                  value={unitForm.title}
+                  onChange={(e) => setUnitForm({ ...unitForm, title: e.target.value })}
+                  className="text-input"
+                  placeholder="Unit title"
+                  style={{ flex: 1 }}
+                  required
+                />
+              </div>
 
               <label className="input-label">Description</label>
               <textarea
@@ -605,34 +857,17 @@ export const CourseUnitsManager = () => {
                 placeholder="Unit content"
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div>
-                  <label className="input-label">Unit Number *</label>
-                  <input
-                    name="unit_number"
-                    type="number"
-                    value={unitForm.unit_number}
-                    onChange={(e) => setUnitForm({ ...unitForm, unit_number: parseInt(e.target.value) })}
-                    className="text-input"
-                    placeholder="1"
-                    min="1"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="input-label">Order Index *</label>
-                  <input
-                    name="order_index"
-                    type="number"
-                    value={unitForm.order_index}
-                    onChange={(e) => setUnitForm({ ...unitForm, order_index: parseInt(e.target.value) })}
-                    className="text-input"
-                    placeholder="1"
-                    min="1"
-                    required
-                  />
-                </div>
-              </div>
+              <label className="input-label">Order Index *</label>
+              <input
+                name="order_index"
+                type="number"
+                value={unitForm.order_index}
+                onChange={(e) => setUnitForm({ ...unitForm, order_index: parseInt(e.target.value) })}
+                className="text-input"
+                placeholder="1"
+                min="1"
+                required
+              />
 
               <label className="input-label">Section</label>
               <select
@@ -667,6 +902,174 @@ export const CourseUnitsManager = () => {
                   type="button"
                   className="ghost-btn"
                   onClick={closeUnitForm}
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Test Form Modal */}
+      {showTestForm && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: 700 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>
+                {editingTest ? "Edit Test" : "Create Test"}
+              </h3>
+              <button className="ghost-btn" onClick={closeTestForm}>
+                Close
+              </button>
+            </div>
+            <form className="modal-form" onSubmit={handleTestSubmit}>
+              {error && <div className="alert error">{error}</div>}
+
+              <label className="input-label">Test Name *</label>
+              <input
+                name="test_name"
+                value={testForm.test_name}
+                onChange={(e) => setTestForm({ ...testForm, test_name: e.target.value })}
+                className="text-input"
+                placeholder="Test name"
+                required
+              />
+
+              <label className="input-label">Description</label>
+              <textarea
+                name="test_description"
+                value={testForm.test_description}
+                onChange={(e) => setTestForm({ ...testForm, test_description: e.target.value })}
+                className="text-input"
+                rows={3}
+                placeholder="Optional description"
+              />
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label className="input-label">Test Type *</label>
+                  <select
+                    name="test_type"
+                    value={testForm.test_type}
+                    onChange={(e) => setTestForm({ ...testForm, test_type: e.target.value as any })}
+                    className="text-input"
+                    required
+                  >
+                    {TEST_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="input-label">Passing Score *</label>
+                  <input
+                    name="passing_score"
+                    type="number"
+                    value={testForm.passing_score}
+                    onChange={(e) => setTestForm({ ...testForm, passing_score: parseInt(e.target.value) })}
+                    className="text-input"
+                    placeholder="70"
+                    min="0"
+                    max="100"
+                    required
+                  />
+                </div>
+              </div>
+
+              <label className="input-label">Order Index *</label>
+              <input
+                name="order_index"
+                type="number"
+                value={testForm.order_index}
+                onChange={(e) => setTestForm({ ...testForm, order_index: parseInt(e.target.value) })}
+                className="text-input"
+                placeholder="1"
+                min="1"
+                required
+              />
+
+              <label className="input-label">Required Units</label>
+              <div 
+                style={{ 
+                  maxHeight: "200px", 
+                  overflowY: "auto", 
+                  border: "1px solid rgba(255, 255, 255, 0.2)", 
+                  borderRadius: "8px", 
+                  padding: "12px",
+                  backgroundColor: "rgba(255, 255, 255, 0.02)"
+                }}
+              >
+                {units.length === 0 ? (
+                  <p style={{ color: "#9ca3b5", margin: 0 }}>No units available</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {units.map((unit) => (
+                      <label 
+                        key={unit.id} 
+                        style={{ 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: 8,
+                          padding: "8px",
+                          backgroundColor: testForm.required_units.includes(unit.unit_number) 
+                            ? "rgba(107, 140, 174, 0.2)" 
+                            : "transparent",
+                          borderRadius: "4px",
+                          cursor: "pointer"
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={testForm.required_units.includes(unit.unit_number)}
+                          onChange={() => toggleUnitSelection(unit.unit_number)}
+                        />
+                        <span>Unit {unit.unit_number}: {unit.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    name="required_for_progression"
+                    checked={testForm.required_for_progression}
+                    onChange={(e) => setTestForm({ ...testForm, required_for_progression: e.target.checked })}
+                  />
+                  <span>Required for progression</span>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={testForm.is_active}
+                    onChange={(e) => setTestForm({ ...testForm, is_active: e.target.checked })}
+                  />
+                  <span>Active test</span>
+                </label>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                <button type="submit" className="primary-btn" disabled={submitting}>
+                  {submitting ? "Saving..." : editingTest ? "Update Test" : "Create Test"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={closeTestForm}
                   disabled={submitting}
                 >
                   Cancel
