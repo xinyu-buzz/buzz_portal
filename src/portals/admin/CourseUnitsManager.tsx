@@ -74,6 +74,9 @@ export const CourseUnitsManager = () => {
   const [editingUnit, setEditingUnit] = useState<CourseUnit | null>(null);
   const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [currentPdfUrl, setCurrentPdfUrl] = useState<string | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const [sectionForm, setSectionForm] = useState({
     name: "",
@@ -94,7 +97,7 @@ export const CourseUnitsManager = () => {
   const [testForm, setTestForm] = useState({
     test_name: "",
     test_description: "",
-    test_type: "multiple_choice" as const,
+    test_type: "multiple_choice" as "multiple_choice" | "practical" | "written" | "oral",
     passing_score: 70,
     required_for_progression: true,
     required_units: [] as number[],
@@ -279,6 +282,9 @@ export const CourseUnitsManager = () => {
         is_mandatory: unit.is_mandatory,
         section_id: unit.section_id || "",
       });
+      // Set current PDF URL if exists
+      setCurrentPdfUrl(unit.pdf_url || null);
+      setPdfFile(null);
     } else {
       setEditingUnit(null);
       setUnitForm({
@@ -290,6 +296,8 @@ export const CourseUnitsManager = () => {
         is_mandatory: false,
         section_id: "",
       });
+      setCurrentPdfUrl(null);
+      setPdfFile(null);
     }
     setShowUnitForm(true);
   };
@@ -306,7 +314,34 @@ export const CourseUnitsManager = () => {
       is_mandatory: false,
       section_id: "",
     });
+    setPdfFile(null);
+    setCurrentPdfUrl(null);
     setError(null);
+  };
+
+  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (file.type !== 'application/pdf') {
+        setError('Please select a valid PDF file');
+        return;
+      }
+      
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('PDF size must be less than 10MB');
+        return;
+      }
+
+      setPdfFile(file);
+      setError(null);
+    }
+  };
+
+  const removePdf = () => {
+    setPdfFile(null);
+    setCurrentPdfUrl(null);
   };
 
   const handleUnitSubmit = async (e: React.FormEvent) => {
@@ -317,6 +352,41 @@ export const CourseUnitsManager = () => {
     setError(null);
 
     try {
+      let pdfUrl: string | null = currentPdfUrl;
+
+      // Upload PDF if provided
+      if (pdfFile) {
+        setUploadingPdf(true);
+        try {
+          const fileExt = pdfFile.name.split('.').pop();
+          const fileName = `unit-${unitForm.unit_number}-${Date.now()}.${fileExt}`;
+          const filePath = `${fileName}`;
+
+          const { error: uploadError } = await supabaseClient.storage
+            .from('course-materials')
+            .upload(filePath, pdfFile, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Get public URL
+          const { data: publicUrlData } = supabaseClient.storage
+            .from('course-materials')
+            .getPublicUrl(filePath);
+
+          pdfUrl = publicUrlData.publicUrl;
+        } catch (uploadError: any) {
+          console.error('Upload error:', uploadError);
+          setError(`Failed to upload PDF: ${uploadError.message}`);
+          setSubmitting(false);
+          setUploadingPdf(false);
+          return;
+        }
+        setUploadingPdf(false);
+      }
+
       // Prepend "UNIT X - " to the title for database storage
       const fullTitle = `UNIT ${unitForm.unit_number} - ${unitForm.title}`;
       
@@ -328,6 +398,7 @@ export const CourseUnitsManager = () => {
         order_index: unitForm.order_index,
         is_mandatory: unitForm.is_mandatory,
         section_id: unitForm.section_id || null,
+        pdf_url: pdfUrl,
         updated_at: new Date().toISOString(),
       };
 
@@ -532,7 +603,7 @@ export const CourseUnitsManager = () => {
           >
             ← Back to Courses
           </button>
-          <h1>Course Units & Sections</h1>
+          <h1>Course Manager</h1>
           <p style={{ color: "#9ca3b5", marginTop: 8 }}>{course.title}</p>
         </div>
       </div>
@@ -847,15 +918,112 @@ export const CourseUnitsManager = () => {
                 placeholder="Optional description"
               />
 
-              <label className="input-label">Content</label>
-              <textarea
-                name="content"
-                value={unitForm.content}
-                onChange={(e) => setUnitForm({ ...unitForm, content: e.target.value })}
-                className="text-input"
-                rows={6}
-                placeholder="Unit content"
-              />
+              <label className="input-label">Unit PDF Material</label>
+              <div style={{ marginBottom: 16 }}>
+                {currentPdfUrl && !pdfFile ? (
+                  <div style={{ 
+                    padding: '12px', 
+                    backgroundColor: 'rgba(107, 140, 174, 0.1)', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(107, 140, 174, 0.3)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '24px' }}>📄</span>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>Current PDF</p>
+                          <a 
+                            href={currentPdfUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '12px', color: '#6b8cae' }}
+                          >
+                            View PDF
+                          </a>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removePdf}
+                        style={{
+                          backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 600
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : pdfFile ? (
+                  <div style={{ 
+                    padding: '12px', 
+                    backgroundColor: 'rgba(107, 140, 174, 0.1)', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(107, 140, 174, 0.3)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '24px' }}>📄</span>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>{pdfFile.name}</p>
+                          <p style={{ margin: 0, fontSize: '12px', color: '#9ca3b5' }}>
+                            {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPdfFile(null)}
+                        style={{
+                          backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 12px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 600
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      border: '2px dashed rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      padding: '32px',
+                      textAlign: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => document.getElementById('pdf-upload-input')?.click()}
+                  >
+                    <div style={{ fontSize: '48px', marginBottom: '8px' }}>📄</div>
+                    <p style={{ color: '#9ca3b5', margin: 0 }}>
+                      Click to upload PDF material
+                    </p>
+                    <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
+                      PDF only (max 10MB)
+                    </p>
+                  </div>
+                )}
+                <input
+                  id="pdf-upload-input"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handlePdfFileChange}
+                  style={{ display: 'none' }}
+                />
+              </div>
 
               <label className="input-label">Order Index *</label>
               <input
@@ -895,14 +1063,20 @@ export const CourseUnitsManager = () => {
               </label>
 
               <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-                <button type="submit" className="primary-btn" disabled={submitting}>
-                  {submitting ? "Saving..." : editingUnit ? "Update Unit" : "Create Unit"}
+                <button type="submit" className="primary-btn" disabled={submitting || uploadingPdf}>
+                  {uploadingPdf
+                    ? "Uploading PDF..."
+                    : submitting
+                    ? "Saving..."
+                    : editingUnit
+                    ? "Update Unit"
+                    : "Create Unit"}
                 </button>
                 <button
                   type="button"
                   className="ghost-btn"
                   onClick={closeUnitForm}
-                  disabled={submitting}
+                  disabled={submitting || uploadingPdf}
                 >
                   Cancel
                 </button>
