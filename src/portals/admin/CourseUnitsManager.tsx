@@ -52,6 +52,7 @@ type CourseTest = {
   order_index: number;
   questions: any;
   is_active: boolean;
+  section_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -103,6 +104,7 @@ export const CourseUnitsManager = () => {
     required_units: [] as number[],
     order_index: 0,
     is_active: true,
+    section_id: "",
   });
 
   useEffect(() => {
@@ -466,6 +468,7 @@ export const CourseUnitsManager = () => {
         required_units: test.required_units || [],
         order_index: test.order_index,
         is_active: test.is_active,
+        section_id: test.section_id || "",
       });
     } else {
       setEditingTest(null);
@@ -478,6 +481,7 @@ export const CourseUnitsManager = () => {
         required_units: [],
         order_index: tests.length + 1,
         is_active: true,
+        section_id: "",
       });
     }
     setShowTestForm(true);
@@ -495,6 +499,7 @@ export const CourseUnitsManager = () => {
       required_units: [],
       order_index: 0,
       is_active: true,
+      section_id: "",
     });
     setError(null);
   };
@@ -516,6 +521,7 @@ export const CourseUnitsManager = () => {
         required_units: testForm.required_units,
         order_index: testForm.order_index,
         is_active: testForm.is_active,
+        section_id: testForm.section_id || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -741,6 +747,7 @@ export const CourseUnitsManager = () => {
                 <th>Test Name</th>
                 <th>Type</th>
                 <th>Passing Score</th>
+                <th>Section</th>
                 <th>Required Units</th>
                 <th>Required</th>
                 <th>Active</th>
@@ -756,6 +763,7 @@ export const CourseUnitsManager = () => {
                     {test.test_type.replace("_", " ")}
                   </td>
                   <td>{test.passing_score}%</td>
+                  <td>{getSectionName(test.section_id)}</td>
                   <td>
                     {test.required_units && test.required_units.length > 0
                       ? test.required_units.sort((a, b) => a - b).join(", ")
@@ -1171,6 +1179,21 @@ export const CourseUnitsManager = () => {
                 min="1"
                 required
               />
+
+              <label className="input-label">Section</label>
+              <select
+                name="section_id"
+                value={testForm.section_id}
+                onChange={(e) => setTestForm({ ...testForm, section_id: e.target.value })}
+                className="text-input"
+              >
+                <option value="">No section (Unassigned)</option>
+                {sections.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.name}
+                  </option>
+                ))}
+              </select>
 
               <label className="input-label">Required Units</label>
               <div 
