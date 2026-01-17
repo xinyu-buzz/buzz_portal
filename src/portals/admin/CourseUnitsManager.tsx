@@ -5,6 +5,9 @@ import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
 const PDF_ITEM_TYPE = "PDF_ITEM";
+const SECTION_ITEM_TYPE = "SECTION_ITEM";
+const UNIT_ITEM_TYPE = "UNIT_ITEM";
+const TEST_ITEM_TYPE = "TEST_ITEM";
 
 type DraggablePDFItemProps = {
   index: number;
@@ -138,6 +141,280 @@ const DraggablePDFItem = ({ index, url, name, onNameChange, onRemove, onMove }: 
         </button>
       </div>
     </div>
+  );
+};
+
+type DraggableSectionItemProps = {
+  section: CourseSection;
+  index: number;
+  unitsCount: number;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMove: (dragIndex: number, hoverIndex: number) => void;
+};
+
+const DraggableSectionItem = ({ section, index, unitsCount, onEdit, onDelete, onMove }: DraggableSectionItemProps) => {
+  const ref = useRef<HTMLTableRowElement>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: SECTION_ITEM_TYPE,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver }, drop] = useDrop({
+    accept: SECTION_ITEM_TYPE,
+    hover: (item: { index: number }, monitor) => {
+      if (!ref.current) return;
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      if (dragIndex === hoverIndex) return;
+
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+
+      onMove(dragIndex, hoverIndex);
+      item.index = hoverIndex;
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <tr
+      ref={ref}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        backgroundColor: isOver ? 'rgba(107, 140, 174, 0.15)' : 'transparent',
+        cursor: 'grab',
+      }}
+    >
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#9ca3b5', cursor: 'grab', fontSize: '14px' }}>⋮⋮</span>
+          <span>{section.display_order}</span>
+        </div>
+      </td>
+      <td>{section.name}</td>
+      <td>{section.description || "-"}</td>
+      <td>{unitsCount}</td>
+      <td>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="primary-btn"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+            onClick={onEdit}
+          >
+            Edit
+          </button>
+          <button
+            className="ghost-btn"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+            onClick={onDelete}
+          >
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+};
+
+type DraggableUnitItemProps = {
+  unit: CourseUnit;
+  index: number;
+  sectionName: string;
+  prerequisitesText: string;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMove: (dragIndex: number, hoverIndex: number) => void;
+  stripUnitPrefix: (title: string) => string;
+};
+
+const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit, onDelete, onMove, stripUnitPrefix }: DraggableUnitItemProps) => {
+  const ref = useRef<HTMLTableRowElement>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: UNIT_ITEM_TYPE,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver }, drop] = useDrop({
+    accept: UNIT_ITEM_TYPE,
+    hover: (item: { index: number }, monitor) => {
+      if (!ref.current) return;
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      if (dragIndex === hoverIndex) return;
+
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+
+      onMove(dragIndex, hoverIndex);
+      item.index = hoverIndex;
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <tr
+      ref={ref}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        backgroundColor: isOver ? 'rgba(107, 140, 174, 0.15)' : 'transparent',
+        cursor: 'grab',
+      }}
+    >
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#9ca3b5', cursor: 'grab', fontSize: '14px' }}>⋮⋮</span>
+          <span>{unit.order_index}</span>
+        </div>
+      </td>
+      <td>UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}</td>
+      <td>{sectionName}</td>
+      <td>{prerequisitesText}</td>
+      <td>{unit.is_mandatory ? "Yes" : "No"}</td>
+      <td>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="primary-btn"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+            onClick={onEdit}
+          >
+            Edit
+          </button>
+          <button
+            className="ghost-btn"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+            onClick={onDelete}
+          >
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+};
+
+type DraggableTestItemProps = {
+  test: CourseTest;
+  index: number;
+  sectionName: string;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMove: (dragIndex: number, hoverIndex: number) => void;
+};
+
+const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove }: DraggableTestItemProps) => {
+  const ref = useRef<HTMLTableRowElement>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: TEST_ITEM_TYPE,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver }, drop] = useDrop({
+    accept: TEST_ITEM_TYPE,
+    hover: (item: { index: number }, monitor) => {
+      if (!ref.current) return;
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      if (dragIndex === hoverIndex) return;
+
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+
+      onMove(dragIndex, hoverIndex);
+      item.index = hoverIndex;
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <tr
+      ref={ref}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        backgroundColor: isOver ? 'rgba(107, 140, 174, 0.15)' : 'transparent',
+        cursor: 'grab',
+      }}
+    >
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#9ca3b5', cursor: 'grab', fontSize: '14px' }}>⋮⋮</span>
+          <span>{test.order_index}</span>
+        </div>
+      </td>
+      <td>{test.test_name}</td>
+      <td style={{ textTransform: "capitalize" }}>
+        {test.test_type.replace("_", " ")}
+      </td>
+      <td>{test.passing_score}%</td>
+      <td>{sectionName}</td>
+      <td>
+        {test.required_units && test.required_units.length > 0
+          ? test.required_units.sort((a, b) => a - b).join(", ")
+          : "None"}
+      </td>
+      <td>{test.required_for_progression ? "Yes" : "No"}</td>
+      <td>{test.is_active ? "Yes" : "No"}</td>
+      <td>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="primary-btn"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+            onClick={onEdit}
+          >
+            Edit
+          </button>
+          <button
+            className="ghost-btn"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+            onClick={onDelete}
+          >
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 };
 
@@ -540,6 +817,93 @@ export const CourseUnitsManager = () => {
     });
   }, []);
 
+  const moveSection = useCallback(async (dragIndex: number, hoverIndex: number) => {
+    setSections(prev => {
+      const updated = [...prev];
+      const [draggedSection] = updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedSection);
+      
+      // Update display_order for all sections
+      const reordered = updated.map((section, index) => ({
+        ...section,
+        display_order: index + 1,
+      }));
+      
+      // Save to database
+      Promise.all(
+        reordered.map(section =>
+          supabaseClient
+            .from("course_sections")
+            .update({ display_order: section.display_order, updated_at: new Date().toISOString() })
+            .eq("id", section.id)
+        )
+      ).catch(err => {
+        console.error("Error updating section order:", err);
+        setError("Failed to update section order");
+      });
+      
+      return reordered;
+    });
+  }, []);
+
+  const moveUnit = useCallback(async (dragIndex: number, hoverIndex: number) => {
+    setUnits(prev => {
+      const updated = [...prev];
+      const [draggedUnit] = updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedUnit);
+      
+      // Update order_index for all units
+      const reordered = updated.map((unit, index) => ({
+        ...unit,
+        order_index: index + 1,
+      }));
+      
+      // Save to database
+      Promise.all(
+        reordered.map(unit =>
+          supabaseClient
+            .from("course_units")
+            .update({ order_index: unit.order_index, updated_at: new Date().toISOString() })
+            .eq("id", unit.id)
+        )
+      ).catch(err => {
+        console.error("Error updating unit order:", err);
+        setError("Failed to update unit order");
+      });
+      
+      return reordered;
+    });
+  }, []);
+
+  const moveTest = useCallback(async (dragIndex: number, hoverIndex: number) => {
+    setTests(prev => {
+      const updated = [...prev];
+      const [draggedTest] = updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedTest);
+      
+      // Update order_index for all tests
+      const reordered = updated.map((test, index) => ({
+        ...test,
+        order_index: index + 1,
+      }));
+      
+      // Save to database
+      Promise.all(
+        reordered.map(test =>
+          supabaseClient
+            .from("course_tests")
+            .update({ order_index: test.order_index, updated_at: new Date().toISOString() })
+            .eq("id", test.id)
+        )
+      ).catch(err => {
+        console.error("Error updating test order:", err);
+        setError("Failed to update test order");
+      });
+      
+      return reordered;
+    });
+  }, []);
+
   const togglePrerequisiteUnit = (unitNumber: number) => {
     setUnitForm(prev => ({
       ...prev,
@@ -855,45 +1219,32 @@ export const CourseUnitsManager = () => {
         {sections.length === 0 ? (
           <p style={{ color: "#9ca3b5" }}>No sections yet. Sections help organize units into folders.</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Units Count</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sections.map((section) => (
-                <tr key={section.id}>
-                  <td>{section.display_order}</td>
-                  <td>{section.name}</td>
-                  <td>{section.description || "-"}</td>
-                  <td>{units.filter(u => u.section_id === section.id).length}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="primary-btn"
-                        style={{ padding: "6px 10px", fontSize: 12 }}
-                        onClick={() => openSectionForm(section)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="ghost-btn"
-                        style={{ padding: "6px 10px", fontSize: 12 }}
-                        onClick={() => handleDeleteSection(section.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+          <DndProvider backend={HTML5Backend}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Units Count</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sections.map((section, index) => (
+                  <DraggableSectionItem
+                    key={section.id}
+                    section={section}
+                    index={index}
+                    unitsCount={units.filter(u => u.section_id === section.id).length}
+                    onEdit={() => openSectionForm(section)}
+                    onDelete={() => handleDeleteSection(section.id)}
+                    onMove={moveSection}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </DndProvider>
         )}
       </div>
 
@@ -909,59 +1260,47 @@ export const CourseUnitsManager = () => {
         {units.length === 0 ? (
           <p style={{ color: "#9ca3b5" }}>No units yet.</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Title</th>
-                <th>Section</th>
-                <th>Prerequisites</th>
-                <th>Mandatory</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {units.map((unit) => (
-                <tr key={unit.id}>
-                  <td>{unit.order_index}</td>
-                  <td>UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}</td>
-                  <td>{getSectionName(unit.section_id)}</td>
-                  <td>
-                    {(() => {
-                      const prereqs = [];
-                      if (unit.prerequisite_units && unit.prerequisite_units.length > 0) {
-                        prereqs.push(`Units: ${unit.prerequisite_units.sort((a, b) => a - b).join(", ")}`);
-                      }
-                      if (unit.prerequisite_tests && unit.prerequisite_tests.length > 0) {
-                        const testNames = unit.prerequisite_tests.map(id => getTestName(id)).join(", ");
-                        prereqs.push(`Tests: ${testNames}`);
-                      }
-                      return prereqs.length > 0 ? prereqs.join(" | ") : "None";
-                    })()}
-                  </td>
-                  <td>{unit.is_mandatory ? "Yes" : "No"}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="primary-btn"
-                        style={{ padding: "6px 10px", fontSize: 12 }}
-                        onClick={() => openUnitForm(unit)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="ghost-btn"
-                        style={{ padding: "6px 10px", fontSize: 12 }}
-                        onClick={() => handleDeleteUnit(unit.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+          <DndProvider backend={HTML5Backend}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Title</th>
+                  <th>Section</th>
+                  <th>Prerequisites</th>
+                  <th>Mandatory</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {units.map((unit, index) => {
+                  const prereqs = [];
+                  if (unit.prerequisite_units && unit.prerequisite_units.length > 0) {
+                    prereqs.push(`Units: ${unit.prerequisite_units.sort((a, b) => a - b).join(", ")}`);
+                  }
+                  if (unit.prerequisite_tests && unit.prerequisite_tests.length > 0) {
+                    const testNames = unit.prerequisite_tests.map(id => getTestName(id)).join(", ");
+                    prereqs.push(`Tests: ${testNames}`);
+                  }
+                  const prerequisitesText = prereqs.length > 0 ? prereqs.join(" | ") : "None";
+                  
+                  return (
+                    <DraggableUnitItem
+                      key={unit.id}
+                      unit={unit}
+                      index={index}
+                      sectionName={getSectionName(unit.section_id)}
+                      prerequisitesText={prerequisitesText}
+                      onEdit={() => openUnitForm(unit)}
+                      onDelete={() => handleDeleteUnit(unit.id)}
+                      onMove={moveUnit}
+                      stripUnitPrefix={stripUnitPrefix}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </DndProvider>
         )}
       </div>
 
@@ -977,59 +1316,36 @@ export const CourseUnitsManager = () => {
         {tests.length === 0 ? (
           <p style={{ color: "#9ca3b5" }}>No tests yet.</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Test Name</th>
-                <th>Type</th>
-                <th>Passing Score</th>
-                <th>Section</th>
-                <th>Required Units</th>
-                <th>Required</th>
-                <th>Active</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tests.map((test) => (
-                <tr key={test.id}>
-                  <td>{test.order_index}</td>
-                  <td>{test.test_name}</td>
-                  <td style={{ textTransform: "capitalize" }}>
-                    {test.test_type.replace("_", " ")}
-                  </td>
-                  <td>{test.passing_score}%</td>
-                  <td>{getSectionName(test.section_id)}</td>
-                  <td>
-                    {test.required_units && test.required_units.length > 0
-                      ? test.required_units.sort((a, b) => a - b).join(", ")
-                      : "None"}
-                  </td>
-                  <td>{test.required_for_progression ? "Yes" : "No"}</td>
-                  <td>{test.is_active ? "Yes" : "No"}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="primary-btn"
-                        style={{ padding: "6px 10px", fontSize: 12 }}
-                        onClick={() => openTestForm(test)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="ghost-btn"
-                        style={{ padding: "6px 10px", fontSize: 12 }}
-                        onClick={() => handleDeleteTest(test.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+          <DndProvider backend={HTML5Backend}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Test Name</th>
+                  <th>Type</th>
+                  <th>Passing Score</th>
+                  <th>Section</th>
+                  <th>Required Units</th>
+                  <th>Required</th>
+                  <th>Active</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tests.map((test, index) => (
+                  <DraggableTestItem
+                    key={test.id}
+                    test={test}
+                    index={index}
+                    sectionName={getSectionName(test.section_id)}
+                    onEdit={() => openTestForm(test)}
+                    onDelete={() => handleDeleteTest(test.id)}
+                    onMove={moveTest}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </DndProvider>
         )}
       </div>
 
@@ -1072,18 +1388,6 @@ export const CourseUnitsManager = () => {
                 className="text-input"
                 rows={3}
                 placeholder="Optional description"
-              />
-
-              <label className="input-label">Display Order *</label>
-              <input
-                name="display_order"
-                type="number"
-                value={sectionForm.display_order}
-                onChange={(e) => setSectionForm({ ...sectionForm, display_order: parseInt(e.target.value) })}
-                className="text-input"
-                placeholder="1"
-                min="1"
-                required
               />
 
               <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -1267,18 +1571,6 @@ export const CourseUnitsManager = () => {
                   style={{ display: 'none' }}
                 />
               </div>
-
-              <label className="input-label">Order Index *</label>
-              <input
-                name="order_index"
-                type="number"
-                value={unitForm.order_index}
-                onChange={(e) => setUnitForm({ ...unitForm, order_index: parseInt(e.target.value) })}
-                className="text-input"
-                placeholder="1"
-                min="1"
-                required
-              />
 
               <label className="input-label">Section</label>
               <select
@@ -1490,18 +1782,6 @@ export const CourseUnitsManager = () => {
                   />
                 </div>
               </div>
-
-              <label className="input-label">Order Index *</label>
-              <input
-                name="order_index"
-                type="number"
-                value={testForm.order_index}
-                onChange={(e) => setTestForm({ ...testForm, order_index: parseInt(e.target.value) })}
-                className="text-input"
-                placeholder="1"
-                min="1"
-                required
-              />
 
               <label className="input-label">Section</label>
               <select
