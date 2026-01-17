@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabaseClient } from "../../utility";
+import { useNavigate } from "react-router-dom";
 
 type TrainingCourse = {
   id: string;
@@ -27,6 +28,7 @@ const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 const CATEGORIES = ["Mandatory", "Extension", "Intermediate", "Advanced", "Specialized", "General"];
 
 export const AcademyCourses = () => {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<TrainingCourse[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -714,6 +716,19 @@ export const AcademyCourses = () => {
                       >
                         Delete
                       </button>
+                      {row.provider === "Buzz" && (
+                        <button
+                          className="primary-btn"
+                          style={{ 
+                            padding: "6px 10px", 
+                            fontSize: 12,
+                            backgroundColor: "#6b8cae"
+                          }}
+                          onClick={() => navigate(`/admin/academy-courses/${row.id}/units`)}
+                        >
+                          More
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
