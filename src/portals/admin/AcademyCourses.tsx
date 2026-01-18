@@ -620,6 +620,7 @@ export const AcademyCourses = () => {
             correct_answer_index: q.correct_answer_index,
             explanation: q.explanation,
             image_urls: q.image_urls,
+            problem_sets: q.problem_sets,
           }));
 
           const { error: insertQuestionsError } = await supabaseClient
