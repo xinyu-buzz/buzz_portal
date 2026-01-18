@@ -825,7 +825,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 16, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
             <div>
               <h3 style={{ margin: 0 }}>Manage Questions</h3>
-              <p style={{ color: "#9ca3b5", fontSize: 14, marginTop: 4 }}>{testName}</p>
+              <p style={{ color: "#9ca3b5", fontSize: 14, marginTop: 4 }}>{testName} ({testId})</p>
             </div>
             <button className="ghost-btn" onClick={onClose}>
               Close
