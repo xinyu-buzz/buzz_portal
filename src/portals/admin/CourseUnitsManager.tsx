@@ -4,6 +4,7 @@ import { supabaseClient } from "../../utility";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TestQuestionsManager } from "./TestQuestionsManager";
+import { PracticalTestCriteriaManager } from "./PracticalTestCriteriaManager";
 
 const PDF_ITEM_TYPE = "PDF_ITEM";
 const SECTION_ITEM_TYPE = "SECTION_ITEM";
@@ -411,7 +412,7 @@ const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove,
           >
             Edit
           </button>
-          {test.test_type === "multiple_choice" && onManageQuestions && (
+          {(test.test_type === "multiple_choice" || test.test_type === "practical") && onManageQuestions && (
             <button
               className="primary-btn"
               style={{ padding: "6px 10px", fontSize: 12, backgroundColor: '#6b8cae' }}
@@ -1378,7 +1379,7 @@ export const CourseUnitsManager = () => {
                     onEdit={() => openTestForm(test)}
                     onDelete={() => handleDeleteTest(test.id)}
                     onMove={moveTest}
-                    onManageQuestions={test.test_type === "multiple_choice" ? () => {
+                    onManageQuestions={(test.test_type === "multiple_choice" || test.test_type === "practical") ? () => {
                       setManagingTest(test);
                       setShowQuestionsManager(true);
                     } : undefined}
@@ -1933,14 +1934,25 @@ export const CourseUnitsManager = () => {
 
       {/* Test Questions Manager Modal */}
       {showQuestionsManager && managingTest && (
-        <TestQuestionsManager
-          testId={managingTest.id}
-          testName={managingTest.test_name}
-          onClose={() => {
-            setShowQuestionsManager(false);
-            setManagingTest(null);
-          }}
-        />
+        managingTest.test_type === "multiple_choice" ? (
+          <TestQuestionsManager
+            testId={managingTest.id}
+            testName={managingTest.test_name}
+            onClose={() => {
+              setShowQuestionsManager(false);
+              setManagingTest(null);
+            }}
+          />
+        ) : managingTest.test_type === "practical" ? (
+          <PracticalTestCriteriaManager
+            testId={managingTest.id}
+            testName={managingTest.test_name}
+            onClose={() => {
+              setShowQuestionsManager(false);
+              setManagingTest(null);
+            }}
+          />
+        ) : null
       )}
     </div>
   );
