@@ -426,6 +426,226 @@ export const AcademyCourses = () => {
     await load();
   };
 
+  const handleDuplicate = async () => {
+    if (!editingCourse) return;
+    if (!confirm(`Are you sure you want to duplicate "${editingCourse.title}"? This will create a copy of the course with all its sections, units, tests, and questions.`)) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      // Step 1: Create the new course with "(Copy)" suffix
+      const newCoursePayload: Record<string, any> = {
+        title: `${editingCourse.title} (Copy)`,
+        description: editingCourse.description,
+        duration: editingCourse.duration,
+        level: editingCourse.level,
+        category: editingCourse.category,
+        instructor: editingCourse.instructor,
+        provider: editingCourse.provider,
+        instructor_picture_url: editingCourse.instructor_picture_url,
+        requires_uas_ground_school: editingCourse.requires_uas_ground_school,
+        requires_flight_review_passed: editingCourse.requires_flight_review_passed,
+        requires_roc_a_passed: editingCourse.requires_roc_a_passed,
+        external_url: editingCourse.external_url,
+        cover_image_url: editingCourse.cover_image_url,
+        region: editingCourse.region,
+        active: false, // Start as inactive so admin can review before publishing
+      };
+
+      const { data: newCourse, error: courseError } = await supabaseClient
+        .from("training_courses")
+        .insert(newCoursePayload)
+        .select()
+        .single();
+
+      if (courseError) throw courseError;
+
+      const newCourseId = newCourse.id;
+
+      // Step 2: Fetch and duplicate sections
+      const { data: originalSections, error: sectionsError } = await supabaseClient
+        .from("course_sections")
+        .select("*")
+        .eq("course_id", editingCourse.id)
+        .order("display_order", { ascending: true });
+
+      if (sectionsError) throw sectionsError;
+
+      const sectionIdMap: Record<string, string> = {}; // old ID -> new ID
+
+      if (originalSections && originalSections.length > 0) {
+        // First pass: insert sections without prerequisite_section_id
+        for (const section of originalSections) {
+          const newSectionPayload = {
+            course_id: newCourseId,
+            name: section.name,
+            display_order: section.display_order,
+            description: section.description,
+            section_type: section.section_type,
+            requires_subscription: section.requires_subscription,
+            requires_test_passed: section.requires_test_passed,
+            prerequisite_section_id: null, // Will update in second pass
+            is_active: section.is_active,
+            exam_type: section.exam_type,
+          };
+
+          const { data: newSection, error: insertSectionError } = await supabaseClient
+            .from("course_sections")
+            .insert(newSectionPayload)
+            .select()
+            .single();
+
+          if (insertSectionError) throw insertSectionError;
+
+          sectionIdMap[section.id] = newSection.id;
+        }
+
+        // Second pass: update prerequisite_section_id references
+        for (const section of originalSections) {
+          if (section.prerequisite_section_id && sectionIdMap[section.prerequisite_section_id]) {
+            const newSectionId = sectionIdMap[section.id];
+            const newPrerequisiteSectionId = sectionIdMap[section.prerequisite_section_id];
+
+            await supabaseClient
+              .from("course_sections")
+              .update({ prerequisite_section_id: newPrerequisiteSectionId })
+              .eq("id", newSectionId);
+          }
+        }
+      }
+
+      // Step 3: Fetch original tests to build test ID map first (needed for unit prerequisite_tests)
+      const { data: originalTests, error: testsError } = await supabaseClient
+        .from("course_tests")
+        .select("*")
+        .eq("course_id", editingCourse.id)
+        .order("order_index", { ascending: true });
+
+      if (testsError) throw testsError;
+
+      const testIdMap: Record<string, string> = {}; // old ID -> new ID
+
+      // Step 4: Duplicate tests
+      if (originalTests && originalTests.length > 0) {
+        for (const test of originalTests) {
+          const newTestPayload = {
+            course_id: newCourseId,
+            test_name: test.test_name,
+            test_description: test.test_description,
+            test_type: test.test_type,
+            passing_score: test.passing_score,
+            required_for_progression: test.required_for_progression,
+            required_units: test.required_units,
+            order_index: test.order_index,
+            questions: test.questions,
+            is_active: test.is_active,
+            section_id: test.section_id ? sectionIdMap[test.section_id] || null : null,
+          };
+
+          const { data: newTest, error: insertTestError } = await supabaseClient
+            .from("course_tests")
+            .insert(newTestPayload)
+            .select()
+            .single();
+
+          if (insertTestError) throw insertTestError;
+
+          testIdMap[test.id] = newTest.id;
+        }
+      }
+
+      // Step 5: Duplicate units with updated section_id and prerequisite_tests
+      const { data: originalUnits, error: unitsError } = await supabaseClient
+        .from("course_units")
+        .select("*")
+        .eq("course_id", editingCourse.id)
+        .order("order_index", { ascending: true });
+
+      if (unitsError) throw unitsError;
+
+      if (originalUnits && originalUnits.length > 0) {
+        for (const unit of originalUnits) {
+          // Map prerequisite_tests to new test IDs
+          const newPrerequisiteTests = unit.prerequisite_tests
+            ? unit.prerequisite_tests.map((oldTestId: string) => testIdMap[oldTestId] || oldTestId)
+            : [];
+
+          const newUnitPayload = {
+            course_id: newCourseId,
+            unit_number: unit.unit_number,
+            title: unit.title,
+            description: unit.description,
+            content: unit.content,
+            step_number: unit.step_number,
+            is_mandatory: unit.is_mandatory,
+            order_index: unit.order_index,
+            pdf_url: unit.pdf_url,
+            pdf_names: unit.pdf_names,
+            section_id: unit.section_id ? sectionIdMap[unit.section_id] || null : null,
+            prerequisite_units: unit.prerequisite_units,
+            prerequisite_tests: newPrerequisiteTests,
+          };
+
+          const { error: insertUnitError } = await supabaseClient
+            .from("course_units")
+            .insert(newUnitPayload);
+
+          if (insertUnitError) throw insertUnitError;
+        }
+      }
+
+      // Step 6: Duplicate test questions for each test
+      for (const oldTestId of Object.keys(testIdMap)) {
+        const newTestId = testIdMap[oldTestId];
+
+        const { data: originalQuestions, error: questionsError } = await supabaseClient
+          .from("test_questions")
+          .select("*")
+          .eq("test_id", oldTestId)
+          .order("question_number", { ascending: true });
+
+        if (questionsError) {
+          console.error("Error fetching questions for test:", oldTestId, questionsError);
+          continue; // Skip if test_questions table doesn't exist or other error
+        }
+
+        if (originalQuestions && originalQuestions.length > 0) {
+          const newQuestionsPayload = originalQuestions.map((q) => ({
+            test_id: newTestId,
+            question_number: q.question_number,
+            question_area: q.question_area,
+            question_text: q.question_text,
+            options: q.options,
+            correct_answer_index: q.correct_answer_index,
+            explanation: q.explanation,
+            image_urls: q.image_urls,
+          }));
+
+          const { error: insertQuestionsError } = await supabaseClient
+            .from("test_questions")
+            .insert(newQuestionsPayload);
+
+          if (insertQuestionsError) {
+            console.error("Error inserting questions for test:", newTestId, insertQuestionsError);
+          }
+        }
+      }
+
+      // Success - close modal and reload
+      setShowEdit(false);
+      setEditingCourse(null);
+      resetForm();
+      await load();
+      alert(`Course "${editingCourse.title}" has been duplicated successfully!`);
+    } catch (err: any) {
+      console.error("Error duplicating course:", err);
+      setError(`Failed to duplicate course: ${err.message}`);
+    }
+
+    setSubmitting(false);
+  };
+
   const openEdit = (course: TrainingCourse) => {
     setEditingCourse(course);
     setForm({
@@ -1124,6 +1344,17 @@ export const AcademyCourses = () => {
                       ? "Create course"
                       : "Update course"}
                 </button>
+                {showEdit && (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    style={{ backgroundColor: '#6b8cae' }}
+                    onClick={handleDuplicate}
+                    disabled={submitting || uploadingCover}
+                  >
+                    Duplicate
+                  </button>
+                )}
                 <button
                   type="button"
                   className="ghost-btn"
