@@ -271,7 +271,7 @@ export const PracticalTestCriteriaManager = ({ testId, testName, onClose }: Prac
     question_number: 0,
     question_area: "",
     question_text: "",
-    correct_answer_index: 0, // 0 = Pass, 1 = Fail
+    correct_answer_index: 0, // Always 0 = Pass (correct answer for practical criteria)
     explanation: "",
     problem_sets: [] as number[],
   });
@@ -325,7 +325,7 @@ export const PracticalTestCriteriaManager = ({ testId, testName, onClose }: Prac
         question_number: nextNumber,
         question_area: "",
         question_text: "",
-        correct_answer_index: 0, // Default to Pass
+        correct_answer_index: 0, // Always Pass for practical criteria
         explanation: "",
         problem_sets: [],
       });
@@ -689,44 +689,6 @@ export const PracticalTestCriteriaManager = ({ testId, testName, onClose }: Prac
                 placeholder="Enter the criteria description"
                 required
               />
-
-              <label className="input-label">Expected Result *</label>
-              <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="result"
-                    checked={criteriaForm.correct_answer_index === 0}
-                    onChange={() => setCriteriaForm({ ...criteriaForm, correct_answer_index: 0 })}
-                  />
-                  <span style={{
-                    padding: '6px 14px',
-                    borderRadius: '12px',
-                    fontSize: '14px',
-                    backgroundColor: 'rgba(74, 124, 89, 0.3)',
-                    color: '#a7f3d0'
-                  }}>
-                    Pass
-                  </span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="result"
-                    checked={criteriaForm.correct_answer_index === 1}
-                    onChange={() => setCriteriaForm({ ...criteriaForm, correct_answer_index: 1 })}
-                  />
-                  <span style={{
-                    padding: '6px 14px',
-                    borderRadius: '12px',
-                    fontSize: '14px',
-                    backgroundColor: 'rgba(220, 38, 38, 0.3)',
-                    color: '#fca5a5'
-                  }}>
-                    Fail
-                  </span>
-                </label>
-              </div>
 
               <label className="input-label">Notes (Optional)</label>
               <textarea
