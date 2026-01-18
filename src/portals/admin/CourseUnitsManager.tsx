@@ -1361,12 +1361,27 @@ export const CourseUnitsManager = () => {
       if (movingItem.type === 'unit') {
         const unit = movingItem.item as CourseUnit;
         
-        // Update the unit's course_id
+        // Get the max order_index in the target course for units
+        const { data: targetUnits, error: fetchError } = await supabaseClient
+          .from("course_units")
+          .select("order_index, unit_number")
+          .eq("course_id", targetCourseId)
+          .order("order_index", { ascending: false })
+          .limit(1);
+
+        if (fetchError) throw fetchError;
+
+        const nextOrderIndex = targetUnits && targetUnits.length > 0 ? targetUnits[0].order_index + 1 : 1;
+        const nextUnitNumber = targetUnits && targetUnits.length > 0 ? targetUnits[0].unit_number + 1 : 1;
+        
+        // Update the unit's course_id with new order_index
         const { error: updateError } = await supabaseClient
           .from("course_units")
           .update({ 
             course_id: targetCourseId,
             section_id: null, // Clear section since it belongs to the old course
+            order_index: nextOrderIndex,
+            unit_number: nextUnitNumber,
             updated_at: new Date().toISOString(),
           })
           .eq("id", unit.id);
@@ -1375,12 +1390,25 @@ export const CourseUnitsManager = () => {
       } else if (movingItem.type === 'test') {
         const test = movingItem.item as CourseTest;
         
-        // Update the test's course_id
+        // Get the max order_index in the target course for tests
+        const { data: targetTests, error: fetchError } = await supabaseClient
+          .from("course_tests")
+          .select("order_index")
+          .eq("course_id", targetCourseId)
+          .order("order_index", { ascending: false })
+          .limit(1);
+
+        if (fetchError) throw fetchError;
+
+        const nextOrderIndex = targetTests && targetTests.length > 0 ? targetTests[0].order_index + 1 : 1;
+        
+        // Update the test's course_id with new order_index
         const { error: updateError } = await supabaseClient
           .from("course_tests")
           .update({ 
             course_id: targetCourseId,
             section_id: null, // Clear section since it belongs to the old course
+            order_index: nextOrderIndex,
             updated_at: new Date().toISOString(),
           })
           .eq("id", test.id);
