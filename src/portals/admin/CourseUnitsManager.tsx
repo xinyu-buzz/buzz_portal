@@ -1220,7 +1220,9 @@ export const CourseUnitsManager = () => {
             ← Back to Courses
           </button>
           <h1>Course Manager</h1>
-          <p style={{ color: "#9ca3b5", marginTop: 8 }}>{course.title}</p>
+          <p style={{ color: "#9ca3b5", marginTop: 8 }}>
+            {course.title} ({course.id})
+          </p>
         </div>
       </div>
 

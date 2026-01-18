@@ -22,6 +22,7 @@ type TestResult = {
   test_name?: string;
   test_type?: "multiple_choice" | "practical" | "written" | "oral";
   course_title?: string;
+  course_uuid?: string;
 };
 
 type Filter = {
@@ -114,6 +115,7 @@ export const AcademyManager = () => {
           test_name: item.test?.test_name || "Unknown Test",
           test_type: item.test?.test_type || "multiple_choice",
           course_title: item.course?.title || "Unknown Course",
+          course_uuid: item.course?.id || "",
         };
       }) as TestResult[];
 
@@ -129,7 +131,8 @@ export const AcademyManager = () => {
             r.pilot_name?.toLowerCase().includes(query) ||
             r.pilot_email?.toLowerCase().includes(query) ||
             r.test_name?.toLowerCase().includes(query) ||
-            r.course_title?.toLowerCase().includes(query)
+            r.course_title?.toLowerCase().includes(query) ||
+            r.course_uuid?.toLowerCase().includes(query)
         );
       }
 
@@ -563,7 +566,11 @@ export const AcademyManager = () => {
                       </div>
                     </td>
                     <td>{result.test_name}</td>
-                    <td>{result.course_title}</td>
+                    <td>
+                      {result.course_uuid && result.course_title
+                        ? `${result.course_uuid.substring(0, 8)}... ${result.course_title}`
+                        : result.course_title || "Unknown Course"}
+                    </td>
                     <td style={{ textTransform: "capitalize" }}>
                       {result.test_type?.replace("_", " ")}
                     </td>
@@ -675,7 +682,9 @@ export const AcademyManager = () => {
                 <strong>Test:</strong> {selectedResult.test_name}
               </div>
               <div style={{ marginBottom: "12px" }}>
-                <strong>Course:</strong> {selectedResult.course_title}
+                <strong>Course:</strong> {selectedResult.course_uuid && selectedResult.course_title
+                  ? `${selectedResult.course_uuid.substring(0, 8)}... ${selectedResult.course_title}`
+                  : selectedResult.course_title || "Unknown Course"}
               </div>
               <div style={{ marginBottom: "12px" }}>
                 <strong>Type:</strong>{" "}
