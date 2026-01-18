@@ -21,11 +21,14 @@ type TrainingCourse = {
   requires_roc_a_passed: boolean;
   external_url: string | null;
   cover_image_url: string | null;
+  region: "Canada" | "USA" | "UK" | "Australia" | "New Zealand" | "South Africa" | "Global";
+  active: boolean;
 };
 
 const PROVIDERS = ["Buzz", "Red Cross", "USFA", "FEMA", "Amazon", "T-Mobile", "Other"];
 const LEVELS = ["Beginner", "Intermediate", "Advanced"];
 const CATEGORIES = ["Mandatory", "Extension", "Intermediate", "Advanced", "Specialized", "General"];
+const REGIONS = ["Canada", "USA", "UK", "Australia", "New Zealand", "South Africa", "Global"];
 
 export const AcademyCourses = () => {
   const navigate = useNavigate();
@@ -38,6 +41,7 @@ export const AcademyCourses = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -56,6 +60,8 @@ export const AcademyCourses = () => {
     requires_flight_review_passed: false,
     requires_roc_a_passed: false,
     external_url: "",
+    region: "Global",
+    active: false,
   });
 
   const load = async () => {
@@ -149,6 +155,8 @@ export const AcademyCourses = () => {
       requires_flight_review_passed: false,
       requires_roc_a_passed: false,
       external_url: "",
+      region: "Global",
+      active: false,
     });
     setCoverImageFile(null);
     setCoverImagePreview(null);
@@ -359,6 +367,8 @@ export const AcademyCourses = () => {
       requires_uas_ground_school: form.requires_uas_ground_school,
       requires_flight_review_passed: form.requires_flight_review_passed,
       requires_roc_a_passed: form.requires_roc_a_passed,
+      region: form.region,
+      active: form.active,
     };
 
     if (form.instructor_picture_url) {
@@ -431,6 +441,8 @@ export const AcademyCourses = () => {
       requires_flight_review_passed: course.requires_flight_review_passed,
       requires_roc_a_passed: course.requires_roc_a_passed,
       external_url: course.external_url || "",
+      region: course.region || "Global",
+      active: course.active || false,
     });
     // Set preview if there's an existing cover image
     if (course.cover_image_url) {
@@ -449,18 +461,21 @@ export const AcademyCourses = () => {
 
   const clearFilters = () => {
     setSelectedProvider(null);
+    setSelectedRegion(null);
     setSelectedCategory(null);
     setSearchQuery("");
   };
 
   const activeFilterCount = [
     selectedProvider,
+    selectedRegion,
     selectedCategory,
     searchQuery ? "search" : null,
   ].filter(Boolean).length;
 
   const filteredRows = rows.filter((row) => {
     if (selectedProvider && row.provider !== selectedProvider) return false;
+    if (selectedRegion && row.region !== selectedRegion) return false;
     if (selectedCategory && row.category !== selectedCategory) return false;
     if (searchQuery && !row.title.toLowerCase().includes(searchQuery.toLowerCase()))
       return false;
@@ -489,6 +504,8 @@ export const AcademyCourses = () => {
           borderRadius: "8px",
           padding: "20px",
           marginBottom: "24px",
+          width: "100%",
+          boxSizing: "border-box",
         }}
       >
         <div
@@ -601,6 +618,47 @@ export const AcademyCourses = () => {
               </div>
             </div>
 
+            {/* Region Filter */}
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "12px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                }}
+              >
+                Region
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                {REGIONS.map((region) => (
+                  <button
+                    key={region}
+                    onClick={() =>
+                      setSelectedRegion(
+                        selectedRegion === region ? null : region
+                      )
+                    }
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "20px",
+                      border: "none",
+                      backgroundColor:
+                        selectedRegion === region
+                          ? "#6b8cae"
+                          : "rgba(255, 255, 255, 0.1)",
+                      color: selectedRegion === region ? "white" : "#9ca3b5",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {region}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Category Filter - Only show if provider is selected */}
             {selectedProvider && (
               <div>
@@ -675,18 +733,19 @@ export const AcademyCourses = () => {
               Showing {filteredRows.length} of {rows.length} courses
             </p>
           )}
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Provider</th>
-                <th>Category</th>
-                <th>Level</th>
-                <th>Duration</th>
-                <th>Instructor</th>
-                <th>Rating</th>
-                <th>Students</th>
-                <th>Actions</th>
+          <div style={{ overflowX: "auto", width: "100%" }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Provider</th>
+                  <th>Region</th>
+                  <th>Category</th>
+                  <th>Level</th>
+                  <th>Instructor</th>
+                  <th>Students</th>
+                  <th>Active</th>
+                  <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -694,12 +753,27 @@ export const AcademyCourses = () => {
                 <tr key={row.id}>
                   <td>{row.title}</td>
                   <td>{row.provider}</td>
+                  <td>{row.region}</td>
                   <td>{row.category}</td>
                   <td>{row.level}</td>
-                  <td>{row.duration}</td>
                   <td>{row.instructor}</td>
-                  <td>{row.rating.toFixed(1)}</td>
                   <td>{row.students_count}</td>
+                  <td>
+                    <span
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        backgroundColor: row.active 
+                          ? "rgba(34, 197, 94, 0.2)" 
+                          : "rgba(156, 163, 175, 0.2)",
+                        color: row.active ? "#22c55e" : "#9ca3b5",
+                      }}
+                    >
+                      {row.active ? "Yes" : "No"}
+                    </span>
+                  </td>
                   <td>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
@@ -744,6 +818,7 @@ export const AcademyCourses = () => {
               )}
             </tbody>
           </table>
+          </div>
         </>
       )}
 
@@ -967,6 +1042,37 @@ export const AcademyCourses = () => {
                   />
                 </>
               )}
+
+              <label className="input-label">Region *</label>
+              <select
+                name="region"
+                value={form.region}
+                onChange={onChange}
+                className="text-input"
+                required
+              >
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ marginTop: 16, marginBottom: 8 }}>
+                <label className="input-label" style={{ fontWeight: 600 }}>
+                  Course Status
+                </label>
+              </div>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <input
+                  type="checkbox"
+                  name="active"
+                  checked={form.active}
+                  onChange={onChange}
+                />
+                <span>Active (Course is visible to users)</span>
+              </label>
 
               <div style={{ marginTop: 16, marginBottom: 8 }}>
                 <label className="input-label" style={{ fontWeight: 600 }}>
