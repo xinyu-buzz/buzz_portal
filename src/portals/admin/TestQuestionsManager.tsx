@@ -16,6 +16,7 @@ type TestQuestion = {
   correct_answer_index: number;
   explanation: string | null;
   image_urls: string[];
+  problem_sets: number[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -99,6 +100,11 @@ const DraggableQuestionItem = ({ question, index, onEdit, onDelete, onMove }: Dr
       </td>
       <td>{question.options.length}</td>
       <td>{question.image_urls?.length || 0}</td>
+      <td>
+        {question.problem_sets && question.problem_sets.length > 0
+          ? question.problem_sets.sort((a, b) => a - b).join(', ')
+          : '—'}
+      </td>
       <td>
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -239,6 +245,19 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
   const [csvPreview, setCsvPreview] = useState<TestQuestion[]>([]);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const [importing, setImporting] = useState(false);
+  const [filterProblemSet, setFilterProblemSet] = useState<number | 'all'>('all');
+
+  // Filter questions based on selected problem set
+  const filteredQuestions = filterProblemSet === 'all' 
+    ? questions 
+    : questions.filter(q => q.problem_sets && q.problem_sets.includes(filterProblemSet as number));
+
+  // Get unique problem sets from all questions for filter dropdown
+  const availableProblemSets = Array.from(
+    new Set(
+      questions.flatMap(q => q.problem_sets || [])
+    )
+  ).sort((a, b) => a - b);
 
   const [questionForm, setQuestionForm] = useState({
     question_number: 0,
@@ -247,6 +266,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
     options: ["", "", "", ""],
     correct_answer_index: 0,
     explanation: "",
+    problem_sets: [] as number[],
   });
 
   const [currentImageUrls, setCurrentImageUrls] = useState<string[]>([]);
@@ -287,6 +307,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
         options: question.options,
         correct_answer_index: question.correct_answer_index,
         explanation: question.explanation || "",
+        problem_sets: question.problem_sets || [],
       });
       setCurrentImageUrls(question.image_urls || []);
     } else {
@@ -301,6 +322,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
         options: ["", "", "", ""],
         correct_answer_index: 0,
         explanation: "",
+        problem_sets: [],
       });
       setCurrentImageUrls([]);
     }
@@ -318,6 +340,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
       options: ["", "", "", ""],
       correct_answer_index: 0,
       explanation: "",
+      problem_sets: [],
     });
     setCurrentImageUrls([]);
     setPendingImageFiles([]);
@@ -365,10 +388,21 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
   }, []);
 
   const moveQuestion = useCallback(async (dragIndex: number, hoverIndex: number) => {
+    // When filtering, we need to work with the filtered list for display
+    // but update the original questions array
+    const currentList = filterProblemSet === 'all' ? questions : filteredQuestions;
+    
     setQuestions(prev => {
+      // If we're filtering, find the actual indices in the full questions array
+      const draggedQuestion = currentList[dragIndex];
+      const hoverQuestion = currentList[hoverIndex];
+      
+      const actualDragIndex = prev.findIndex(q => q.id === draggedQuestion.id);
+      const actualHoverIndex = prev.findIndex(q => q.id === hoverQuestion.id);
+      
       const updated = [...prev];
-      const [draggedQuestion] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedQuestion);
+      const [removed] = updated.splice(actualDragIndex, 1);
+      updated.splice(actualHoverIndex, 0, removed);
       
       // Update question_number for all questions
       const reordered = updated.map((question, index) => ({
@@ -391,7 +425,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
       
       return reordered;
     });
-  }, []);
+  }, [filterProblemSet, questions, filteredQuestions]);
 
   const updateOption = (index: number, value: string) => {
     setQuestionForm(prev => {
@@ -478,6 +512,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
         correct_answer_index: questionForm.correct_answer_index,
         explanation: questionForm.explanation || null,
         image_urls: imageUrls,
+        problem_sets: questionForm.problem_sets.length > 0 ? questionForm.problem_sets : null,
         updated_at: new Date().toISOString(),
       };
 
@@ -610,6 +645,13 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
           throw new Error(`Question ${row.problem_number} has invalid correct_answer value`);
         }
 
+        // Parse problem_sets if present
+        let problemSets: number[] | null = null;
+        if (row.problem_sets && row.problem_sets.trim()) {
+          const setNumbers = row.problem_sets.split(',').map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n) && n > 0);
+          problemSets = setNumbers.length > 0 ? setNumbers : null;
+        }
+
         parsedQuestions.push({
           id: `temp-${i}`, // Temporary ID for preview
           test_id: testId,
@@ -620,6 +662,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
           correct_answer_index: correctAnswerIndex,
           explanation: row.explanation || null,
           image_urls: [],
+          problem_sets: problemSets,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -722,7 +765,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
     for (let i = 1; i <= maxOptions; i++) {
       csvContent += `option_${i},`;
     }
-    csvContent += 'correct_answer,explanation\n';
+    csvContent += 'correct_answer,explanation,problem_sets\n';
 
     // Add rows
     for (const question of questions) {
@@ -743,6 +786,12 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
       
       // Add explanation
       row.push(`"${(question.explanation || '').replace(/"/g, '""')}"`);
+      
+      // Add problem_sets
+      const problemSets = question.problem_sets && question.problem_sets.length > 0 
+        ? question.problem_sets.sort((a, b) => a - b).join(',') 
+        : '';
+      row.push(`"${problemSets}"`);
       
       csvContent += row.join(',') + '\n';
     }
@@ -789,26 +838,56 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 12, marginTop: 16, marginBottom: 16 }}>
-            <button className="primary-btn" onClick={() => openQuestionForm()}>
-              + Add Question
-            </button>
-            <button className="ghost-btn" onClick={() => setShowCSVImport(true)}>
-              Import from CSV
-            </button>
-            <button 
-              className="ghost-btn" 
-              onClick={handleExportCSV}
-              disabled={questions.length === 0}
-            >
-              Export to CSV
-            </button>
+          <div style={{ display: "flex", gap: 12, alignItems: 'center', marginTop: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button className="primary-btn" onClick={() => openQuestionForm()}>
+                + Add Question
+              </button>
+              <button className="ghost-btn" onClick={() => setShowCSVImport(true)}>
+                Import from CSV
+              </button>
+              <button 
+                className="ghost-btn" 
+                onClick={handleExportCSV}
+                disabled={questions.length === 0}
+              >
+                Export to CSV
+              </button>
+            </div>
+            
+            {availableProblemSets.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+                <label style={{ fontSize: '14px', color: '#9ca3b5', whiteSpace: 'nowrap' }}>
+                  Filter by Problem Set:
+                </label>
+                <select
+                  value={filterProblemSet}
+                  onChange={(e) => setFilterProblemSet(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                  className="text-input"
+                  style={{ minWidth: '120px', padding: '8px 12px' }}
+                >
+                  <option value="all">All Questions ({questions.length})</option>
+                  {availableProblemSets.map(setNum => {
+                    const count = questions.filter(q => q.problem_sets && q.problem_sets.includes(setNum)).length;
+                    return (
+                      <option key={setNum} value={setNum}>
+                        Set {setNum} ({count})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
           </div>
 
           <div style={{ flex: 1, overflow: 'auto' }}>
             {questions.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#9ca3b5' }}>
                 <p>No questions yet. Click "Add Question" to create your first question.</p>
+              </div>
+            ) : filteredQuestions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#9ca3b5' }}>
+                <p>No questions found for the selected problem set.</p>
               </div>
             ) : (
               <DndProvider backend={HTML5Backend}>
@@ -820,11 +899,12 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
                       <th>Question</th>
                       <th style={{ width: '100px' }}>Options</th>
                       <th style={{ width: '100px' }}>Images</th>
+                      <th style={{ width: '120px' }}>Problem Sets</th>
                       <th style={{ width: '180px' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {questions.map((question, index) => (
+                    {filteredQuestions.map((question, index) => (
                       <DraggableQuestionItem
                         key={question.id}
                         question={question}
@@ -942,6 +1022,98 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
                 rows={3}
                 placeholder="Provide an explanation for the correct answer"
               />
+
+              <label className="input-label">Problem Sets (Optional)</label>
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: '14px', color: '#9ca3b5', marginBottom: 12 }}>
+                  Add problem set numbers for this question:
+                </p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Enter set number (e.g., 1)"
+                    className="text-input"
+                    style={{ maxWidth: '200px' }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const value = parseInt((e.target as HTMLInputElement).value);
+                        if (value && value > 0 && !questionForm.problem_sets.includes(value)) {
+                          setQuestionForm({
+                            ...questionForm,
+                            problem_sets: [...questionForm.problem_sets, value].sort((a, b) => a - b)
+                          });
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    style={{ fontSize: 12, padding: '6px 12px' }}
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                      const value = parseInt(input.value);
+                      if (value && value > 0 && !questionForm.problem_sets.includes(value)) {
+                        setQuestionForm({
+                          ...questionForm,
+                          problem_sets: [...questionForm.problem_sets, value].sort((a, b) => a - b)
+                        });
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+                {questionForm.problem_sets.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <p style={{ fontSize: '12px', color: '#9ca3b5', marginBottom: 8 }}>
+                      Selected sets:
+                    </p>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {questionForm.problem_sets.map(setNum => (
+                        <span
+                          key={setNum}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: 'rgba(107, 140, 174, 0.3)',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          Set {setNum}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuestionForm({
+                                ...questionForm,
+                                problem_sets: questionForm.problem_sets.filter(n => n !== setNum)
+                              });
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'inherit',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              padding: 0,
+                              lineHeight: 1
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <label className="input-label">Images/Graphs</label>
               <div style={{ marginBottom: 16 }}>
@@ -1159,9 +1331,15 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
               }}>
                 <p style={{ margin: 0, marginBottom: 8 }}>Required columns:</p>
                 <code>problem_number, problem_area, problem_statement, option_1, option_2, ..., correct_answer</code>
+                <p style={{ margin: 0, marginTop: 8, marginBottom: 4 }}>Optional columns:</p>
+                <code>explanation, problem_sets</code>
                 <p style={{ margin: 0, marginTop: 8 }}>
-                  Note: correct_answer should be the option number (1-based index)
+                  Notes:
                 </p>
+                <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                  <li>correct_answer should be the option number (1-based index)</li>
+                  <li>problem_sets should be comma-separated numbers (e.g., "1,2,4")</li>
+                </ul>
               </div>
 
               {!csvFile ? (
