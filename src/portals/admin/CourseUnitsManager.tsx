@@ -305,17 +305,17 @@ const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit
       <td>{prerequisitesText}</td>
       <td>{unit.is_mandatory ? "Yes" : "No"}</td>
       <td>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "nowrap" }}>
           <button
             className="primary-btn"
-            style={{ padding: "6px 10px", fontSize: 12 }}
+            style={{ padding: "6px 10px", fontSize: 12, whiteSpace: "nowrap" }}
             onClick={onEdit}
           >
             Edit
           </button>
           <button
             className="ghost-btn"
-            style={{ padding: "6px 10px", fontSize: 12 }}
+            style={{ padding: "6px 10px", fontSize: 12, whiteSpace: "nowrap" }}
             onClick={onDelete}
           >
             Delete
@@ -404,10 +404,10 @@ const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove,
       <td>{test.needs_proctor ? "Yes" : "No"}</td>
       <td>{test.is_active ? "Yes" : "No"}</td>
       <td>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "nowrap" }}>
           <button
             className="primary-btn"
-            style={{ padding: "6px 10px", fontSize: 12 }}
+            style={{ padding: "6px 10px", fontSize: 12, whiteSpace: "nowrap" }}
             onClick={onEdit}
           >
             Edit
@@ -415,7 +415,7 @@ const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove,
           {(test.test_type === "multiple_choice" || test.test_type === "practical") && onManageQuestions && (
             <button
               className="primary-btn"
-              style={{ padding: "6px 10px", fontSize: 12, backgroundColor: '#6b8cae' }}
+              style={{ padding: "6px 10px", fontSize: 12, backgroundColor: '#6b8cae', whiteSpace: "nowrap" }}
               onClick={onManageQuestions}
             >
               More
@@ -423,7 +423,7 @@ const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove,
           )}
           <button
             className="ghost-btn"
-            style={{ padding: "6px 10px", fontSize: 12 }}
+            style={{ padding: "6px 10px", fontSize: 12, whiteSpace: "nowrap" }}
             onClick={onDelete}
           >
             Delete
@@ -518,6 +518,11 @@ export const CourseUnitsManager = () => {
   const [currentPdfUrls, setCurrentPdfUrls] = useState<string[]>([]);
   const [currentPdfNames, setCurrentPdfNames] = useState<string[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [allCourses, setAllCourses] = useState<TrainingCourse[]>([]);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [movingItem, setMovingItem] = useState<{ type: 'unit' | 'test'; item: CourseUnit | CourseTest } | null>(null);
+  const [targetCourseId, setTargetCourseId] = useState<string>("");
+  const [courseSearchQuery, setCourseSearchQuery] = useState("");
 
   const [sectionForm, setSectionForm] = useState({
     name: "",
@@ -553,6 +558,7 @@ export const CourseUnitsManager = () => {
   useEffect(() => {
     if (courseId) {
       loadData();
+      loadAllCourses();
     }
   }, [courseId]);
 
@@ -614,6 +620,21 @@ export const CourseUnitsManager = () => {
     }
 
     setLoading(false);
+  };
+
+  const loadAllCourses = async () => {
+    try {
+      const { data, error: coursesError } = await supabaseClient
+        .from("training_courses")
+        .select("id, title, provider")
+        .eq("provider", "Buzz")
+        .order("title", { ascending: true });
+
+      if (coursesError) throw coursesError;
+      setAllCourses(data || []);
+    } catch (err: any) {
+      console.error("Error loading courses:", err);
+    }
   };
 
   // Section handlers
@@ -1051,6 +1072,54 @@ export const CourseUnitsManager = () => {
     }
   };
 
+  const handleDuplicateUnit = async (unit: CourseUnit) => {
+    if (!confirm(`Are you sure you want to duplicate "${unit.title}"?`)) return;
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      // Create a copy of the unit
+      const nextUnitNumber = Math.max(...units.map(u => u.unit_number), 0) + 1;
+      const nextOrderIndex = Math.max(...units.map(u => u.order_index), 0) + 1;
+      
+      const duplicatedUnit = {
+        course_id: unit.course_id,
+        unit_number: nextUnitNumber,
+        title: `UNIT ${nextUnitNumber} - ${stripUnitPrefix(unit.title)} (Copy)`,
+        description: unit.description,
+        content: unit.content,
+        is_mandatory: unit.is_mandatory,
+        order_index: nextOrderIndex,
+        section_id: unit.section_id,
+        pdf_url: unit.pdf_url,
+        pdf_names: unit.pdf_names,
+        prerequisite_units: unit.prerequisite_units,
+        prerequisite_tests: unit.prerequisite_tests,
+      };
+
+      const { error: insertError } = await supabaseClient
+        .from("course_units")
+        .insert(duplicatedUnit);
+
+      if (insertError) throw insertError;
+
+      await loadData();
+      setSubmitting(false);
+    } catch (err: any) {
+      console.error("Error duplicating unit:", err);
+      setError(err.message);
+      setSubmitting(false);
+    }
+  };
+
+  const handleMoveUnit = (unit: CourseUnit) => {
+    setMovingItem({ type: 'unit', item: unit });
+    setTargetCourseId("");
+    setCourseSearchQuery("");
+    setShowMoveModal(true);
+  };
+
   const getSectionName = (sectionId: string | null) => {
     if (!sectionId) return "Unassigned";
     const section = sections.find(s => s.id === sectionId);
@@ -1181,6 +1250,90 @@ export const CourseUnitsManager = () => {
     }
   };
 
+  const handleDuplicateTest = async (test: CourseTest) => {
+    if (!confirm(`Are you sure you want to duplicate "${test.test_name}"? This will copy the test including all questions, answers, criteria, and graphs.`)) return;
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      // Create a copy of the test
+      const nextOrderIndex = Math.max(...tests.map(t => t.order_index), 0) + 1;
+      
+      const duplicatedTest = {
+        course_id: test.course_id,
+        test_name: `${test.test_name} (Copy)`,
+        test_description: test.test_description,
+        test_type: test.test_type,
+        passing_score: test.passing_score,
+        required_for_progression: test.required_for_progression,
+        required_units: test.required_units,
+        order_index: nextOrderIndex,
+        questions: test.questions, // Legacy JSON questions
+        is_active: false, // Start as inactive
+        section_id: test.section_id,
+        needs_proctor: test.needs_proctor,
+      };
+
+      const { data: newTest, error: insertError } = await supabaseClient
+        .from("course_tests")
+        .insert(duplicatedTest)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Duplicate test_questions if they exist (for multiple_choice and practical tests)
+      const { data: originalQuestions, error: questionsError } = await supabaseClient
+        .from("test_questions")
+        .select("*")
+        .eq("test_id", test.id)
+        .order("question_number", { ascending: true });
+
+      if (questionsError) throw questionsError;
+
+      if (originalQuestions && originalQuestions.length > 0) {
+        const duplicatedQuestions = originalQuestions.map(q => ({
+          test_id: newTest.id,
+          question_number: q.question_number,
+          question_area: q.question_area,
+          question_text: q.question_text,
+          options: q.options,
+          correct_answer_index: q.correct_answer_index,
+          explanation: q.explanation,
+          image_urls: q.image_urls,
+          problem_sets: q.problem_sets,
+        }));
+
+        const { error: insertQuestionsError } = await supabaseClient
+          .from("test_questions")
+          .insert(duplicatedQuestions);
+
+        if (insertQuestionsError) throw insertQuestionsError;
+
+        // Update question_source to 'database' for the new test
+        await supabaseClient
+          .from("course_tests")
+          .update({ question_source: 'database' })
+          .eq("id", newTest.id);
+      }
+
+      await loadData();
+      setSubmitting(false);
+    } catch (err: any) {
+      console.error("Error duplicating test:", err);
+      setError(err.message);
+      setSubmitting(false);
+    }
+  };
+
+  const handleMoveTest = (test: CourseTest) => {
+    setMovingItem({ type: 'test', item: test });
+    setTargetCourseId("");
+    setCourseSearchQuery("");
+    setShowMoveModal(true);
+  };
+
   const toggleUnitSelection = (unitNumber: number) => {
     setTestForm(prev => ({
       ...prev,
@@ -1189,6 +1342,77 @@ export const CourseUnitsManager = () => {
         : [...prev.required_units, unitNumber].sort((a, b) => a - b)
     }));
   };
+
+  const handleConfirmMove = async () => {
+    if (!movingItem || !targetCourseId) {
+      setError("Please select a target course");
+      return;
+    }
+
+    if (targetCourseId === courseId) {
+      setError("Target course must be different from the current course");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      if (movingItem.type === 'unit') {
+        const unit = movingItem.item as CourseUnit;
+        
+        // Update the unit's course_id
+        const { error: updateError } = await supabaseClient
+          .from("course_units")
+          .update({ 
+            course_id: targetCourseId,
+            section_id: null, // Clear section since it belongs to the old course
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", unit.id);
+
+        if (updateError) throw updateError;
+      } else if (movingItem.type === 'test') {
+        const test = movingItem.item as CourseTest;
+        
+        // Update the test's course_id
+        const { error: updateError } = await supabaseClient
+          .from("course_tests")
+          .update({ 
+            course_id: targetCourseId,
+            section_id: null, // Clear section since it belongs to the old course
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", test.id);
+
+        if (updateError) throw updateError;
+      }
+
+      setShowMoveModal(false);
+      setMovingItem(null);
+      setTargetCourseId("");
+      setCourseSearchQuery("");
+      await loadData();
+      setSubmitting(false);
+    } catch (err: any) {
+      console.error("Error moving item:", err);
+      setError(err.message);
+      setSubmitting(false);
+    }
+  };
+
+  const closeMoveModal = () => {
+    setShowMoveModal(false);
+    setMovingItem(null);
+    setTargetCourseId("");
+    setCourseSearchQuery("");
+    setError(null);
+  };
+
+  const filteredCourses = allCourses.filter(c => 
+    c.id !== courseId && 
+    c.title.toLowerCase().includes(courseSearchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -1727,7 +1951,7 @@ export const CourseUnitsManager = () => {
                 <span>Mandatory unit</span>
               </label>
 
-              <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
                 <button type="submit" className="primary-btn" disabled={submitting || uploadingPdf}>
                   {uploadingPdf
                     ? "Uploading PDF..."
@@ -1737,6 +1961,33 @@ export const CourseUnitsManager = () => {
                     ? "Update Unit"
                     : "Create Unit"}
                 </button>
+                {editingUnit && (
+                  <>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      style={{ backgroundColor: '#6b8cae' }}
+                      onClick={() => {
+                        closeUnitForm();
+                        handleDuplicateUnit(editingUnit);
+                      }}
+                      disabled={submitting || uploadingPdf}
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={() => {
+                        closeUnitForm();
+                        handleMoveUnit(editingUnit);
+                      }}
+                      disabled={submitting || uploadingPdf}
+                    >
+                      Move to
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="ghost-btn"
@@ -1914,10 +2165,37 @@ export const CourseUnitsManager = () => {
                 </label>
               </div>
 
-              <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
                 <button type="submit" className="primary-btn" disabled={submitting}>
                   {submitting ? "Saving..." : editingTest ? "Update Test" : "Create Test"}
                 </button>
+                {editingTest && (
+                  <>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      style={{ backgroundColor: '#6b8cae' }}
+                      onClick={() => {
+                        closeTestForm();
+                        handleDuplicateTest(editingTest);
+                      }}
+                      disabled={submitting}
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={() => {
+                        closeTestForm();
+                        handleMoveTest(editingTest);
+                      }}
+                      disabled={submitting}
+                    >
+                      Move to
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="ghost-btn"
@@ -1953,6 +2231,135 @@ export const CourseUnitsManager = () => {
             }}
           />
         ) : null
+      )}
+
+      {/* Move To Modal */}
+      {showMoveModal && movingItem && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: 600 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h3 style={{ margin: 0 }}>
+                Move {movingItem.type === 'unit' ? 'Unit' : 'Test'} to Another Course
+              </h3>
+              <button className="ghost-btn" onClick={closeMoveModal}>
+                Close
+              </button>
+            </div>
+
+            {error && <div className="alert error" style={{ marginBottom: 16 }}>{error}</div>}
+
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ color: "#9ca3b5", marginBottom: 12 }}>
+                Moving: <strong>
+                  {movingItem.type === 'unit' 
+                    ? (movingItem.item as CourseUnit).title 
+                    : (movingItem.item as CourseTest).test_name}
+                </strong>
+              </p>
+              <p style={{ color: "#9ca3b5", fontSize: 14 }}>
+                Note: The {movingItem.type} will be moved to the target course and its section assignment will be cleared.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label className="input-label">Search for Course</label>
+              <input
+                type="text"
+                value={courseSearchQuery}
+                onChange={(e) => setCourseSearchQuery(e.target.value)}
+                className="text-input"
+                placeholder="Type to search courses..."
+                style={{ marginBottom: 12 }}
+              />
+
+              <label className="input-label">Select Target Course *</label>
+              <div
+                style={{
+                  maxHeight: "300px",
+                  overflowY: "auto",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  borderRadius: "8px",
+                  padding: "8px",
+                  backgroundColor: "rgba(255, 255, 255, 0.02)",
+                }}
+              >
+                {filteredCourses.length === 0 ? (
+                  <p style={{ color: "#9ca3b5", margin: 0, padding: "12px", textAlign: "center" }}>
+                    {courseSearchQuery ? "No courses found matching your search" : "No other Buzz courses available"}
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {filteredCourses.map((course) => (
+                      <label
+                        key={course.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "12px",
+                          backgroundColor: targetCourseId === course.id
+                            ? "rgba(107, 140, 174, 0.3)"
+                            : "rgba(255, 255, 255, 0.05)",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          transition: "background-color 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (targetCourseId !== course.id) {
+                            e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (targetCourseId !== course.id) {
+                            e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+                          }
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="targetCourse"
+                          checked={targetCourseId === course.id}
+                          onChange={() => setTargetCourseId(course.id)}
+                          style={{ flexShrink: 0 }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, marginBottom: 4 }}>{course.title}</div>
+                          <div style={{ fontSize: 12, color: "#9ca3b5" }}>ID: {course.id}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={handleConfirmMove}
+                disabled={submitting || !targetCourseId}
+              >
+                {submitting ? "Moving..." : "Confirm Move"}
+              </button>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={closeMoveModal}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
