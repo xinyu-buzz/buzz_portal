@@ -400,6 +400,7 @@ const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove,
           : "None"}
       </td>
       <td>{test.required_for_progression ? "Yes" : "No"}</td>
+      <td>{test.needs_proctor ? "Yes" : "No"}</td>
       <td>{test.is_active ? "Yes" : "No"}</td>
       <td>
         <div style={{ display: "flex", gap: 8 }}>
@@ -486,6 +487,7 @@ type CourseTest = {
   questions: any;
   is_active: boolean;
   section_id: string | null;
+  needs_proctor: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -544,6 +546,7 @@ export const CourseUnitsManager = () => {
     order_index: 0,
     is_active: true,
     section_id: "",
+    needs_proctor: false,
   });
 
   useEffect(() => {
@@ -1072,6 +1075,7 @@ export const CourseUnitsManager = () => {
         order_index: test.order_index,
         is_active: test.is_active,
         section_id: test.section_id || "",
+        needs_proctor: test.needs_proctor || false,
       });
     } else {
       setEditingTest(null);
@@ -1085,6 +1089,7 @@ export const CourseUnitsManager = () => {
         order_index: tests.length + 1,
         is_active: true,
         section_id: "",
+        needs_proctor: false,
       });
     }
     setShowTestForm(true);
@@ -1103,6 +1108,7 @@ export const CourseUnitsManager = () => {
       order_index: 0,
       is_active: true,
       section_id: "",
+      needs_proctor: false,
     });
     setError(null);
   };
@@ -1125,6 +1131,7 @@ export const CourseUnitsManager = () => {
         order_index: testForm.order_index,
         is_active: testForm.is_active,
         section_id: testForm.section_id || null,
+        needs_proctor: testForm.needs_proctor,
         updated_at: new Date().toISOString(),
       };
 
@@ -1354,6 +1361,7 @@ export const CourseUnitsManager = () => {
                   <th>Section</th>
                   <th>Required Units</th>
                   <th>Required</th>
+                  <th>Proctor</th>
                   <th>Active</th>
                   <th>Actions</th>
                 </tr>
@@ -1890,6 +1898,16 @@ export const CourseUnitsManager = () => {
                     onChange={(e) => setTestForm({ ...testForm, is_active: e.target.checked })}
                   />
                   <span>Active test</span>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    name="needs_proctor"
+                    checked={testForm.needs_proctor}
+                    onChange={(e) => setTestForm({ ...testForm, needs_proctor: e.target.checked })}
+                  />
+                  <span>Needs proctor</span>
                 </label>
               </div>
 
