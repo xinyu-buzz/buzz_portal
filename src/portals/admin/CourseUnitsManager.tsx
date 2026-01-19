@@ -462,8 +462,11 @@ type CourseUnit = {
   order_index: number;
   created_at: string;
   updated_at: string;
-  pdf_url: any;
-  pdf_names: string[] | null;
+  pdf_url?: any; // Legacy field, kept for backward compatibility
+  pdf_names?: string[] | null; // Legacy field, kept for backward compatibility
+  material_urls: string[] | null;
+  material_names: string[] | null;
+  material_types: string[] | null;
   section_id: string | null;
   prerequisite_units: number[];
   prerequisite_tests: string[];
@@ -519,6 +522,7 @@ export const CourseUnitsManager = () => {
   const [pendingPdfName, setPendingPdfName] = useState<string>("");
   const [currentPdfUrls, setCurrentPdfUrls] = useState<string[]>([]);
   const [currentPdfNames, setCurrentPdfNames] = useState<string[]>([]);
+  const [currentPdfTypes, setCurrentPdfTypes] = useState<string[]>([]);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [allCourses, setAllCourses] = useState<TrainingCourse[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
@@ -754,14 +758,26 @@ export const CourseUnitsManager = () => {
         prerequisite_units: unit.prerequisite_units || [],
         prerequisite_tests: unit.prerequisite_tests || [],
       });
-      // Set current PDF URLs if exists (pdf_url is an array)
-      const pdfUrls = Array.isArray(unit.pdf_url) ? unit.pdf_url : (unit.pdf_url ? [unit.pdf_url] : []);
-      setCurrentPdfUrls(pdfUrls);
-      // Set PDF names - use existing names or generate defaults
-      const pdfNames = Array.isArray(unit.pdf_names) 
-        ? unit.pdf_names 
-        : pdfUrls.map((_, i) => `Material ${i + 1}`);
-      setCurrentPdfNames(pdfNames);
+      // Load material data - prioritize new columns, fallback to legacy columns for backward compatibility
+      let materialUrls: string[] = [];
+      let materialNames: string[] = [];
+      let materialTypes: string[] = [];
+      
+      if (unit.material_urls && Array.isArray(unit.material_urls) && unit.material_urls.length > 0) {
+        // Use new columns
+        materialUrls = unit.material_urls;
+        materialNames = Array.isArray(unit.material_names) ? unit.material_names : materialUrls.map((_, i) => `Material ${i + 1}`);
+        materialTypes = Array.isArray(unit.material_types) ? unit.material_types : materialUrls.map(() => 'pdf');
+      } else if (unit.pdf_url) {
+        // Fallback to legacy columns
+        materialUrls = Array.isArray(unit.pdf_url) ? unit.pdf_url : [unit.pdf_url];
+        materialNames = Array.isArray(unit.pdf_names) ? unit.pdf_names : materialUrls.map((_, i) => `Material ${i + 1}`);
+        materialTypes = materialUrls.map(() => 'pdf');
+      }
+      
+      setCurrentPdfUrls(materialUrls);
+      setCurrentPdfNames(materialNames);
+      setCurrentPdfTypes(materialTypes);
       setPdfFile(null);
       setPendingPdfName("");
     } else {
@@ -779,6 +795,7 @@ export const CourseUnitsManager = () => {
       });
       setCurrentPdfUrls([]);
       setCurrentPdfNames([]);
+      setCurrentPdfTypes([]);
       setPdfFile(null);
       setPendingPdfName("");
     }
@@ -803,6 +820,7 @@ export const CourseUnitsManager = () => {
     setPendingPdfName("");
     setCurrentPdfUrls([]);
     setCurrentPdfNames([]);
+    setCurrentPdfTypes([]);
     setError(null);
   };
 
@@ -847,6 +865,7 @@ export const CourseUnitsManager = () => {
   const removeExistingPdf = (index: number) => {
     setCurrentPdfUrls(prev => prev.filter((_, i) => i !== index));
     setCurrentPdfNames(prev => prev.filter((_, i) => i !== index));
+    setCurrentPdfTypes(prev => prev.filter((_, i) => i !== index));
   };
 
   const updatePdfName = (index: number, newName: string) => {
@@ -868,6 +887,12 @@ export const CourseUnitsManager = () => {
       const updated = [...prev];
       const [draggedName] = updated.splice(dragIndex, 1);
       updated.splice(hoverIndex, 0, draggedName);
+      return updated;
+    });
+    setCurrentPdfTypes(prev => {
+      const updated = [...prev];
+      const [draggedType] = updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedType);
       return updated;
     });
   }, []);
@@ -985,10 +1010,11 @@ export const CourseUnitsManager = () => {
     setError(null);
 
     try {
-      let pdfUrls: string[] = [...currentPdfUrls];
-      let pdfNames: string[] = [...currentPdfNames];
+      let materialUrls: string[] = [...currentPdfUrls];
+      let materialNames: string[] = [...currentPdfNames];
+      let materialTypes: string[] = [...currentPdfTypes];
 
-      // Upload PDF if provided
+      // Upload file if provided
       if (pdfFile) {
         setUploadingPdf(true);
         try {
@@ -1010,9 +1036,18 @@ export const CourseUnitsManager = () => {
             .from('course-materials')
             .getPublicUrl(filePath);
 
-          // Add the new PDF to the arrays
-          pdfUrls.push(publicUrlData.publicUrl);
-          pdfNames.push(pendingPdfName || `Material ${pdfUrls.length}`);
+          // Determine file type based on MIME type
+          let fileType = 'pdf';
+          if (pdfFile.type.startsWith('image/')) {
+            fileType = 'image';
+          } else if (pdfFile.type === 'application/pdf') {
+            fileType = 'pdf';
+          }
+
+          // Add the new material to the arrays
+          materialUrls.push(publicUrlData.publicUrl);
+          materialNames.push(pendingPdfName || `Material ${materialUrls.length}`);
+          materialTypes.push(fileType);
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
           setError(`Failed to upload material: ${uploadError.message}`);
@@ -1034,8 +1069,9 @@ export const CourseUnitsManager = () => {
         order_index: unitForm.order_index,
         is_mandatory: unitForm.is_mandatory,
         section_id: unitForm.section_id || null,
-        pdf_url: pdfUrls.length > 0 ? pdfUrls : null,
-        pdf_names: pdfNames.length > 0 ? pdfNames : null,
+        material_urls: materialUrls.length > 0 ? materialUrls : [],
+        material_names: materialNames.length > 0 ? materialNames : [],
+        material_types: materialTypes.length > 0 ? materialTypes : [],
         prerequisite_units: unitForm.prerequisite_units,
         prerequisite_tests: unitForm.prerequisite_tests,
         updated_at: new Date().toISOString(),
@@ -1106,8 +1142,9 @@ export const CourseUnitsManager = () => {
         is_mandatory: unit.is_mandatory,
         order_index: nextOrderIndex,
         section_id: unit.section_id,
-        pdf_url: unit.pdf_url,
-        pdf_names: unit.pdf_names,
+        material_urls: unit.material_urls || [],
+        material_names: unit.material_names || [],
+        material_types: unit.material_types || [],
         prerequisite_units: unit.prerequisite_units,
         prerequisite_tests: unit.prerequisite_tests,
       };
