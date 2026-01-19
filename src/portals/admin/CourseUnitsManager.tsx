@@ -370,7 +370,18 @@ const DraggableQuestionItem = ({ question, index, onEdit, onDelete, onMove }: Dr
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
-          <span style={{ color: '#9ca3b5', cursor: 'grab', fontSize: '18px' }}>⋮⋮</span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              cursor: 'grab',
+              padding: '4px',
+              color: '#9ca3b5',
+            }}
+          >
+            <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
+          </div>
           <div style={{ flex: 1 }}>
             <p style={{ margin: '0 0 8px 0', fontWeight: 500, fontSize: '14px' }}>
               Q{index + 1}: {question.question_text}
