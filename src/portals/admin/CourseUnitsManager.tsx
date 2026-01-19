@@ -788,6 +788,9 @@ type TrainingCourse = {
   id: string;
   title: string;
   provider: string;
+  region?: string;
+  category?: string;
+  active?: boolean;
 };
 
 type CourseTest = {
@@ -917,7 +920,7 @@ export const CourseUnitsManager = () => {
       // Load course
       const { data: courseData, error: courseError } = await supabaseClient
         .from("training_courses")
-        .select("id, title, provider")
+        .select("id, title, provider, region, active, category")
         .eq("id", courseId)
         .single();
 
@@ -2072,9 +2075,59 @@ export const CourseUnitsManager = () => {
             ← Back to Courses
           </button>
           <h1>Course Manager</h1>
-          <p style={{ color: "#9ca3b5", marginTop: 8 }}>
-            {course.title} ({course.id})
-          </p>
+          <div style={{ marginTop: 8, marginBottom: 24 }}>
+            <p style={{ color: "#9ca3b5", margin: 0, fontSize: "16px", fontWeight: 500 }}>
+              {course.title} ({course.id})
+            </p>
+            <div style={{ marginTop: 4, display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              {course.provider && (
+                <span style={{
+                  backgroundColor: "#e5e7eb",
+                  color: "#374151",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: 500
+                }}>
+                  Provider: {course.provider}
+                </span>
+              )}
+              {course.region && (
+                <span style={{
+                  backgroundColor: "#dbeafe",
+                  color: "#1e40af",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: 500
+                }}>
+                  Region: {course.region}
+                </span>
+              )}
+              {course.category && (
+                <span style={{
+                  backgroundColor: "#dcfce7",
+                  color: "#166534",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                  fontWeight: 500
+                }}>
+                  Category: {course.category}
+                </span>
+              )}
+              <span style={{
+                backgroundColor: course.active ? "#dcfce7" : "#fee2e2",
+                color: course.active ? "#166534" : "#dc2626",
+                padding: "2px 8px",
+                borderRadius: "12px",
+                fontSize: "12px",
+                fontWeight: 500
+              }}>
+                {course.active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
