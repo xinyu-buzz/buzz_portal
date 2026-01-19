@@ -489,6 +489,8 @@ type CourseTest = {
   is_active: boolean;
   section_id: string | null;
   needs_proctor: boolean;
+  duration: number;
+  price_of_schedule: number | null; // Stored in cents (e.g., 4999 = $49.99)
   created_at: string;
   updated_at: string;
 };
@@ -553,6 +555,8 @@ export const CourseUnitsManager = () => {
     is_active: true,
     section_id: "",
     needs_proctor: false,
+    duration: 60,
+    price_of_schedule: null as number | null,
   });
 
   useEffect(() => {
@@ -1146,6 +1150,8 @@ export const CourseUnitsManager = () => {
         is_active: test.is_active,
         section_id: test.section_id || "",
         needs_proctor: test.needs_proctor || false,
+        duration: test.duration || 60,
+        price_of_schedule: test.price_of_schedule ?? null,
       });
     } else {
       setEditingTest(null);
@@ -1160,6 +1166,8 @@ export const CourseUnitsManager = () => {
         is_active: true,
         section_id: "",
         needs_proctor: false,
+        duration: 60,
+        price_of_schedule: null,
       });
     }
     setShowTestForm(true);
@@ -1179,6 +1187,8 @@ export const CourseUnitsManager = () => {
       is_active: true,
       section_id: "",
       needs_proctor: false,
+      duration: 60,
+      price_of_schedule: null,
     });
     setError(null);
   };
@@ -1189,6 +1199,20 @@ export const CourseUnitsManager = () => {
     
     setSubmitting(true);
     setError(null);
+
+    // Validate that price_of_schedule is provided when needs_proctor is checked
+    if (testForm.needs_proctor && (testForm.price_of_schedule === null || testForm.price_of_schedule === undefined)) {
+      setError("Price of Schedule (USD) is required when Needs proctor is checked.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Validate price range (stored in cents: 0 to 50000 cents = $0 to $500)
+    if (testForm.needs_proctor && testForm.price_of_schedule !== null && (testForm.price_of_schedule < 0 || testForm.price_of_schedule > 50000)) {
+      setError("Price of Schedule must be between $0.00 and $500.00 USD.");
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const payload: any = {
@@ -1202,6 +1226,8 @@ export const CourseUnitsManager = () => {
         is_active: testForm.is_active,
         section_id: testForm.section_id || null,
         needs_proctor: testForm.needs_proctor,
+        duration: testForm.duration,
+        price_of_schedule: testForm.needs_proctor ? (testForm.price_of_schedule ?? null) : null,
         updated_at: new Date().toISOString(),
       };
 
@@ -1273,6 +1299,8 @@ export const CourseUnitsManager = () => {
         is_active: false, // Start as inactive
         section_id: test.section_id,
         needs_proctor: test.needs_proctor,
+        duration: test.duration || 60,
+        price_of_schedule: test.price_of_schedule ?? null,
       };
 
       const { data: newTest, error: insertError } = await supabaseClient
@@ -2104,6 +2132,17 @@ export const CourseUnitsManager = () => {
                 </div>
               </div>
 
+              <label className="input-label">Duration (minutes)</label>
+              <input
+                name="duration"
+                type="number"
+                value={testForm.duration}
+                onChange={(e) => setTestForm({ ...testForm, duration: parseInt(e.target.value) || 60 })}
+                className="text-input"
+                placeholder="60"
+                min="1"
+              />
+
               <label className="input-label">Section</label>
               <select
                 name="section_id"
@@ -2187,11 +2226,39 @@ export const CourseUnitsManager = () => {
                     type="checkbox"
                     name="needs_proctor"
                     checked={testForm.needs_proctor}
-                    onChange={(e) => setTestForm({ ...testForm, needs_proctor: e.target.checked })}
+                    onChange={(e) => setTestForm({ 
+                      ...testForm, 
+                      needs_proctor: e.target.checked,
+                      price_of_schedule: e.target.checked ? testForm.price_of_schedule : null
+                    })}
                   />
                   <span>Needs proctor</span>
                 </label>
               </div>
+
+              {testForm.needs_proctor && (
+                <div style={{ marginTop: 16 }}>
+                  <label className="input-label">Price of Schedule (USD) *</label>
+                  <div style={{ fontSize: '12px', color: '#9ca3b5', marginBottom: 4 }}>
+                    Enter amount in dollars (e.g., 49.99). Maximum $500.00
+                  </div>
+                  <input
+                    name="price_of_schedule"
+                    type="number"
+                    value={testForm.price_of_schedule !== null ? (testForm.price_of_schedule / 100).toFixed(2) : ""}
+                    onChange={(e) => {
+                      const value = e.target.value === "" ? null : Math.round(parseFloat(e.target.value) * 100);
+                      setTestForm({ ...testForm, price_of_schedule: value });
+                    }}
+                    className="text-input"
+                    placeholder="49.99"
+                    min="0"
+                    max="500"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
                 <button type="submit" className="primary-btn" disabled={submitting}>
