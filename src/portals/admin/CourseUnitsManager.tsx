@@ -810,9 +810,7 @@ export const CourseUnitsManager = () => {
   const [editingUnit, setEditingUnit] = useState<CourseUnit | null>(null);
   const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [pendingFileName, setPendingFileName] = useState<string>("");
-  const [pendingFileType, setPendingFileType] = useState<'pdf' | 'image' | 'video' | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<Array<{file: File, name: string, type: 'pdf' | 'image' | 'video'}>>([]);
   const [materialUrls, setMaterialUrls] = useState<string[]>([]);
   const [materialNames, setMaterialNames] = useState<string[]>([]);
   const [materialTypes, setMaterialTypes] = useState<string[]>([]);
@@ -1098,9 +1096,7 @@ export const CourseUnitsManager = () => {
       setMaterialUrls(urls);
       setMaterialNames(names);
       setMaterialTypes(types);
-      setPendingFile(null);
-      setPendingFileName("");
-      setPendingFileType(null);
+      setPendingFiles([]);
     } else {
       setEditingUnit(null);
       setUnitForm({
@@ -1117,9 +1113,7 @@ export const CourseUnitsManager = () => {
       setMaterialUrls([]);
       setMaterialNames([]);
       setMaterialTypes([]);
-      setPendingFile(null);
-      setPendingFileName("");
-      setPendingFileType(null);
+      setPendingFiles([]);
     }
     setShowUnitForm(true);
   };
@@ -1141,9 +1135,7 @@ export const CourseUnitsManager = () => {
     setMaterialUrls([]);
     setMaterialNames([]);
     setMaterialTypes([]);
-    setPendingFile(null);
-    setPendingFileName("");
-    setPendingFileType(null);
+    setPendingFiles([]);
     setError(null);
   };
 
@@ -1223,10 +1215,11 @@ export const CourseUnitsManager = () => {
       // Determine type
       const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
       
-      setPendingFile(file);
-      setPendingFileType(fileType);
-      const nameWithoutExt = file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg)$/i, '');
-      setPendingFileName(nameWithoutExt);
+      setPendingFiles(prev => [...prev, {
+        file,
+        name: file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg)$/i, ''),
+        type: fileType
+      }]);
       setError(null);
       closeMaterialUploadModal();
     } else if (materialUploadType === 'video') {
@@ -1249,10 +1242,11 @@ export const CourseUnitsManager = () => {
         return;
       }
 
-      setPendingFile(file);
-      setPendingFileType('video');
-      const nameWithoutExt = file.name.replace(/\.(mp4|mov|avi|mkv|webm)$/i, '');
-      setPendingFileName(nameWithoutExt);
+      setPendingFiles(prev => [...prev, {
+        file,
+        name: file.name.replace(/\.(mp4|mov|avi|mkv|webm)$/i, ''),
+        type: 'video'
+      }]);
       setError(null);
       closeMaterialUploadModal();
     }
@@ -1265,11 +1259,6 @@ export const CourseUnitsManager = () => {
     }
   };
 
-  const removePendingFile = () => {
-    setPendingFile(null);
-    setPendingFileName("");
-    setPendingFileType(null);
-  };
 
   const removeMaterial = (index: number) => {
     setMaterialUrls(prev => prev.filter((_, i) => i !== index));
@@ -1533,32 +1522,34 @@ export const CourseUnitsManager = () => {
       let finalNames: string[] = [...materialNames];
       let finalTypes: string[] = [...materialTypes];
 
-      // Upload pending file if provided
-      if (pendingFile && pendingFileType) {
+      // Upload all pending files
+      if (pendingFiles.length > 0) {
         setUploadingFile(true);
         try {
-          const fileExt = pendingFile.name.split('.').pop();
-          const fileName = `unit-${unitForm.unit_number}-${pendingFileType}-${Date.now()}.${fileExt}`;
-          const filePath = `${fileName}`;
+          for (const pendingFile of pendingFiles) {
+            const fileExt = pendingFile.file.name.split('.').pop();
+            const fileName = `unit-${unitForm.unit_number}-${pendingFile.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+            const filePath = `${fileName}`;
 
-          const { error: uploadError } = await supabaseClient.storage
-            .from('course-materials')
-            .upload(filePath, pendingFile, {
-              cacheControl: '3600',
-              upsert: false
-            });
+            const { error: uploadError } = await supabaseClient.storage
+              .from('course-materials')
+              .upload(filePath, pendingFile.file, {
+                cacheControl: '3600',
+                upsert: false
+              });
 
-          if (uploadError) throw uploadError;
+            if (uploadError) throw uploadError;
 
-          // Get public URL
-          const { data: publicUrlData } = supabaseClient.storage
-            .from('course-materials')
-            .getPublicUrl(filePath);
+            // Get public URL
+            const { data: publicUrlData } = supabaseClient.storage
+              .from('course-materials')
+              .getPublicUrl(filePath);
 
-          // Add the new material to the arrays
-          finalUrls.push(publicUrlData.publicUrl);
-          finalNames.push(pendingFileName || `Material ${finalUrls.length}`);
-          finalTypes.push(pendingFileType);
+            // Add the new material to the arrays
+            finalUrls.push(publicUrlData.publicUrl);
+            finalNames.push(pendingFile.name || `Material ${finalUrls.length}`);
+            finalTypes.push(pendingFile.type);
+          }
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
           setError(`Failed to upload material: ${uploadError.message}`);
@@ -1606,6 +1597,8 @@ export const CourseUnitsManager = () => {
         if (insertError) throw insertError;
       }
 
+      // Clear pending files after successful submission
+      setPendingFiles([]);
       closeUnitForm();
       await loadData();
     } catch (err: any) {
@@ -2521,59 +2514,77 @@ export const CourseUnitsManager = () => {
                   </div>
                 )}
 
-                {/* Pending file upload */}
-                {pendingFile && (
-                  <div style={{ 
-                    padding: '12px', 
-                    backgroundColor: 'rgba(107, 140, 174, 0.1)', 
+                {/* Pending files upload */}
+                {pendingFiles.length > 0 && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: 'rgba(107, 140, 174, 0.1)',
                     borderRadius: '8px',
                     border: '1px solid rgba(107, 140, 174, 0.3)',
                     marginBottom: '12px'
                   }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '24px' }}>
-                            {pendingFileType === 'video' ? '🎬' : '📄'}
-                          </span>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600 }}>
+                      Pending Uploads ({pendingFiles.length})
+                    </h4>
+                    {pendingFiles.map((pendingFile, index) => (
+                      <div key={index} style={{
+                        padding: '12px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '6px',
+                        marginBottom: index < pendingFiles.length - 1 ? '8px' : '0'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '24px' }}>
+                                {pendingFile.type === 'video' ? '🎬' : '📄'}
+                              </span>
+                              <div>
+                                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>{pendingFile.file.name}</p>
+                                <p style={{ margin: 0, fontSize: '12px', color: '#9ca3b5' }}>
+                                  {(pendingFile.file.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPendingFiles(prev => prev.filter((_, i) => i !== index));
+                              }}
+                              style={{
+                                backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '6px 12px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 600
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
                           <div>
-                            <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>{pendingFile.name}</p>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#9ca3b5' }}>
-                              {(pendingFile.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
+                            <label style={{ fontSize: '12px', color: '#9ca3b5', display: 'block', marginBottom: '4px' }}>
+                              Display Name:
+                            </label>
+                            <input
+                              type="text"
+                              value={pendingFile.name}
+                              onChange={(e) => {
+                                setPendingFiles(prev => prev.map((f, i) =>
+                                  i === index ? { ...f, name: e.target.value } : f
+                                ));
+                              }}
+                              className="text-input"
+                              style={{ width: '100%', padding: '8px 12px' }}
+                              placeholder={`Enter a name for this ${pendingFile.type === 'video' ? 'video' : 'material'}`}
+                            />
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={removePendingFile}
-                          style={{
-                            backgroundColor: 'rgba(220, 38, 38, 0.9)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '6px 12px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 600
-                          }}
-                        >
-                          Remove
-                        </button>
                       </div>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#9ca3b5', display: 'block', marginBottom: '4px' }}>
-                          Display Name:
-                        </label>
-                        <input
-                          type="text"
-                          value={pendingFileName}
-                          onChange={(e) => setPendingFileName(e.target.value)}
-                          className="text-input"
-                          style={{ width: '100%', padding: '8px 12px' }}
-                          placeholder={`Enter a name for this ${pendingFileType === 'video' ? 'video' : 'material'}`}
-                        />
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 )}
 
