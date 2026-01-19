@@ -15,12 +15,13 @@ type DraggablePDFItemProps = {
   index: number;
   url: string;
   name: string;
+  type: string;
   onNameChange: (index: number, name: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
 };
 
-const DraggablePDFItem = ({ index, url, name, onNameChange, onRemove, onMove }: DraggablePDFItemProps) => {
+const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove }: DraggablePDFItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -121,8 +122,20 @@ const DraggablePDFItem = ({ index, url, name, onNameChange, onRemove, onMove }: 
           </a>
         </div>
 
-        {/* Remove button */}
-        <button
+        {/* Material type and Remove button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span
+            style={{
+              fontSize: '12px',
+              color: '#6b8cae',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}
+          >
+            {type}
+          </span>
+          <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
@@ -141,6 +154,7 @@ const DraggablePDFItem = ({ index, url, name, onNameChange, onRemove, onMove }: 
         >
           Remove
         </button>
+        </div>
       </div>
     </div>
   );
@@ -1851,6 +1865,7 @@ export const CourseUnitsManager = () => {
                           index={index}
                           url={pdfUrl}
                           name={currentPdfNames[index] || `PDF ${index + 1}`}
+                          type={currentPdfTypes[index] || 'pdf'}
                           onNameChange={updatePdfName}
                           onRemove={removeExistingPdf}
                           onMove={movePdf}
