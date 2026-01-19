@@ -312,12 +312,14 @@ const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove }
 type DraggableQuestionItemProps = {
   question: ReviewQuestion;
   index: number;
+  name: string;
+  onNameChange: (index: number, name: string) => void;
   onEdit: () => void;
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
 };
 
-const DraggableQuestionItem = ({ question, index, onEdit, onDelete, onMove }: DraggableQuestionItemProps) => {
+const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove }: DraggableQuestionItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -368,27 +370,45 @@ const DraggableQuestionItem = ({ question, index, onEdit, onDelete, onMove }: Dr
         cursor: 'grab',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
-          <div
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+        {/* Drag handle */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            cursor: 'grab',
+            padding: '4px',
+            color: '#9ca3b5',
+          }}
+        >
+          <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
+        </div>
+
+        {/* Question icon */}
+        <span style={{ fontSize: '24px' }}>✏️</span>
+
+        {/* Editable name input */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => onNameChange(index, e.target.value)}
+            className="text-input"
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2px',
-              cursor: 'grab',
-              padding: '4px',
-              color: '#9ca3b5',
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '14px',
+              marginBottom: '4px',
             }}
-          >
-            <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
+            placeholder="Enter question name"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
+            Q{index + 1}: {question.question_text}
           </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: '0 0 8px 0', fontWeight: 500, fontSize: '14px' }}>
-              Q{index + 1}: {question.question_text}
-            </p>
-            <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
-              {question.options.length} options • Correct: {question.options[question.correct_answer_index]}
-            </div>
+          <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
+            {question.options.length} options • Correct: {question.options[question.correct_answer_index]}
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -2450,7 +2470,7 @@ export const CourseUnitsManager = () => {
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(107, 140, 174, 0.2)'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        <span style={{ fontSize: '20px' }}>❓</span>
+                        <span style={{ fontSize: '20px' }}>✏️</span>
                         <span>Review Question</span>
                       </button>
                     </div>
@@ -2475,6 +2495,14 @@ export const CourseUnitsManager = () => {
                                 key={`material-${index}`}
                                 question={questionData}
                                 index={index}
+                                name={name}
+                                onNameChange={(materialIndex, newName) => {
+                                  setMaterialNames(prev => {
+                                    const updated = [...prev];
+                                    updated[materialIndex] = newName;
+                                    return updated;
+                                  });
+                                }}
                                 onEdit={() => openQuestionModal(index)}
                                 onDelete={() => deleteReviewQuestion(index)}
                                 onMove={moveMaterial}
