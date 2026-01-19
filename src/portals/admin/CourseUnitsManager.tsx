@@ -103,7 +103,7 @@ const DraggablePDFItem = ({ index, url, name, onNameChange, onRemove, onMove }: 
               fontSize: '14px',
               marginBottom: '4px',
             }}
-            placeholder="Enter PDF name"
+            placeholder="Enter material name"
             onClick={(e) => e.stopPropagation()}
           />
           <a
@@ -117,7 +117,7 @@ const DraggablePDFItem = ({ index, url, name, onNameChange, onRemove, onMove }: 
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            View PDF
+            View Material
           </a>
         </div>
 
@@ -760,7 +760,7 @@ export const CourseUnitsManager = () => {
       // Set PDF names - use existing names or generate defaults
       const pdfNames = Array.isArray(unit.pdf_names) 
         ? unit.pdf_names 
-        : pdfUrls.map((_, i) => `PDF ${i + 1}`);
+        : pdfUrls.map((_, i) => `Material ${i + 1}`);
       setCurrentPdfNames(pdfNames);
       setPdfFile(null);
       setPendingPdfName("");
@@ -809,21 +809,31 @@ export const CourseUnitsManager = () => {
   const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      if (file.type !== 'application/pdf') {
-        setError('Please select a valid PDF file');
+      // Validate file type (accept PDFs and common image formats)
+      const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/bmp',
+        'image/svg+xml'
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        setError('Please select a valid PDF or image file (JPEG, PNG, GIF, WebP, BMP, SVG)');
         return;
       }
       
       // Validate file size (10MB max)
       if (file.size > 10 * 1024 * 1024) {
-        setError('PDF size must be less than 10MB');
+        setError('File size must be less than 10MB');
         return;
       }
 
       setPdfFile(file);
       // Pre-fill the name with filename (without extension)
-      const nameWithoutExt = file.name.replace(/\.pdf$/i, '');
+      const nameWithoutExt = file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg)$/i, '');
       setPendingPdfName(nameWithoutExt);
       setError(null);
     }
@@ -1002,10 +1012,10 @@ export const CourseUnitsManager = () => {
 
           // Add the new PDF to the arrays
           pdfUrls.push(publicUrlData.publicUrl);
-          pdfNames.push(pendingPdfName || `PDF ${pdfUrls.length}`);
+          pdfNames.push(pendingPdfName || `Material ${pdfUrls.length}`);
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
-          setError(`Failed to upload PDF: ${uploadError.message}`);
+          setError(`Failed to upload material: ${uploadError.message}`);
           setSubmitting(false);
           setUploadingPdf(false);
           return;
@@ -1789,13 +1799,13 @@ export const CourseUnitsManager = () => {
                 placeholder="Optional description"
               />
 
-              <label className="input-label">Unit PDF Material</label>
+              <label className="input-label">Unit Materials (PDFs & Images)</label>
               <div style={{ marginBottom: 16 }}>
-                {/* Display existing PDFs with drag-and-drop */}
+                {/* Display existing materials with drag-and-drop */}
                 {currentPdfUrls.length > 0 && (
                   <div style={{ marginBottom: 12 }}>
                     <p style={{ fontSize: '14px', color: '#9ca3b5', marginBottom: 8 }}>
-                      Current PDFs (drag to reorder):
+                      Current materials (drag to reorder):
                     </p>
                     <DndProvider backend={HTML5Backend}>
                       {currentPdfUrls.map((pdfUrl, index) => (
@@ -1859,7 +1869,7 @@ export const CourseUnitsManager = () => {
                           onChange={(e) => setPendingPdfName(e.target.value)}
                           className="text-input"
                           style={{ width: '100%', padding: '8px 12px' }}
-                          placeholder="Enter a name for this PDF"
+                          placeholder="Enter a name for this material"
                         />
                       </div>
                     </div>
@@ -1878,17 +1888,17 @@ export const CourseUnitsManager = () => {
                   >
                     <div style={{ fontSize: '48px', marginBottom: '8px' }}>📄</div>
                     <p style={{ color: '#9ca3b5', margin: 0 }}>
-                      Click to upload PDF material
+                      Click to upload PDF or image material
                     </p>
                     <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
-                      PDF only (max 10MB)
+                      PDF or images (JPEG, PNG, GIF, WebP, BMP, SVG) - max 10MB
                     </p>
                   </div>
                 )}
                 <input
                   id="pdf-upload-input"
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/svg+xml"
                   onChange={handlePdfFileChange}
                   style={{ display: 'none' }}
                 />
@@ -2010,7 +2020,7 @@ export const CourseUnitsManager = () => {
               <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
                 <button type="submit" className="primary-btn" disabled={submitting || uploadingPdf}>
                   {uploadingPdf
-                    ? "Uploading PDF..."
+                    ? "Uploading Material..."
                     : submitting
                     ? "Saving..."
                     : editingUnit
