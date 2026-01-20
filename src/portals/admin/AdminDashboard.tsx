@@ -53,9 +53,9 @@ const dashboardCardsWithNewsletter: DashboardCard[] = [
   {
     key: "academy-manager",
     title: "Academy Manager",
-    description: "Review and manage test results, approve or reject submitted test forms from students.",
+    description: "Manage course enrollments and test results, track student progress and approve submissions.",
     to: "/admin/academy-manager",
-    actionLabel: "Manage test results",
+    actionLabel: "Open academy manager",
   },
   {
     key: "newsletter",

@@ -8,6 +8,8 @@ import { AdminCenter } from "./AdminCenter";
 import { NewAccountsList } from "./NewAccountsList";
 import { Newsletter } from "./Newsletter";
 import { AcademyCourses } from "./AcademyCourses";
+import { AcademyTestResults } from "./AcademyTestResults";
+import { AcademyEnrollment } from "./AcademyEnrollment";
 import { AcademyManager } from "./AcademyManager";
 import { CourseUnitsManager } from "./CourseUnitsManager";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
@@ -51,6 +53,8 @@ export const AdminPortal = () => {
         <Route path="academy-courses" element={<AcademyCourses />} />
         <Route path="academy-courses/:courseId/units" element={<CourseUnitsManager />} />
         <Route path="academy-manager" element={<AcademyManager />} />
+        <Route path="academy-enrollment" element={<AcademyEnrollment />} />
+        <Route path="academy-test-results" element={<AcademyTestResults />} />
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>

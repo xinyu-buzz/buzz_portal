@@ -238,6 +238,10 @@ CREATE TABLE public.course_tests (
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   section_id uuid,
+  question_source text DEFAULT 'csv'::text CHECK (question_source = ANY (ARRAY['csv'::text, 'database'::text])),
+  needs_proctor boolean DEFAULT false,
+  duration integer NOT NULL DEFAULT 60,
+  price_of_schedule integer CHECK (price_of_schedule IS NULL OR price_of_schedule >= 0 AND price_of_schedule <= 50000),
   CONSTRAINT course_tests_pkey PRIMARY KEY (id),
   CONSTRAINT course_tests_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id),
   CONSTRAINT course_tests_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.course_sections(id)
@@ -255,10 +259,13 @@ CREATE TABLE public.course_units (
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   pdf_url jsonb,
-  pdf_names jsonb,
   section_id uuid,
   prerequisite_units ARRAY,
   prerequisite_tests ARRAY,
+  pdf_names jsonb,
+  material_urls jsonb DEFAULT '[]'::jsonb,
+  material_names jsonb DEFAULT '[]'::jsonb,
+  material_types jsonb DEFAULT '[]'::jsonb,
   CONSTRAINT course_units_pkey PRIMARY KEY (id),
   CONSTRAINT course_units_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id),
   CONSTRAINT course_units_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.course_sections(id)
@@ -328,7 +335,7 @@ CREATE TABLE public.employee_profiles (
 CREATE TABLE public.exam_appointments (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   pilot_id uuid NOT NULL,
-  exam_type text NOT NULL CHECK (exam_type = ANY (ARRAY['flight_review'::text, 'roc_a'::text])),
+  exam_type text NOT NULL CHECK (exam_type = ANY (ARRAY['flight_review'::text, 'roc_a'::text, 'ground_school_test'::text])),
   scheduled_date timestamp with time zone NOT NULL,
   duration_minutes integer NOT NULL DEFAULT 15,
   location_type text NOT NULL CHECK (location_type = ANY (ARRAY['in_person'::text, 'online'::text])),
@@ -349,7 +356,7 @@ CREATE TABLE public.exam_appointments (
   CONSTRAINT exam_appointments_examiner_id_fkey FOREIGN KEY (examiner_id) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.exam_type_config (
-  exam_type text NOT NULL CHECK (exam_type = ANY (ARRAY['flight_review'::text, 'roc_a'::text])),
+  exam_type text NOT NULL CHECK (exam_type = ANY (ARRAY['flight_review'::text, 'roc_a'::text, 'ground_school_test'::text])),
   display_name text NOT NULL,
   short_description text NOT NULL,
   full_description text NOT NULL,
@@ -539,6 +546,7 @@ CREATE TABLE public.profiles (
   referral_credits numeric DEFAULT 0.0,
   referred_by uuid,
   is_beacon_volunteer boolean DEFAULT false,
+  selected_region text CHECK (selected_region IS NULL OR (selected_region = ANY (ARRAY['Canada'::text, 'USA'::text, 'UK'::text, 'Australia'::text, 'New Zealand'::text, 'South Africa'::text, 'Other'::text, 'Global'::text]))),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_referred_by_fkey FOREIGN KEY (referred_by) REFERENCES public.profiles(id)
@@ -577,6 +585,22 @@ CREATE TABLE public.referrals (
   CONSTRAINT referrals_referrer_id_fkey FOREIGN KEY (referrer_id) REFERENCES public.profiles(id),
   CONSTRAINT referrals_referee_id_fkey FOREIGN KEY (referee_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.test_questions (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  test_id uuid NOT NULL,
+  question_number integer NOT NULL,
+  question_area text,
+  question_text text NOT NULL,
+  options jsonb NOT NULL DEFAULT '[]'::jsonb,
+  correct_answer_index integer NOT NULL CHECK (correct_answer_index >= 0),
+  explanation text,
+  image_urls ARRAY DEFAULT '{}'::text[],
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  problem_sets ARRAY,
+  CONSTRAINT test_questions_pkey PRIMARY KEY (id),
+  CONSTRAINT test_questions_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.course_tests(id)
+);
 CREATE TABLE public.test_results (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   pilot_id uuid NOT NULL,
@@ -593,6 +617,7 @@ CREATE TABLE public.test_results (
   reviewed_at timestamp with time zone,
   reviewer_notes text,
   reviewed_by uuid,
+  proctor_name text,
   CONSTRAINT test_results_pkey PRIMARY KEY (id),
   CONSTRAINT test_results_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id),
   CONSTRAINT test_results_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.course_tests(id),
@@ -626,6 +651,8 @@ CREATE TABLE public.training_courses (
   requires_roc_a_passed boolean DEFAULT false,
   external_url text,
   cover_image_url text,
+  region text DEFAULT 'Global'::text CHECK (region = ANY (ARRAY['Canada'::text, 'USA'::text, 'UK'::text, 'Australia'::text, 'New Zealand'::text, 'South Africa'::text, 'Global'::text])),
+  active boolean DEFAULT false,
   CONSTRAINT training_courses_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.transponders (
