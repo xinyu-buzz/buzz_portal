@@ -22,14 +22,15 @@ type DraggablePDFItemProps = {
   bulkSelectionMode?: boolean;
   selectedMaterials?: Set<number>;
   onToggleSelection?: (index: number) => void;
+  partAssignment?: string; // Added to track which part this material is assigned to
 };
 
-const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection }: DraggablePDFItemProps) => {
+const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment }: DraggablePDFItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
     type: MATERIAL_ITEM_TYPE,
-    item: { index },
+    item: { index, partAssignment },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -37,11 +38,14 @@ const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMo
 
   const [{ isOver }, drop] = useDrop({
     accept: MATERIAL_ITEM_TYPE,
-    hover: (item: { index: number }, monitor) => {
+    hover: (item: { index: number; partAssignment?: string }, monitor) => {
       if (!ref.current) return;
       const dragIndex = item.index;
       const hoverIndex = index;
       if (dragIndex === hoverIndex) return;
+
+      // Only allow hover reordering if both items are in the same part/context
+      if (item.partAssignment !== partAssignment) return;
 
       const hoverBoundingRect = ref.current.getBoundingClientRect();
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
@@ -187,14 +191,15 @@ type DraggableVideoItemProps = {
   bulkSelectionMode?: boolean;
   selectedMaterials?: Set<number>;
   onToggleSelection?: (index: number) => void;
+  partAssignment?: string; // Added to track which part this material is assigned to
 };
 
-const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection }: DraggableVideoItemProps) => {
+const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment }: DraggableVideoItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
     type: MATERIAL_ITEM_TYPE,
-    item: { index },
+    item: { index, partAssignment },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -202,11 +207,14 @@ const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, 
 
   const [{ isOver }, drop] = useDrop({
     accept: MATERIAL_ITEM_TYPE,
-    hover: (item: { index: number }, monitor) => {
+    hover: (item: { index: number; partAssignment?: string }, monitor) => {
       if (!ref.current) return;
       const dragIndex = item.index;
       const hoverIndex = index;
       if (dragIndex === hoverIndex) return;
+
+      // Only allow hover reordering if both items are in the same part/context
+      if (item.partAssignment !== partAssignment) return;
 
       const hoverBoundingRect = ref.current.getBoundingClientRect();
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
@@ -354,14 +362,15 @@ type DraggableQuestionItemProps = {
   bulkSelectionMode?: boolean;
   selectedMaterials?: Set<number>;
   onToggleSelection?: (index: number) => void;
+  partAssignment?: string; // Added to track which part this material is assigned to
 };
 
-const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection }: DraggableQuestionItemProps) => {
+const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment }: DraggableQuestionItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
     type: MATERIAL_ITEM_TYPE,
-    item: { index },
+    item: { index, partAssignment },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -369,11 +378,14 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
 
   const [{ isOver }, drop] = useDrop({
     accept: MATERIAL_ITEM_TYPE,
-    hover: (item: { index: number }, monitor) => {
+    hover: (item: { index: number; partAssignment?: string }, monitor) => {
       if (!ref.current) return;
       const dragIndex = item.index;
       const hoverIndex = index;
       if (dragIndex === hoverIndex) return;
+
+      // Only allow hover reordering if both items are in the same part/context
+      if (item.partAssignment !== partAssignment) return;
 
       const hoverBoundingRect = ref.current.getBoundingClientRect();
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
@@ -3023,6 +3035,7 @@ export const CourseUnitsManager = () => {
                                             question={questionData}
                                             index={globalIndex}
                                             name={name}
+                                            partAssignment={partKey}
                                             onNameChange={(materialIndex, newName) => {
                                               setMaterialNames(prev => {
                                                 const updated = [...prev];
@@ -3057,6 +3070,7 @@ export const CourseUnitsManager = () => {
                                           index={globalIndex}
                                           url={url}
                                           name={name}
+                                          partAssignment={partKey}
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
@@ -3084,6 +3098,7 @@ export const CourseUnitsManager = () => {
                                           url={url}
                                           name={name}
                                           type={type}
+                                          partAssignment={partKey}
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
@@ -3128,6 +3143,7 @@ export const CourseUnitsManager = () => {
                                           question={questionData}
                                           index={globalIndex}
                                           name={name}
+                                          partAssignment="unassigned"
                                           onNameChange={(materialIndex, newName) => {
                                             setMaterialNames(prev => {
                                               const updated = [...prev];
@@ -3162,6 +3178,7 @@ export const CourseUnitsManager = () => {
                                         index={globalIndex}
                                         url={url}
                                         name={name}
+                                        partAssignment="unassigned"
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
@@ -3189,6 +3206,7 @@ export const CourseUnitsManager = () => {
                                         url={url}
                                         name={name}
                                         type={type}
+                                        partAssignment="unassigned"
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
