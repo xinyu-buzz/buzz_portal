@@ -1428,33 +1428,39 @@ export const CourseUnitsManager = () => {
   };
 
   const moveSection = useCallback(async (dragIndex: number, hoverIndex: number) => {
-    setSections(prev => {
-      const updated = [...prev];
-      const [draggedSection] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedSection);
-      
-      // Update display_order for all sections
-      const reordered = updated.map((section, index) => ({
-        ...section,
-        display_order: index + 1,
-      }));
-      
-      // Save to database
-      Promise.all(
-        reordered.map(section =>
-          supabaseClient
-            .from("course_sections")
-            .update({ display_order: section.display_order, updated_at: new Date().toISOString() })
-            .eq("id", section.id)
-        )
-      ).catch(err => {
-        console.error("Error updating section order:", err);
-        setError("Failed to update section order");
-      });
-      
-      return reordered;
-    });
-  }, []);
+    // Store original state for potential rollback
+    const originalSections = [...sections];
+
+    // Calculate the reordered sections
+    const updatedSections = [...sections];
+    const [draggedSection] = updatedSections.splice(dragIndex, 1);
+    updatedSections.splice(hoverIndex, 0, draggedSection);
+    const reorderedSections = updatedSections.map((section, index) => ({
+      ...section,
+      display_order: index + 1,
+    }));
+
+    // Optimistically update UI
+    setSections(reorderedSections);
+
+    try {
+      // Update database
+      const updatePromises = reorderedSections.map(section =>
+        supabaseClient
+          .from("course_sections")
+          .update({ display_order: section.display_order, updated_at: new Date().toISOString() })
+          .eq("id", section.id)
+      );
+
+      await Promise.all(updatePromises);
+      setError(null); // Clear any previous errors
+    } catch (err: any) {
+      console.error("Error updating section order:", err);
+      setError("Failed to update section order. Please try again.");
+      // Revert UI to original state
+      setSections(originalSections);
+    }
+  }, [sections]);
 
   const moveUnit = useCallback(async (dragIndex: number, hoverIndex: number) => {
     setUnits(prev => {
