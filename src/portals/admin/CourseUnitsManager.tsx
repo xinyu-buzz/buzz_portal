@@ -1564,12 +1564,12 @@ export const CourseUnitsManager = () => {
 
   const moveSelectedMaterialsToPart = useCallback((targetPartIndex: number) => {
     const selectedIndices = Array.from(selectedMaterials).sort((a, b) => b - a); // Sort in descending order
-    const targetPart = targetPartIndex === -1 ? null : `part-${targetPartIndex + 1}`;
+    const targetPart = targetPartIndex === -1 ? '' : (targetPartIndex + 1).toString();
 
     setMaterialParts(prev => {
       const updated = [...prev];
       selectedIndices.forEach(index => {
-        updated[index] = targetPart || '';
+        updated[index] = targetPart;
       });
       return updated;
     });
