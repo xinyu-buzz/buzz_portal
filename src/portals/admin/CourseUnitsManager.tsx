@@ -19,9 +19,12 @@ type DraggablePDFItemProps = {
   onNameChange: (index: number, name: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  bulkSelectionMode?: boolean;
+  selectedMaterials?: Set<number>;
+  onToggleSelection?: (index: number) => void;
 };
 
-const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove }: DraggablePDFItemProps) => {
+const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection }: DraggablePDFItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -74,19 +77,33 @@ const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMo
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-        {/* Drag handle */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-            cursor: 'grab',
-            padding: '4px',
-            color: '#9ca3b5',
-          }}
-        >
-          <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
-        </div>
+        {/* Bulk selection checkbox or drag handle */}
+        {bulkSelectionMode ? (
+          <input
+            type="checkbox"
+            checked={selectedMaterials?.has(index) || false}
+            onChange={() => onToggleSelection?.(index)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '16px',
+              height: '16px',
+              cursor: 'pointer'
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              cursor: 'grab',
+              padding: '4px',
+              color: '#9ca3b5',
+            }}
+          >
+            <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
+          </div>
+        )}
 
         {/* PDF icon */}
         <span style={{ fontSize: '24px' }}>📄</span>
@@ -167,9 +184,12 @@ type DraggableVideoItemProps = {
   onNameChange: (index: number, name: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  bulkSelectionMode?: boolean;
+  selectedMaterials?: Set<number>;
+  onToggleSelection?: (index: number) => void;
 };
 
-const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove }: DraggableVideoItemProps) => {
+const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection }: DraggableVideoItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -223,19 +243,33 @@ const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove }
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-        {/* Drag handle */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-            cursor: 'grab',
-            padding: '4px',
-            color: '#9ca3b5',
-          }}
-        >
-          <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
-        </div>
+        {/* Bulk selection checkbox or drag handle */}
+        {bulkSelectionMode ? (
+          <input
+            type="checkbox"
+            checked={selectedMaterials?.has(index) || false}
+            onChange={() => onToggleSelection?.(index)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '16px',
+              height: '16px',
+              cursor: 'pointer'
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              cursor: 'grab',
+              padding: '4px',
+              color: '#9ca3b5',
+            }}
+          >
+            <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
+          </div>
+        )}
 
         {/* Video icon */}
         <span style={{ fontSize: '24px' }}>🎬</span>
@@ -317,9 +351,12 @@ type DraggableQuestionItemProps = {
   onEdit: () => void;
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  bulkSelectionMode?: boolean;
+  selectedMaterials?: Set<number>;
+  onToggleSelection?: (index: number) => void;
 };
 
-const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove }: DraggableQuestionItemProps) => {
+const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection }: DraggableQuestionItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -371,19 +408,33 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-        {/* Drag handle */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-            cursor: 'grab',
-            padding: '4px',
-            color: '#9ca3b5',
-          }}
-        >
-          <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
-        </div>
+        {/* Bulk selection checkbox or drag handle */}
+        {bulkSelectionMode ? (
+          <input
+            type="checkbox"
+            checked={selectedMaterials?.has(index) || false}
+            onChange={() => onToggleSelection?.(index)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '16px',
+              height: '16px',
+              cursor: 'pointer'
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              cursor: 'grab',
+              padding: '4px',
+              color: '#9ca3b5',
+            }}
+          >
+            <span style={{ fontSize: '12px', lineHeight: 1 }}>⋮⋮</span>
+          </div>
+        )}
 
         {/* Question icon */}
         <span style={{ fontSize: '24px' }}>✏️</span>
@@ -959,6 +1010,8 @@ export const CourseUnitsManager = () => {
   const [movingItem, setMovingItem] = useState<{ type: 'unit' | 'test'; item: CourseUnit | CourseTest } | null>(null);
   const [targetCourseId, setTargetCourseId] = useState<string>("");
   const [courseSearchQuery, setCourseSearchQuery] = useState("");
+  const [bulkSelectionMode, setBulkSelectionMode] = useState(false);
+  const [selectedMaterials, setSelectedMaterials] = useState<Set<number>>(new Set());
 
   const [sectionForm, setSectionForm] = useState({
     name: "",
@@ -1508,6 +1561,22 @@ export const CourseUnitsManager = () => {
       return updated;
     });
   }, []);
+
+  const moveSelectedMaterialsToPart = useCallback((targetPartIndex: number) => {
+    const selectedIndices = Array.from(selectedMaterials).sort((a, b) => b - a); // Sort in descending order
+    const targetPart = targetPartIndex === -1 ? null : `part-${targetPartIndex + 1}`;
+
+    setMaterialParts(prev => {
+      const updated = [...prev];
+      selectedIndices.forEach(index => {
+        updated[index] = targetPart || '';
+      });
+      return updated;
+    });
+
+    setSelectedMaterials(new Set());
+    setBulkSelectionMode(false);
+  }, [selectedMaterials]);
 
   // Review Question handlers
   // Questions are stored with type 'question' and the URL contains the question data as JSON
@@ -2615,7 +2684,36 @@ export const CourseUnitsManager = () => {
               {/* Unified Course Materials Section */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <label className="input-label" style={{ marginBottom: 0 }}>Course Materials</label>
-                <div style={{ position: 'relative' }} className="material-dropdown-container">
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {bulkSelectionMode && selectedMaterials.size > 0 && (
+                    <span style={{ fontSize: '14px', color: '#6b8cae', fontWeight: 500 }}>
+                      {selectedMaterials.size} selected
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkSelectionMode(!bulkSelectionMode);
+                      setSelectedMaterials(new Set());
+                    }}
+                    style={{
+                      backgroundColor: bulkSelectionMode ? 'rgba(220, 38, 38, 0.9)' : 'rgba(107, 140, 174, 0.9)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span style={{ fontSize: '16px' }}>{bulkSelectionMode ? '✗' : '☑'}</span>
+                    {bulkSelectionMode ? 'Exit Select' : 'Select Multiple'}
+                  </button>
+                  <div style={{ position: 'relative' }} className="material-dropdown-container">
                   <button
                     type="button"
                     onClick={() => setShowMaterialTypeDropdown(!showMaterialTypeDropdown)}
@@ -2727,8 +2825,70 @@ export const CourseUnitsManager = () => {
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
+
+              {/* Bulk Actions Toolbar */}
+              {bulkSelectionMode && selectedMaterials.size > 0 && (
+                <div style={{
+                  backgroundColor: 'rgba(107, 140, 174, 0.1)',
+                  border: '1px solid rgba(107, 140, 174, 0.3)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: 16,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ fontSize: '14px', color: '#6b8cae', fontWeight: 500 }}>
+                    {selectedMaterials.size} material{selectedMaterials.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(107, 140, 174, 0.3)',
+                        backgroundColor: '#1e293b',
+                        color: 'white',
+                        fontSize: '14px'
+                      }}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          moveSelectedMaterialsToPart(parseInt(e.target.value));
+                          e.target.value = '';
+                        }
+                      }}
+                      defaultValue=""
+                    >
+                      <option value="">Move to part...</option>
+                      {materialPartNames.map((partName, index) => (
+                        <option key={index} value={index}>
+                          {partName || `Part ${index + 1}`}
+                        </option>
+                      ))}
+                      <option value="-1">Unassigned</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMaterials(new Set())}
+                      style={{
+                        backgroundColor: 'rgba(156, 163, 175, 0.9)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 500
+                      }}
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginBottom: 16 }}>
                 {/* Material Parts Management */}
@@ -2803,6 +2963,19 @@ export const CourseUnitsManager = () => {
                                             onEdit={() => openQuestionModal(globalIndex)}
                                             onDelete={() => deleteReviewQuestion(globalIndex)}
                                             onMove={moveMaterial}
+                                            bulkSelectionMode={bulkSelectionMode}
+                                            selectedMaterials={selectedMaterials}
+                                            onToggleSelection={(index) => {
+                                              setSelectedMaterials(prev => {
+                                                const newSet = new Set(prev);
+                                                if (newSet.has(index)) {
+                                                  newSet.delete(index);
+                                                } else {
+                                                  newSet.add(index);
+                                                }
+                                                return newSet;
+                                              });
+                                            }}
                                           />
                                         );
                                       }
@@ -2817,6 +2990,19 @@ export const CourseUnitsManager = () => {
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
+                                          bulkSelectionMode={bulkSelectionMode}
+                                          selectedMaterials={selectedMaterials}
+                                          onToggleSelection={(index) => {
+                                            setSelectedMaterials(prev => {
+                                              const newSet = new Set(prev);
+                                              if (newSet.has(index)) {
+                                                newSet.delete(index);
+                                              } else {
+                                                newSet.add(index);
+                                              }
+                                              return newSet;
+                                            });
+                                          }}
                                         />
                                       );
                                     } else {
@@ -2875,6 +3061,19 @@ export const CourseUnitsManager = () => {
                                           onEdit={() => openQuestionModal(globalIndex)}
                                           onDelete={() => deleteReviewQuestion(globalIndex)}
                                           onMove={moveMaterial}
+                                          bulkSelectionMode={bulkSelectionMode}
+                                          selectedMaterials={selectedMaterials}
+                                          onToggleSelection={(index) => {
+                                            setSelectedMaterials(prev => {
+                                              const newSet = new Set(prev);
+                                              if (newSet.has(index)) {
+                                                newSet.delete(index);
+                                              } else {
+                                                newSet.add(index);
+                                              }
+                                              return newSet;
+                                            });
+                                          }}
                                         />
                                       );
                                     }
@@ -2889,6 +3088,19 @@ export const CourseUnitsManager = () => {
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
+                                        bulkSelectionMode={bulkSelectionMode}
+                                        selectedMaterials={selectedMaterials}
+                                        onToggleSelection={(index) => {
+                                          setSelectedMaterials(prev => {
+                                            const newSet = new Set(prev);
+                                            if (newSet.has(index)) {
+                                              newSet.delete(index);
+                                            } else {
+                                              newSet.add(index);
+                                            }
+                                            return newSet;
+                                          });
+                                        }}
                                       />
                                     );
                                   } else {
@@ -2903,6 +3115,19 @@ export const CourseUnitsManager = () => {
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
+                                        bulkSelectionMode={bulkSelectionMode}
+                                        selectedMaterials={selectedMaterials}
+                                        onToggleSelection={(index) => {
+                                          setSelectedMaterials(prev => {
+                                            const newSet = new Set(prev);
+                                            if (newSet.has(index)) {
+                                              newSet.delete(index);
+                                            } else {
+                                              newSet.add(index);
+                                            }
+                                            return newSet;
+                                          });
+                                        }}
                                       />
                                     );
                                   }
