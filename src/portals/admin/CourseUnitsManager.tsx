@@ -19,12 +19,9 @@ type DraggablePDFItemProps = {
   onNameChange: (index: number, name: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
-  onPartChange?: (index: number, partIndex: number) => void;
-  materialPartNames?: string[];
-  currentPart?: string;
 };
 
-const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, onPartChange, materialPartNames, currentPart }: DraggablePDFItemProps) => {
+const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove }: DraggablePDFItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -123,37 +120,6 @@ const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMo
           >
             View Material
           </a>
-
-          {/* Part assignment dropdown */}
-          {materialPartNames && materialPartNames.length > 0 && (
-            <div style={{ marginTop: '8px' }}>
-              <select
-                value={currentPart || ''}
-                onChange={(e) => {
-                  const partIndex = e.target.value ? parseInt(e.target.value) - 1 : -1;
-                  if (onPartChange) {
-                    onPartChange(index, partIndex);
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: '100%',
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Unassigned</option>
-                {materialPartNames.map((partName, partIndex) => (
-                  <option key={partIndex} value={(partIndex + 1).toString()}>
-                    {partName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
         {/* Material type and Remove button */}
@@ -201,12 +167,9 @@ type DraggableVideoItemProps = {
   onNameChange: (index: number, name: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
-  onPartChange?: (index: number, partIndex: number) => void;
-  materialPartNames?: string[];
-  currentPart?: string;
 };
 
-const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, onPartChange, materialPartNames, currentPart }: DraggableVideoItemProps) => {
+const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove }: DraggableVideoItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -306,37 +269,6 @@ const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, 
           >
             View Video
           </a>
-
-          {/* Part assignment dropdown */}
-          {materialPartNames && materialPartNames.length > 0 && (
-            <div style={{ marginTop: '8px' }}>
-              <select
-                value={currentPart || ''}
-                onChange={(e) => {
-                  const partIndex = e.target.value ? parseInt(e.target.value) - 1 : -1;
-                  if (onPartChange) {
-                    onPartChange(index, partIndex);
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: '100%',
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Unassigned</option>
-                {materialPartNames.map((partName, partIndex) => (
-                  <option key={partIndex} value={(partIndex + 1).toString()}>
-                    {partName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
         {/* Material type and Remove button */}
@@ -385,12 +317,9 @@ type DraggableQuestionItemProps = {
   onEdit: () => void;
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
-  onPartChange?: (index: number, partIndex: number) => void;
-  materialPartNames?: string[];
-  currentPart?: string;
 };
 
-const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove, onPartChange, materialPartNames, currentPart }: DraggableQuestionItemProps) => {
+const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove }: DraggableQuestionItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -481,37 +410,6 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
           <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
             {question.options.length} options • Correct: {question.options[question.correct_answer_index]}
           </div>
-
-          {/* Part assignment dropdown */}
-          {materialPartNames && materialPartNames.length > 0 && (
-            <div style={{ marginTop: '8px' }}>
-              <select
-                value={currentPart || ''}
-                onChange={(e) => {
-                  const partIndex = e.target.value ? parseInt(e.target.value) - 1 : -1;
-                  if (onPartChange) {
-                    onPartChange(index, partIndex);
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: '100%',
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Unassigned</option>
-                {materialPartNames.map((partName, partIndex) => (
-                  <option key={partIndex} value={(partIndex + 1).toString()}>
-                    {partName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
@@ -2855,56 +2753,6 @@ export const CourseUnitsManager = () => {
                     </button>
                   </div>
 
-                  {/* Display material parts */}
-                  {materialPartNames.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      {materialPartNames.map((partName, partIndex) => (
-                        <div key={`part-${partIndex}`} style={{
-                          padding: '12px',
-                          backgroundColor: 'rgba(107, 140, 174, 0.1)',
-                          borderRadius: '8px',
-                          marginBottom: '8px',
-                          border: '1px solid rgba(107, 140, 174, 0.2)'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <input
-                              type="text"
-                              value={partName}
-                              onChange={(e) => updateMaterialPartName(partIndex, e.target.value)}
-                              style={{
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                border: '1px solid #ccc',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                backgroundColor: 'white'
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeMaterialPart(partIndex)}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#dc3545',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '12px'
-                              }}
-                            >
-                              Remove Part
-                            </button>
-                          </div>
-
-                          {/* Materials in this part */}
-                          <div style={{ fontSize: '12px', color: '#666' }}>
-                            Materials: {materialParts.filter(part => part === (partIndex + 1).toString()).length}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* Display materials grouped by parts */}
@@ -2916,10 +2764,10 @@ export const CourseUnitsManager = () => {
 
                         return (
                           <>
-                            {/* Render grouped materials */}
-                            {Object.entries(groups).map(([partKey, materials]) => {
-                              const partIndex = parseInt(partKey.split('-')[1]) - 1;
-                              const partName = materialPartNames[partIndex] || `Part ${partIndex + 1}`;
+                            {/* Render all created parts (including empty ones) */}
+                            {materialPartNames.map((partName, partIndex) => {
+                              const partKey = `part-${partIndex + 1}`;
+                              const materials = groups[partKey] || { urls: [], names: [], types: [], indices: [] };
 
                               return (
                                 <DroppablePartContainer
@@ -2955,9 +2803,6 @@ export const CourseUnitsManager = () => {
                                             onEdit={() => openQuestionModal(globalIndex)}
                                             onDelete={() => deleteReviewQuestion(globalIndex)}
                                             onMove={moveMaterial}
-                                            onPartChange={assignMaterialToPart}
-                                            materialPartNames={materialPartNames}
-                                            currentPart={materialParts[globalIndex]}
                                           />
                                         );
                                       }
@@ -2972,9 +2817,6 @@ export const CourseUnitsManager = () => {
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
-                                          onPartChange={assignMaterialToPart}
-                                          materialPartNames={materialPartNames}
-                                          currentPart={materialParts[globalIndex]}
                                         />
                                       );
                                     } else {
@@ -2989,9 +2831,6 @@ export const CourseUnitsManager = () => {
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
-                                          onPartChange={assignMaterialToPart}
-                                          materialPartNames={materialPartNames}
-                                          currentPart={materialParts[globalIndex]}
                                         />
                                       );
                                     }
@@ -3036,9 +2875,6 @@ export const CourseUnitsManager = () => {
                                           onEdit={() => openQuestionModal(globalIndex)}
                                           onDelete={() => deleteReviewQuestion(globalIndex)}
                                           onMove={moveMaterial}
-                                          onPartChange={assignMaterialToPart}
-                                          materialPartNames={materialPartNames}
-                                          currentPart={materialParts[globalIndex]}
                                         />
                                       );
                                     }
@@ -3053,9 +2889,6 @@ export const CourseUnitsManager = () => {
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
-                                        onPartChange={assignMaterialToPart}
-                                        materialPartNames={materialPartNames}
-                                        currentPart={materialParts[globalIndex]}
                                       />
                                     );
                                   } else {
@@ -3070,9 +2903,6 @@ export const CourseUnitsManager = () => {
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
-                                        onPartChange={assignMaterialToPart}
-                                        materialPartNames={materialPartNames}
-                                        currentPart={materialParts[globalIndex]}
                                       />
                                     );
                                   }
