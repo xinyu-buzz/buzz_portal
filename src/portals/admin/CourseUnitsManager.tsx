@@ -19,9 +19,12 @@ type DraggablePDFItemProps = {
   onNameChange: (index: number, name: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  onPartChange?: (index: number, partIndex: number) => void;
+  materialPartNames?: string[];
+  currentPart?: string;
 };
 
-const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove }: DraggablePDFItemProps) => {
+const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, onPartChange, materialPartNames, currentPart }: DraggablePDFItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -120,6 +123,37 @@ const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMo
           >
             View Material
           </a>
+
+          {/* Part assignment dropdown */}
+          {materialPartNames && materialPartNames.length > 0 && (
+            <div style={{ marginTop: '8px' }}>
+              <select
+                value={currentPart || ''}
+                onChange={(e) => {
+                  const partIndex = e.target.value ? parseInt(e.target.value) - 1 : -1;
+                  if (onPartChange) {
+                    onPartChange(index, partIndex);
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: '100%',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Unassigned</option>
+                {materialPartNames.map((partName, partIndex) => (
+                  <option key={partIndex} value={(partIndex + 1).toString()}>
+                    {partName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Material type and Remove button */}
@@ -167,9 +201,12 @@ type DraggableVideoItemProps = {
   onNameChange: (index: number, name: string) => void;
   onRemove: (index: number) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  onPartChange?: (index: number, partIndex: number) => void;
+  materialPartNames?: string[];
+  currentPart?: string;
 };
 
-const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove }: DraggableVideoItemProps) => {
+const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, onPartChange, materialPartNames, currentPart }: DraggableVideoItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -269,6 +306,37 @@ const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove }
           >
             View Video
           </a>
+
+          {/* Part assignment dropdown */}
+          {materialPartNames && materialPartNames.length > 0 && (
+            <div style={{ marginTop: '8px' }}>
+              <select
+                value={currentPart || ''}
+                onChange={(e) => {
+                  const partIndex = e.target.value ? parseInt(e.target.value) - 1 : -1;
+                  if (onPartChange) {
+                    onPartChange(index, partIndex);
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: '100%',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Unassigned</option>
+                {materialPartNames.map((partName, partIndex) => (
+                  <option key={partIndex} value={(partIndex + 1).toString()}>
+                    {partName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Material type and Remove button */}
@@ -317,9 +385,12 @@ type DraggableQuestionItemProps = {
   onEdit: () => void;
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  onPartChange?: (index: number, partIndex: number) => void;
+  materialPartNames?: string[];
+  currentPart?: string;
 };
 
-const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove }: DraggableQuestionItemProps) => {
+const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove, onPartChange, materialPartNames, currentPart }: DraggableQuestionItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -410,6 +481,37 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
           <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
             {question.options.length} options • Correct: {question.options[question.correct_answer_index]}
           </div>
+
+          {/* Part assignment dropdown */}
+          {materialPartNames && materialPartNames.length > 0 && (
+            <div style={{ marginTop: '8px' }}>
+              <select
+                value={currentPart || ''}
+                onChange={(e) => {
+                  const partIndex = e.target.value ? parseInt(e.target.value) - 1 : -1;
+                  if (onPartChange) {
+                    onPartChange(index, partIndex);
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: '100%',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Unassigned</option>
+                {materialPartNames.map((partName, partIndex) => (
+                  <option key={partIndex} value={(partIndex + 1).toString()}>
+                    {partName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
@@ -446,6 +548,106 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+type DroppablePartContainerProps = {
+  partIndex: number;
+  partName: string;
+  children: React.ReactNode;
+  onMaterialDropped: (materialIndex: number, partIndex: number) => void;
+  materialCount: number;
+  onPartNameChange: (partIndex: number, name: string) => void;
+  onRemovePart: (partIndex: number) => void;
+};
+
+const DroppablePartContainer = ({
+  partIndex,
+  partName,
+  children,
+  onMaterialDropped,
+  materialCount,
+  onPartNameChange,
+  onRemovePart
+}: DroppablePartContainerProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isOver }, drop] = useDrop({
+    accept: MATERIAL_ITEM_TYPE,
+    drop: (item: { index: number }) => {
+      onMaterialDropped(item.index, partIndex);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drop(ref);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: isOver ? 'rgba(107, 140, 174, 0.15)' : 'rgba(107, 140, 174, 0.05)',
+        borderRadius: '8px',
+        border: `2px solid ${isOver ? 'rgba(107, 140, 174, 0.5)' : 'rgba(107, 140, 174, 0.2)'}`,
+        transition: 'all 0.2s ease',
+        minHeight: '100px'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <input
+          type="text"
+          value={partName}
+          onChange={(e) => onPartNameChange(partIndex, e.target.value)}
+          style={{
+            fontSize: '16px',
+            fontWeight: 600,
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            backgroundColor: 'white',
+            color: '#6b8cae'
+          }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '12px', color: '#666' }}>
+            Materials: {materialCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => onRemovePart(partIndex)}
+            style={{
+              padding: '4px 8px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Remove Part
+          </button>
+        </div>
+      </div>
+
+      {isOver && (
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          color: '#6b8cae',
+          fontSize: '14px',
+          fontWeight: 500
+        }}>
+          Drop material here to assign to {partName}
+        </div>
+      )}
+
+      {children}
     </div>
   );
 };
@@ -778,6 +980,8 @@ type CourseUnit = {
   material_urls: string[] | null;
   material_names: string[] | null;
   material_types: string[] | null;
+  material_part_names: string[] | null;
+  material_parts: string[] | null;
   // video_urls, video_names, review_questions are deprecated - now stored in unified material_* arrays
   section_id: string | null;
   prerequisite_units: number[];
@@ -837,6 +1041,8 @@ export const CourseUnitsManager = () => {
   const [materialUrls, setMaterialUrls] = useState<string[]>([]);
   const [materialNames, setMaterialNames] = useState<string[]>([]);
   const [materialTypes, setMaterialTypes] = useState<string[]>([]);
+  const [materialPartNames, setMaterialPartNames] = useState<string[]>([]);
+  const [materialParts, setMaterialParts] = useState<string[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showMaterialTypeDropdown, setShowMaterialTypeDropdown] = useState(false);
   const [showMaterialUploadModal, setShowMaterialUploadModal] = useState(false);
@@ -1119,6 +1325,8 @@ export const CourseUnitsManager = () => {
       setMaterialUrls(urls);
       setMaterialNames(names);
       setMaterialTypes(types);
+      setMaterialPartNames(Array.isArray(unit.material_part_names) ? unit.material_part_names : []);
+      setMaterialParts(Array.isArray(unit.material_parts) ? unit.material_parts : []);
       setPendingFiles([]);
     } else {
       setEditingUnit(null);
@@ -1136,6 +1344,8 @@ export const CourseUnitsManager = () => {
       setMaterialUrls([]);
       setMaterialNames([]);
       setMaterialTypes([]);
+      setMaterialPartNames([]);
+      setMaterialParts([]);
       setPendingFiles([]);
     }
     setShowUnitForm(true);
@@ -1158,6 +1368,8 @@ export const CourseUnitsManager = () => {
     setMaterialUrls([]);
     setMaterialNames([]);
     setMaterialTypes([]);
+    setMaterialPartNames([]);
+    setMaterialParts([]);
     setPendingFiles([]);
     setError(null);
   };
@@ -1295,6 +1507,87 @@ export const CourseUnitsManager = () => {
       updated[index] = newName;
       return updated;
     });
+  };
+
+  // Material parts management functions
+  const addMaterialPart = () => {
+    const partNumber = materialPartNames.length + 1;
+    const newPartName = `Part ${partNumber}`;
+    setMaterialPartNames(prev => [...prev, newPartName]);
+  };
+
+  const updateMaterialPartName = (partIndex: number, newName: string) => {
+    setMaterialPartNames(prev => {
+      const updated = [...prev];
+      updated[partIndex] = newName;
+      return updated;
+    });
+  };
+
+  const removeMaterialPart = (partIndex: number) => {
+    const partNumber = (partIndex + 1).toString();
+    // Remove the part name
+    setMaterialPartNames(prev => prev.filter((_, i) => i !== partIndex));
+    // Remove all materials assigned to this part
+    const newMaterialUrls = [];
+    const newMaterialNames = [];
+    const newMaterialTypes = [];
+    const newMaterialParts = [];
+
+    for (let i = 0; i < materialUrls.length; i++) {
+      if (materialParts[i] !== partNumber) {
+        newMaterialUrls.push(materialUrls[i]);
+        newMaterialNames.push(materialNames[i]);
+        newMaterialTypes.push(materialTypes[i]);
+        // Update part indices for materials that come after the removed part
+        const currentPartNum = parseInt(materialParts[i]);
+        if (currentPartNum > parseInt(partNumber)) {
+          newMaterialParts.push((currentPartNum - 1).toString());
+        } else {
+          newMaterialParts.push(materialParts[i]);
+        }
+      }
+    }
+
+    setMaterialUrls(newMaterialUrls);
+    setMaterialNames(newMaterialNames);
+    setMaterialTypes(newMaterialTypes);
+    setMaterialParts(newMaterialParts);
+  };
+
+  const assignMaterialToPart = (materialIndex: number, partIndex: number) => {
+    setMaterialParts(prev => {
+      const updated = [...prev];
+      updated[materialIndex] = (partIndex + 1).toString();
+      return updated;
+    });
+  };
+
+  // Group materials by parts for display
+  const getMaterialsGroupedByParts = () => {
+    const groups: { [key: string]: { urls: string[], names: string[], types: string[], indices: number[] } } = {};
+    const unassigned: { urls: string[], names: string[], types: string[], indices: number[] } = { urls: [], names: [], types: [], indices: [] };
+
+    materialUrls.forEach((url, index) => {
+      const partIndex = materialParts[index];
+      if (partIndex && partIndex !== '0') {
+        const partKey = `part-${partIndex}`;
+        if (!groups[partKey]) {
+          groups[partKey] = { urls: [], names: [], types: [], indices: [] };
+        }
+        groups[partKey].urls.push(url);
+        groups[partKey].names.push(materialNames[index] || `Material ${index + 1}`);
+        groups[partKey].types.push(materialTypes[index] || 'pdf');
+        groups[partKey].indices.push(index);
+      } else {
+        unassigned.urls.push(url);
+        unassigned.names.push(materialNames[index] || `Material ${index + 1}`);
+        unassigned.types.push(materialTypes[index] || 'pdf');
+        unassigned.indices.push(index);
+      }
+    });
+
+    return { groups, unassigned };
   };
 
   const moveMaterial = useCallback((dragIndex: number, hoverIndex: number) => {
@@ -1603,6 +1896,8 @@ export const CourseUnitsManager = () => {
         material_urls: finalUrls.length > 0 ? finalUrls : [],
         material_names: finalNames.length > 0 ? finalNames : [],
         material_types: finalTypes.length > 0 ? finalTypes : [],
+        material_part_names: materialPartNames.length > 0 ? materialPartNames : [],
+        material_parts: materialParts.length > 0 ? materialParts : [],
         prerequisite_units: unitForm.prerequisite_units,
         prerequisite_tests: unitForm.prerequisite_tests,
         updated_at: new Date().toISOString(),
@@ -2538,65 +2833,255 @@ export const CourseUnitsManager = () => {
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                {/* Display all materials in unified order */}
+                {/* Material Parts Management */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Material Parts</h4>
+                    <button
+                      type="button"
+                      onClick={addMaterialPart}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#6b8cae',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 500
+                      }}
+                    >
+                      + Add Part
+                    </button>
+                  </div>
+
+                  {/* Display material parts */}
+                  {materialPartNames.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      {materialPartNames.map((partName, partIndex) => (
+                        <div key={`part-${partIndex}`} style={{
+                          padding: '12px',
+                          backgroundColor: 'rgba(107, 140, 174, 0.1)',
+                          borderRadius: '8px',
+                          marginBottom: '8px',
+                          border: '1px solid rgba(107, 140, 174, 0.2)'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <input
+                              type="text"
+                              value={partName}
+                              onChange={(e) => updateMaterialPartName(partIndex, e.target.value)}
+                              style={{
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                border: '1px solid #ccc',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeMaterialPart(partIndex)}
+                              style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                            >
+                              Remove Part
+                            </button>
+                          </div>
+
+                          {/* Materials in this part */}
+                          <div style={{ fontSize: '12px', color: '#666' }}>
+                            Materials: {materialParts.filter(part => part === (partIndex + 1).toString()).length}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Display materials grouped by parts */}
                 {materialUrls.length > 0 && (
                   <div style={{ marginBottom: 12 }}>
                     <DndProvider backend={HTML5Backend}>
-                      {materialUrls.map((url, index) => {
-                        const type = materialTypes[index] || 'pdf';
-                        const name = materialNames[index] || `Material ${index + 1}`;
-                        
-                        if (type === 'question') {
-                          const questionData = getQuestionFromUrl(url);
-                          if (questionData) {
-                            return (
-                              <DraggableQuestionItem
-                                key={`material-${index}`}
-                                question={questionData}
-                                index={index}
-                                name={name}
-                                onNameChange={(materialIndex, newName) => {
-                                  setMaterialNames(prev => {
-                                    const updated = [...prev];
-                                    updated[materialIndex] = newName;
-                                    return updated;
-                                  });
-                                }}
-                                onEdit={() => openQuestionModal(index)}
-                                onDelete={() => deleteReviewQuestion(index)}
-                                onMove={moveMaterial}
-                              />
-                            );
-                          }
-                          return null;
-                        } else if (type === 'video') {
-                          return (
-                            <DraggableVideoItem
-                              key={`material-${index}`}
-                              index={index}
-                              url={url}
-                              name={name}
-                              onNameChange={updateMaterialName}
-                              onRemove={removeMaterial}
-                              onMove={moveMaterial}
-                            />
-                          );
-                        } else {
-                          // PDF or image
-                          return (
-                            <DraggablePDFItem
-                              key={`material-${index}`}
-                              index={index}
-                              url={url}
-                              name={name}
-                              type={type}
-                              onNameChange={updateMaterialName}
-                              onRemove={removeMaterial}
-                              onMove={moveMaterial}
-                            />
-                          );
-                        }
-                      })}
+                      {(() => {
+                        const { groups, unassigned } = getMaterialsGroupedByParts();
+
+                        return (
+                          <>
+                            {/* Render grouped materials */}
+                            {Object.entries(groups).map(([partKey, materials]) => {
+                              const partIndex = parseInt(partKey.split('-')[1]) - 1;
+                              const partName = materialPartNames[partIndex] || `Part ${partIndex + 1}`;
+
+                              return (
+                                <DroppablePartContainer
+                                  key={partKey}
+                                  partIndex={partIndex}
+                                  partName={partName}
+                                  onMaterialDropped={assignMaterialToPart}
+                                  materialCount={materials.urls.length}
+                                  onPartNameChange={updateMaterialPartName}
+                                  onRemovePart={removeMaterialPart}
+                                >
+                                  {materials.urls.map((url, localIndex) => {
+                                    const globalIndex = materials.indices[localIndex];
+                                    const type = materials.types[localIndex];
+                                    const name = materials.names[localIndex];
+
+                                    if (type === 'question') {
+                                      const questionData = getQuestionFromUrl(url);
+                                      if (questionData) {
+                                        return (
+                                          <DraggableQuestionItem
+                                            key={`material-${globalIndex}`}
+                                            question={questionData}
+                                            index={globalIndex}
+                                            name={name}
+                                            onNameChange={(materialIndex, newName) => {
+                                              setMaterialNames(prev => {
+                                                const updated = [...prev];
+                                                updated[materialIndex] = newName;
+                                                return updated;
+                                              });
+                                            }}
+                                            onEdit={() => openQuestionModal(globalIndex)}
+                                            onDelete={() => deleteReviewQuestion(globalIndex)}
+                                            onMove={moveMaterial}
+                                            onPartChange={assignMaterialToPart}
+                                            materialPartNames={materialPartNames}
+                                            currentPart={materialParts[globalIndex]}
+                                          />
+                                        );
+                                      }
+                                      return null;
+                                    } else if (type === 'video') {
+                                      return (
+                                        <DraggableVideoItem
+                                          key={`material-${globalIndex}`}
+                                          index={globalIndex}
+                                          url={url}
+                                          name={name}
+                                          onNameChange={updateMaterialName}
+                                          onRemove={removeMaterial}
+                                          onMove={moveMaterial}
+                                          onPartChange={assignMaterialToPart}
+                                          materialPartNames={materialPartNames}
+                                          currentPart={materialParts[globalIndex]}
+                                        />
+                                      );
+                                    } else {
+                                      // PDF or image
+                                      return (
+                                        <DraggablePDFItem
+                                          key={`material-${globalIndex}`}
+                                          index={globalIndex}
+                                          url={url}
+                                          name={name}
+                                          type={type}
+                                          onNameChange={updateMaterialName}
+                                          onRemove={removeMaterial}
+                                          onMove={moveMaterial}
+                                          onPartChange={assignMaterialToPart}
+                                          materialPartNames={materialPartNames}
+                                          currentPart={materialParts[globalIndex]}
+                                        />
+                                      );
+                                    }
+                                  })}
+                                </DroppablePartContainer>
+                              );
+                            })}
+
+                            {/* Render unassigned materials */}
+                            {unassigned.urls.length > 0 && (
+                              <div style={{
+                                marginBottom: '20px',
+                                padding: '16px',
+                                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255, 193, 7, 0.3)'
+                              }}>
+                                <h5 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600, color: '#856404' }}>
+                                  Unassigned Materials
+                                </h5>
+                                {unassigned.urls.map((url, localIndex) => {
+                                  const globalIndex = unassigned.indices[localIndex];
+                                  const type = unassigned.types[localIndex];
+                                  const name = unassigned.names[localIndex];
+
+                                  if (type === 'question') {
+                                    const questionData = getQuestionFromUrl(url);
+                                    if (questionData) {
+                                      return (
+                                        <DraggableQuestionItem
+                                          key={`material-${globalIndex}`}
+                                          question={questionData}
+                                          index={globalIndex}
+                                          name={name}
+                                          onNameChange={(materialIndex, newName) => {
+                                            setMaterialNames(prev => {
+                                              const updated = [...prev];
+                                              updated[materialIndex] = newName;
+                                              return updated;
+                                            });
+                                          }}
+                                          onEdit={() => openQuestionModal(globalIndex)}
+                                          onDelete={() => deleteReviewQuestion(globalIndex)}
+                                          onMove={moveMaterial}
+                                          onPartChange={assignMaterialToPart}
+                                          materialPartNames={materialPartNames}
+                                          currentPart={materialParts[globalIndex]}
+                                        />
+                                      );
+                                    }
+                                    return null;
+                                  } else if (type === 'video') {
+                                    return (
+                                      <DraggableVideoItem
+                                        key={`material-${globalIndex}`}
+                                        index={globalIndex}
+                                        url={url}
+                                        name={name}
+                                        onNameChange={updateMaterialName}
+                                        onRemove={removeMaterial}
+                                        onMove={moveMaterial}
+                                        onPartChange={assignMaterialToPart}
+                                        materialPartNames={materialPartNames}
+                                        currentPart={materialParts[globalIndex]}
+                                      />
+                                    );
+                                  } else {
+                                    // PDF or image
+                                    return (
+                                      <DraggablePDFItem
+                                        key={`material-${globalIndex}`}
+                                        index={globalIndex}
+                                        url={url}
+                                        name={name}
+                                        type={type}
+                                        onNameChange={updateMaterialName}
+                                        onRemove={removeMaterial}
+                                        onMove={moveMaterial}
+                                        onPartChange={assignMaterialToPart}
+                                        materialPartNames={materialPartNames}
+                                        currentPart={materialParts[globalIndex]}
+                                      />
+                                    );
+                                  }
+                                })}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </DndProvider>
                   </div>
                 )}
