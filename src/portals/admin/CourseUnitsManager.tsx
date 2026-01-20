@@ -583,6 +583,8 @@ type DroppablePartContainerProps = {
   materialCount: number;
   onPartNameChange: (partIndex: number, name: string) => void;
   onRemovePart: (partIndex: number) => void;
+  isCollapsed: boolean;
+  onToggleCollapse: (partIndex: number) => void;
 };
 
 const DroppablePartContainer = ({
@@ -592,7 +594,9 @@ const DroppablePartContainer = ({
   onMaterialDropped,
   materialCount,
   onPartNameChange,
-  onRemovePart
+  onRemovePart,
+  isCollapsed,
+  onToggleCollapse
 }: DroppablePartContainerProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -618,10 +622,10 @@ const DroppablePartContainer = ({
         borderRadius: '8px',
         border: `2px solid ${isOver ? 'rgba(107, 140, 174, 0.5)' : 'rgba(107, 140, 174, 0.2)'}`,
         transition: 'all 0.2s ease',
-        minHeight: '100px'
+        minHeight: isCollapsed ? 'auto' : '100px'
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCollapsed ? '0' : '12px' }}>
         <input
           type="text"
           value={partName}
@@ -642,6 +646,27 @@ const DroppablePartContainer = ({
           </span>
           <button
             type="button"
+            onClick={() => onToggleCollapse(partIndex)}
+            style={{
+              padding: '4px 8px',
+              backgroundColor: '#6b8cae',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '32px'
+            }}
+            title={isCollapsed ? 'Expand' : 'Collapse'}
+          >
+            {isCollapsed ? '▼' : '▲'}
+          </button>
+          <button
+            type="button"
             onClick={() => onRemovePart(partIndex)}
             style={{
               padding: '4px 8px',
@@ -658,19 +683,23 @@ const DroppablePartContainer = ({
         </div>
       </div>
 
-      {isOver && (
-        <div style={{
-          textAlign: 'center',
-          padding: '20px',
-          color: '#6b8cae',
-          fontSize: '14px',
-          fontWeight: 500
-        }}>
-          Drop material here to assign to {partName}
-        </div>
-      )}
+      {!isCollapsed && (
+        <>
+          {isOver && (
+            <div style={{
+              textAlign: 'center',
+              padding: '20px',
+              color: '#6b8cae',
+              fontSize: '14px',
+              fontWeight: 500
+            }}>
+              Drop material here to assign to {partName}
+            </div>
+          )}
 
-      {children}
+          {children}
+        </>
+      )}
     </div>
   );
 };
@@ -1066,6 +1095,7 @@ export const CourseUnitsManager = () => {
   const [materialTypes, setMaterialTypes] = useState<string[]>([]);
   const [materialPartNames, setMaterialPartNames] = useState<string[]>([]);
   const [materialParts, setMaterialParts] = useState<string[]>([]);
+  const [collapsedParts, setCollapsedParts] = useState<Set<number>>(new Set());
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showMaterialTypeDropdown, setShowMaterialTypeDropdown] = useState(false);
   const [showMaterialUploadModal, setShowMaterialUploadModal] = useState(false);
@@ -1578,6 +1608,34 @@ export const CourseUnitsManager = () => {
     setMaterialNames(newMaterialNames);
     setMaterialTypes(newMaterialTypes);
     setMaterialParts(newMaterialParts);
+    
+    // Also remove from collapsed set if it was collapsed
+    setCollapsedParts(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(partIndex);
+      // Update indices for parts after the removed one
+      const updatedSet = new Set<number>();
+      newSet.forEach(idx => {
+        if (idx > partIndex) {
+          updatedSet.add(idx - 1);
+        } else if (idx < partIndex) {
+          updatedSet.add(idx);
+        }
+      });
+      return updatedSet;
+    });
+  };
+
+  const togglePartCollapse = (partIndex: number) => {
+    setCollapsedParts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(partIndex)) {
+        newSet.delete(partIndex);
+      } else {
+        newSet.add(partIndex);
+      }
+      return newSet;
+    });
   };
 
   const assignMaterialToPart = (materialIndex: number, partIndex: number) => {
@@ -3020,6 +3078,8 @@ export const CourseUnitsManager = () => {
                                   materialCount={materials.urls.length}
                                   onPartNameChange={updateMaterialPartName}
                                   onRemovePart={removeMaterialPart}
+                                  isCollapsed={collapsedParts.has(partIndex)}
+                                  onToggleCollapse={togglePartCollapse}
                                 >
                                   {materials.urls.map((url, localIndex) => {
                                     const globalIndex = materials.indices[localIndex];
