@@ -3087,6 +3087,19 @@ export const CourseUnitsManager = () => {
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
+                                          bulkSelectionMode={bulkSelectionMode}
+                                          selectedMaterials={selectedMaterials}
+                                          onToggleSelection={(index) => {
+                                            setSelectedMaterials(prev => {
+                                              const newSet = new Set(prev);
+                                              if (newSet.has(index)) {
+                                                newSet.delete(index);
+                                              } else {
+                                                newSet.add(index);
+                                              }
+                                              return newSet;
+                                            });
+                                          }}
                                         />
                                       );
                                     }
