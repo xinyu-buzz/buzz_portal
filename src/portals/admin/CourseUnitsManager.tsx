@@ -501,6 +501,68 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
   );
 };
 
+type DroppableUnassignedContainerProps = {
+  children: React.ReactNode;
+  onMaterialDropped: (materialIndex: number) => void;
+  materialCount: number;
+};
+
+const DroppableUnassignedContainer = ({
+  children,
+  onMaterialDropped,
+  materialCount
+}: DroppableUnassignedContainerProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isOver }, drop] = useDrop({
+    accept: MATERIAL_ITEM_TYPE,
+    drop: (item: { index: number }) => {
+      onMaterialDropped(item.index);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drop(ref);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: isOver ? 'rgba(255, 193, 7, 0.2)' : 'rgba(255, 193, 7, 0.1)',
+        borderRadius: '8px',
+        border: `2px solid ${isOver ? 'rgba(255, 193, 7, 0.5)' : 'rgba(255, 193, 7, 0.3)'}`,
+        transition: 'all 0.2s ease',
+        minHeight: '80px'
+      }}
+    >
+      <h5 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600, color: '#856404' }}>
+        Unassigned Materials
+        <span style={{ fontSize: '12px', color: '#856404', marginLeft: '8px' }}>
+          ({materialCount} material{materialCount !== 1 ? 's' : ''})
+        </span>
+      </h5>
+
+      {isOver && (
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          color: '#856404',
+          fontSize: '14px',
+          fontWeight: 500
+        }}>
+          Drop material here to unassign
+        </div>
+      )}
+
+      {children}
+    </div>
+  );
+};
+
 type DroppablePartContainerProps = {
   partIndex: number;
   partName: string;
@@ -1510,6 +1572,14 @@ export const CourseUnitsManager = () => {
     setMaterialParts(prev => {
       const updated = [...prev];
       updated[materialIndex] = (partIndex + 1).toString();
+      return updated;
+    });
+  };
+
+  const unassignMaterial = (materialIndex: number) => {
+    setMaterialParts(prev => {
+      const updated = [...prev];
+      updated[materialIndex] = '';
       return updated;
     });
   };
@@ -3027,16 +3097,10 @@ export const CourseUnitsManager = () => {
 
                             {/* Render unassigned materials */}
                             {unassigned.urls.length > 0 && (
-                              <div style={{
-                                marginBottom: '20px',
-                                padding: '16px',
-                                backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(255, 193, 7, 0.3)'
-                              }}>
-                                <h5 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600, color: '#856404' }}>
-                                  Unassigned Materials
-                                </h5>
+                              <DroppableUnassignedContainer
+                                onMaterialDropped={unassignMaterial}
+                                materialCount={unassigned.urls.length}
+                              >
                                 {unassigned.urls.map((url, localIndex) => {
                                   const globalIndex = unassigned.indices[localIndex];
                                   const type = unassigned.types[localIndex];
@@ -3132,7 +3196,7 @@ export const CourseUnitsManager = () => {
                                     );
                                   }
                                 })}
-                              </div>
+                              </DroppableUnassignedContainer>
                             )}
                           </>
                         );
