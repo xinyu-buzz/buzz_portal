@@ -1490,11 +1490,19 @@ export const CourseUnitsManager = () => {
         types = urls.map(() => 'pdf');
       }
       
+      // Ensure materialParts has the same length as materialUrls
+      let parts = Array.isArray(unit.material_parts) ? unit.material_parts : [];
+      if (parts.length < urls.length) {
+        parts = [...parts, ...new Array(urls.length - parts.length).fill('')];
+      } else if (parts.length > urls.length) {
+        parts = parts.slice(0, urls.length);
+      }
+
       setMaterialUrls(urls);
       setMaterialNames(names);
       setMaterialTypes(types);
       setMaterialPartNames(Array.isArray(unit.material_part_names) ? unit.material_part_names : []);
-      setMaterialParts(Array.isArray(unit.material_parts) ? unit.material_parts : []);
+      setMaterialParts(parts);
       setPendingFiles([]);
     } else {
       setEditingUnit(null);
@@ -2212,6 +2220,16 @@ export const CourseUnitsManager = () => {
       let finalNames: string[] = [...materialNames];
       let finalTypes: string[] = [...materialTypes];
 
+      // Ensure all arrays have the same length
+      const maxLength = Math.max(finalUrls.length, finalNames.length, finalTypes.length, materialParts.length);
+      while (finalUrls.length < maxLength) finalUrls.push('');
+      while (finalNames.length < maxLength) finalNames.push(`Material ${finalNames.length + 1}`);
+      while (finalTypes.length < maxLength) finalTypes.push('pdf');
+
+      // Ensure materialParts matches the length
+      let finalParts = [...materialParts];
+      while (finalParts.length < maxLength) finalParts.push('');
+
       // Prepend "UNIT X - " to the title for database storage
       const fullTitle = `UNIT ${unitForm.unit_number} - ${unitForm.title}`;
       
@@ -2227,7 +2245,7 @@ export const CourseUnitsManager = () => {
         material_names: finalNames.length > 0 ? finalNames : [],
         material_types: finalTypes.length > 0 ? finalTypes : [],
         material_part_names: materialPartNames.length > 0 ? materialPartNames : [],
-        material_parts: materialParts.length > 0 ? materialParts : [],
+        material_parts: finalParts.length > 0 ? finalParts : [],
         prerequisite_units: unitForm.prerequisite_units,
         prerequisite_tests: unitForm.prerequisite_tests,
         updated_at: new Date().toISOString(),
