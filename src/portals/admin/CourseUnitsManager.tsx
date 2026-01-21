@@ -1225,6 +1225,8 @@ export const CourseUnitsManager = () => {
   const [allCourses, setAllCourses] = useState<TrainingCourse[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [movingItem, setMovingItem] = useState<{ type: 'unit' | 'test'; item: CourseUnit | CourseTest } | null>(null);
+  const [showRemovePartWarningModal, setShowRemovePartWarningModal] = useState(false);
+  const [partToRemove, setPartToRemove] = useState<number | null>(null);
   const [targetCourseId, setTargetCourseId] = useState<string>("");
   const [courseSearchQuery, setCourseSearchQuery] = useState("");
   const [bulkSelectionMode, setBulkSelectionMode] = useState(false);
@@ -1573,6 +1575,17 @@ export const CourseUnitsManager = () => {
     // Don't clear files here - they might be in pending state
   };
 
+  // Remove part warning modal handlers
+  const openRemovePartWarningModal = (partIndex: number) => {
+    setPartToRemove(partIndex);
+    setShowRemovePartWarningModal(true);
+  };
+
+  const closeRemovePartWarningModal = () => {
+    setShowRemovePartWarningModal(false);
+    setPartToRemove(null);
+  };
+
   // Drag and drop handlers for file uploads
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -1837,6 +1850,51 @@ export const CourseUnitsManager = () => {
 
   const removeMaterialPart = (partIndex: number) => {
     const partNumber = (partIndex + 1).toString();
+
+    // Check if there are materials in this part
+    const hasMaterials = materialParts.some(part => part === partNumber);
+
+    if (hasMaterials) {
+      // Show warning modal
+      openRemovePartWarningModal(partIndex);
+    } else {
+      // No materials, remove part directly
+      removePartOnly(partIndex);
+    }
+  };
+
+  const removePartOnly = (partIndex: number) => {
+    const partNumber = (partIndex + 1).toString();
+    // Remove the part name
+    setMaterialPartNames(prev => prev.filter((_, i) => i !== partIndex));
+    // Update part indices for materials that come after the removed part
+    setMaterialParts(prev => prev.map(part => {
+      const currentPartNum = parseInt(part);
+      if (currentPartNum > parseInt(partNumber)) {
+        return (currentPartNum - 1).toString();
+      }
+      return part;
+    }));
+
+    // Also remove from collapsed set if it was collapsed
+    setCollapsedParts(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(partIndex);
+      // Update indices for parts after the removed one
+      const updatedSet = new Set<number>();
+      newSet.forEach(idx => {
+        if (idx > partIndex) {
+          updatedSet.add(idx - 1);
+        } else if (idx < partIndex) {
+          updatedSet.add(idx);
+        }
+      });
+      return updatedSet;
+    });
+  };
+
+  const removePartAndMaterials = (partIndex: number) => {
+    const partNumber = (partIndex + 1).toString();
     // Remove the part name
     setMaterialPartNames(prev => prev.filter((_, i) => i !== partIndex));
     // Remove all materials assigned to this part
@@ -1864,7 +1922,7 @@ export const CourseUnitsManager = () => {
     setMaterialNames(newMaterialNames);
     setMaterialTypes(newMaterialTypes);
     setMaterialParts(newMaterialParts);
-    
+
     // Also remove from collapsed set if it was collapsed
     setCollapsedParts(prev => {
       const newSet = new Set(prev);
@@ -1880,6 +1938,25 @@ export const CourseUnitsManager = () => {
       });
       return updatedSet;
     });
+  };
+
+  // Remove part warning modal handlers
+  const handleRemovePartKeepFiles = () => {
+    if (partToRemove !== null) {
+      removePartOnly(partToRemove);
+      closeRemovePartWarningModal();
+    }
+  };
+
+  const handleRemovePartAndFiles = () => {
+    if (partToRemove !== null) {
+      removePartAndMaterials(partToRemove);
+      closeRemovePartWarningModal();
+    }
+  };
+
+  const handleCancelRemovePart = () => {
+    closeRemovePartWarningModal();
   };
 
   const togglePartCollapse = (partIndex: number) => {
@@ -3834,7 +3911,12 @@ export const CourseUnitsManager = () => {
             <div className="modal-form">
               {uploadingFiles.length > 0 ? (
                 // Show upload progress
-                <div style={{ marginBottom: '20px' }}>
+                <div style={{ 
+                  marginBottom: '20px',
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  paddingRight: '8px'
+                }}>
                   {uploadingFiles.map((file, index) => (
                     <div key={index} style={{
                       marginBottom: '16px',
@@ -4481,6 +4563,98 @@ export const CourseUnitsManager = () => {
                 className="ghost-btn"
                 onClick={closeMoveModal}
                 disabled={submitting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Part Warning Modal */}
+      {showRemovePartWarningModal && (
+        <div
+          className="modal-overlay"
+          onClick={closeRemovePartWarningModal}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000
+          }}
+        >
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '500px',
+              width: '90%',
+              backgroundColor: '#1e293b',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <h2 className="modal-title" style={{ marginBottom: '16px', color: '#ffffff' }}>
+              Remove Part
+            </h2>
+
+            <div style={{ marginBottom: '24px', color: '#e2e8f0' }}>
+              This part contains materials. What would you like to do?
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <button
+                type="button"
+                onClick={handleRemovePartKeepFiles}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#6b8cae',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  textAlign: 'left'
+                }}
+              >
+                Remove this part but keep files (files become unassigned materials)
+              </button>
+              <button
+                type="button"
+                onClick={handleRemovePartAndFiles}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  textAlign: 'left'
+                }}
+              >
+                Remove part and files
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelRemovePart}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#6b8cae',
+                  border: '1px solid #6b8cae',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  textAlign: 'left'
+                }}
               >
                 Cancel
               </button>
