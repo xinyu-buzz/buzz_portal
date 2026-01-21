@@ -585,6 +585,9 @@ type DroppablePartContainerProps = {
   onRemovePart: (partIndex: number) => void;
   isCollapsed: boolean;
   onToggleCollapse: (partIndex: number) => void;
+  onAddMaterial: (partIndex: number) => void;
+  showDropdown: boolean;
+  onOpenUploadModal: (type: 'pdf' | 'video' | 'question', partIndex: number) => void;
 };
 
 const DroppablePartContainer = ({
@@ -596,7 +599,10 @@ const DroppablePartContainer = ({
   onPartNameChange,
   onRemovePart,
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  onAddMaterial,
+  showDropdown,
+  onOpenUploadModal
 }: DroppablePartContainerProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -698,6 +704,110 @@ const DroppablePartContainer = ({
           )}
 
           {children}
+          
+          {/* Add Material in this Part Button */}
+          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => onAddMaterial(partIndex)}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#6b8cae',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>+</span>
+              <span>Add Material in this Part</span>
+            </button>
+            
+            {/* Dropdown menu for material type selection */}
+            {showDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  marginTop: '4px',
+                  backgroundColor: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  zIndex: 1000,
+                  minWidth: '160px',
+                  overflow: 'hidden'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpenUploadModal('pdf', partIndex)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    backgroundColor: 'white',
+                    border: 'none',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: '#333',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  📄 PDF / Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenUploadModal('video', partIndex)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderTop: '1px solid #f3f4f6',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: '#333',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  🎬 Video
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenUploadModal('question', partIndex)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderTop: '1px solid #f3f4f6',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: '#333',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  ❓ Review Question
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -1089,7 +1199,7 @@ export const CourseUnitsManager = () => {
   const [editingUnit, setEditingUnit] = useState<CourseUnit | null>(null);
   const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<Array<{file: File, name: string, type: 'pdf' | 'image' | 'video'}>>([]);
+  const [pendingFiles, setPendingFiles] = useState<Array<{file: File, name: string, type: 'pdf' | 'image' | 'video', targetPart?: number}>>([]);
   const [materialUrls, setMaterialUrls] = useState<string[]>([]);
   const [materialNames, setMaterialNames] = useState<string[]>([]);
   const [materialTypes, setMaterialTypes] = useState<string[]>([]);
@@ -1101,6 +1211,8 @@ export const CourseUnitsManager = () => {
   const [showMaterialUploadModal, setShowMaterialUploadModal] = useState(false);
   const [materialUploadType, setMaterialUploadType] = useState<'pdf' | 'video' | 'question' | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [targetPartIndex, setTargetPartIndex] = useState<number | null>(null);
+  const [showPartMaterialDropdown, setShowPartMaterialDropdown] = useState<number | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
   const [questionForm, setQuestionForm] = useState({
@@ -1430,20 +1542,23 @@ export const CourseUnitsManager = () => {
   };
 
   // Material upload modal handlers
-  const openMaterialUploadModal = (type: 'pdf' | 'video' | 'question') => {
+  const openMaterialUploadModal = (type: 'pdf' | 'video' | 'question', partIndex: number | null = null) => {
     if (type === 'question') {
       // Directly open question modal for questions
       openQuestionModal();
     } else {
       setMaterialUploadType(type);
+      setTargetPartIndex(partIndex);
       setShowMaterialUploadModal(true);
     }
     setShowMaterialTypeDropdown(false);
+    setShowPartMaterialDropdown(null);
   };
 
   const closeMaterialUploadModal = () => {
     setShowMaterialUploadModal(false);
     setMaterialUploadType(null);
+    setTargetPartIndex(null);
     setIsDragging(false);
     // Don't clear files here - they might be in pending state
   };
@@ -1473,8 +1588,10 @@ export const CourseUnitsManager = () => {
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      handleFileUpload(file);
+      // Handle multiple files
+      Array.from(files).forEach(file => {
+        handleFileUpload(file);
+      });
     }
   };
 
@@ -1505,13 +1622,19 @@ export const CourseUnitsManager = () => {
       // Determine type
       const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
       
-      setPendingFiles(prev => [...prev, {
+      const newPendingFile = {
         file,
         name: file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg)$/i, ''),
         type: fileType
-      }]);
+      };
+
+      // If targetPartIndex is specified, assign to that part
+      if (targetPartIndex !== null) {
+        setPendingFiles(prev => [...prev, { ...newPendingFile, targetPart: targetPartIndex + 1 }]);
+      } else {
+        setPendingFiles(prev => [...prev, newPendingFile]);
+      }
       setError(null);
-      closeMaterialUploadModal();
     } else if (materialUploadType === 'video') {
       // Validate file type (accept common video formats)
       const allowedTypes = [
@@ -1532,20 +1655,30 @@ export const CourseUnitsManager = () => {
         return;
       }
 
-      setPendingFiles(prev => [...prev, {
+      const newPendingFile = {
         file,
         name: file.name.replace(/\.(mp4|mov|avi|mkv|webm)$/i, ''),
         type: 'video'
-      }]);
+      };
+
+      // If targetPartIndex is specified, assign to that part
+      if (targetPartIndex !== null) {
+        setPendingFiles(prev => [...prev, { ...newPendingFile, targetPart: targetPartIndex + 1 }]);
+      } else {
+        setPendingFiles(prev => [...prev, newPendingFile]);
+      }
       setError(null);
-      closeMaterialUploadModal();
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileUpload(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      // Handle multiple files
+      Array.from(files).forEach(file => {
+        handleFileUpload(file);
+      });
+      closeMaterialUploadModal();
     }
   };
 
@@ -1652,6 +1785,11 @@ export const CourseUnitsManager = () => {
       updated[materialIndex] = '';
       return updated;
     });
+  };
+
+  // Handler for adding material to a specific part
+  const handleAddMaterialToPart = (partIndex: number) => {
+    setShowPartMaterialDropdown(partIndex);
   };
 
   // Group materials by parts for display
@@ -1767,6 +1905,7 @@ export const CourseUnitsManager = () => {
   const closeQuestionModal = () => {
     setShowQuestionModal(false);
     setEditingQuestionIndex(null);
+    setTargetPartIndex(null);
     setQuestionForm({
       question_text: "",
       options: ["", "", "", ""],
@@ -1817,6 +1956,13 @@ export const CourseUnitsManager = () => {
       setMaterialUrls(prev => [...prev, questionUrl]);
       setMaterialNames(prev => [...prev, questionName]);
       setMaterialTypes(prev => [...prev, 'question']);
+      
+      // Assign to target part if specified
+      if (targetPartIndex !== null) {
+        setMaterialParts(prev => [...prev, (targetPartIndex + 1).toString()]);
+      } else {
+        setMaterialParts(prev => [...prev, '']);
+      }
     }
 
     closeQuestionModal();
@@ -1978,6 +2124,13 @@ export const CourseUnitsManager = () => {
             finalUrls.push(publicUrlData.publicUrl);
             finalNames.push(pendingFile.name || `Material ${finalUrls.length}`);
             finalTypes.push(pendingFile.type);
+            
+            // Add part assignment if targetPart is specified
+            if (pendingFile.targetPart !== undefined) {
+              materialParts.push(pendingFile.targetPart.toString());
+            } else {
+              materialParts.push('');
+            }
           }
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
@@ -3080,6 +3233,9 @@ export const CourseUnitsManager = () => {
                                   onRemovePart={removeMaterialPart}
                                   isCollapsed={collapsedParts.has(partIndex)}
                                   onToggleCollapse={togglePartCollapse}
+                                  onAddMaterial={handleAddMaterialToPart}
+                                  showDropdown={showPartMaterialDropdown === partIndex}
+                                  onOpenUploadModal={openMaterialUploadModal}
                                 >
                                   {materials.urls.map((url, localIndex) => {
                                     const globalIndex = materials.indices[localIndex];
@@ -3377,6 +3533,7 @@ export const CourseUnitsManager = () => {
                   accept="application/pdf,image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/svg+xml"
                   onChange={handleFileInputChange}
                   style={{ display: 'none' }}
+                  multiple
                 />
                 <input
                   id="video-upload-input"
@@ -3384,6 +3541,7 @@ export const CourseUnitsManager = () => {
                   accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm"
                   onChange={handleFileInputChange}
                   style={{ display: 'none' }}
+                  multiple
                 />
               </div>
 
@@ -3613,10 +3771,10 @@ export const CourseUnitsManager = () => {
                   {materialUploadType === 'pdf' ? '📄' : '🎬'}
                 </div>
                 <p style={{ color: '#9ca3b5', margin: '0 0 8px 0', fontSize: '16px', fontWeight: 500 }}>
-                  {isDragging ? 'Drop file here' : 'Drag and drop your file here'}
+                  {isDragging ? 'Drop files here' : 'Drag and drop your files here'}
                 </p>
                 <p style={{ color: '#6b7280', fontSize: '14px', margin: '8px 0' }}>
-                  or click to browse
+                  or click to browse (multiple files supported)
                 </p>
                 <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '12px' }}>
                   {materialUploadType === 'pdf' 
