@@ -1581,21 +1581,22 @@ export const CourseUnitsManager = () => {
     e.stopPropagation();
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      // Handle multiple files
-      Array.from(files).forEach(file => {
-        handleFileUpload(file);
-      });
+      // Handle multiple files - upload them sequentially
+      for (const file of Array.from(files)) {
+        await handleFileUpload(file);
+      }
+      closeMaterialUploadModal();
     }
   };
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     if (materialUploadType === 'pdf') {
       // Validate file type (accept PDFs and common image formats)
       const allowedTypes = [
@@ -1622,19 +1623,9 @@ export const CourseUnitsManager = () => {
       // Determine type
       const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
       
-      const newPendingFile = {
-        file,
-        name: file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg)$/i, ''),
-        type: fileType
-      };
-
-      // If targetPartIndex is specified, assign to that part
-      if (targetPartIndex !== null) {
-        setPendingFiles(prev => [...prev, { ...newPendingFile, targetPart: targetPartIndex + 1 }]);
-      } else {
-        setPendingFiles(prev => [...prev, newPendingFile]);
-      }
-      setError(null);
+      // Upload immediately
+      await uploadFileImmediately(file, fileType);
+      
     } else if (materialUploadType === 'video') {
       // Validate file type (accept common video formats)
       const allowedTypes = [
@@ -1655,29 +1646,61 @@ export const CourseUnitsManager = () => {
         return;
       }
 
-      const newPendingFile = {
-        file,
-        name: file.name.replace(/\.(mp4|mov|avi|mkv|webm)$/i, ''),
-        type: 'video'
-      };
-
-      // If targetPartIndex is specified, assign to that part
-      if (targetPartIndex !== null) {
-        setPendingFiles(prev => [...prev, { ...newPendingFile, targetPart: targetPartIndex + 1 }]);
-      } else {
-        setPendingFiles(prev => [...prev, newPendingFile]);
-      }
-      setError(null);
+      // Upload immediately
+      await uploadFileImmediately(file, 'video');
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadFileImmediately = async (file: File, fileType: 'pdf' | 'image' | 'video') => {
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `unit-${unitForm.unit_number}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabaseClient.storage
+        .from('course-materials')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: publicUrlData } = supabaseClient.storage
+        .from('course-materials')
+        .getPublicUrl(filePath);
+
+      // Add the new material to the arrays
+      const materialName = file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg|mp4|mov|avi|mkv|webm)$/i, '');
+      
+      setMaterialUrls(prev => [...prev, publicUrlData.publicUrl]);
+      setMaterialNames(prev => [...prev, materialName]);
+      setMaterialTypes(prev => [...prev, fileType]);
+      
+      // Assign to target part if specified
+      if (targetPartIndex !== null) {
+        setMaterialParts(prev => [...prev, (targetPartIndex + 1).toString()]);
+      } else {
+        setMaterialParts(prev => [...prev, '']);
+      }
+      
+      setError(null);
+    } catch (uploadError: any) {
+      console.error('Upload error:', uploadError);
+      setError(`Failed to upload material: ${uploadError.message}`);
+    }
+    setUploadingFile(false);
+  };
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      // Handle multiple files
-      Array.from(files).forEach(file => {
-        handleFileUpload(file);
-      });
+      // Handle multiple files - upload them sequentially
+      for (const file of Array.from(files)) {
+        await handleFileUpload(file);
+      }
       closeMaterialUploadModal();
     }
   };
@@ -2097,51 +2120,6 @@ export const CourseUnitsManager = () => {
       let finalNames: string[] = [...materialNames];
       let finalTypes: string[] = [...materialTypes];
 
-      // Upload all pending files
-      if (pendingFiles.length > 0) {
-        setUploadingFile(true);
-        try {
-          for (const pendingFile of pendingFiles) {
-            const fileExt = pendingFile.file.name.split('.').pop();
-            const fileName = `unit-${unitForm.unit_number}-${pendingFile.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            const { error: uploadError } = await supabaseClient.storage
-              .from('course-materials')
-              .upload(filePath, pendingFile.file, {
-                cacheControl: '3600',
-                upsert: false
-              });
-
-            if (uploadError) throw uploadError;
-
-            // Get public URL
-            const { data: publicUrlData } = supabaseClient.storage
-              .from('course-materials')
-              .getPublicUrl(filePath);
-
-            // Add the new material to the arrays
-            finalUrls.push(publicUrlData.publicUrl);
-            finalNames.push(pendingFile.name || `Material ${finalUrls.length}`);
-            finalTypes.push(pendingFile.type);
-            
-            // Add part assignment if targetPart is specified
-            if (pendingFile.targetPart !== undefined) {
-              materialParts.push(pendingFile.targetPart.toString());
-            } else {
-              materialParts.push('');
-            }
-          }
-        } catch (uploadError: any) {
-          console.error('Upload error:', uploadError);
-          setError(`Failed to upload material: ${uploadError.message}`);
-          setSubmitting(false);
-          setUploadingFile(false);
-          return;
-        }
-        setUploadingFile(false);
-      }
-
       // Prepend "UNIT X - " to the title for database storage
       const fullTitle = `UNIT ${unitForm.unit_number} - ${unitForm.title}`;
       
@@ -2181,8 +2159,6 @@ export const CourseUnitsManager = () => {
         if (insertError) throw insertError;
       }
 
-      // Clear pending files after successful submission
-      setPendingFiles([]);
       closeUnitForm();
       await loadData();
     } catch (err: any) {
