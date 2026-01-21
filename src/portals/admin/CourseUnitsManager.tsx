@@ -1213,6 +1213,7 @@ export const CourseUnitsManager = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [targetPartIndex, setTargetPartIndex] = useState<number | null>(null);
   const [showPartMaterialDropdown, setShowPartMaterialDropdown] = useState<number | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<Array<{name: string, progress: number, status: 'uploading' | 'completed' | 'error', error?: string}>>([]);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
   const [questionForm, setQuestionForm] = useState({
@@ -1560,6 +1561,7 @@ export const CourseUnitsManager = () => {
     setMaterialUploadType(null);
     setTargetPartIndex(null);
     setIsDragging(false);
+    setUploadingFiles([]);
     // Don't clear files here - they might be in pending state
   };
 
@@ -1588,15 +1590,23 @@ export const CourseUnitsManager = () => {
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
+      // Initialize upload tracking for all files
+      const fileArray = Array.from(files);
+      setUploadingFiles(fileArray.map(f => ({ name: f.name, progress: 0, status: 'uploading' })));
+      
       // Handle multiple files - upload them sequentially
-      for (const file of Array.from(files)) {
-        await handleFileUpload(file);
+      for (let i = 0; i < fileArray.length; i++) {
+        await handleFileUpload(fileArray[i], i);
       }
-      closeMaterialUploadModal();
+      
+      // Auto-close modal after all uploads complete
+      setTimeout(() => {
+        closeMaterialUploadModal();
+      }, 500);
     }
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, fileIndex?: number) => {
     if (materialUploadType === 'pdf') {
       // Validate file type (accept PDFs and common image formats)
       const allowedTypes = [
@@ -1610,12 +1620,26 @@ export const CourseUnitsManager = () => {
         'image/svg+xml'
       ];
       if (!allowedTypes.includes(file.type)) {
+        if (fileIndex !== undefined) {
+          setUploadingFiles(prev => {
+            const updated = [...prev];
+            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'Invalid file type' };
+            return updated;
+          });
+        }
         setError('Please select a valid PDF or image file (JPEG, PNG, GIF, WebP, BMP, SVG)');
         return;
       }
       
       // Validate file size (10MB max)
       if (file.size > 10 * 1024 * 1024) {
+        if (fileIndex !== undefined) {
+          setUploadingFiles(prev => {
+            const updated = [...prev];
+            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'File too large (max 10MB)' };
+            return updated;
+          });
+        }
         setError('File size must be less than 10MB');
         return;
       }
@@ -1624,7 +1648,7 @@ export const CourseUnitsManager = () => {
       const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
       
       // Upload immediately
-      await uploadFileImmediately(file, fileType);
+      await uploadFileImmediately(file, fileType, fileIndex);
       
     } else if (materialUploadType === 'video') {
       // Validate file type (accept common video formats)
@@ -1636,27 +1660,60 @@ export const CourseUnitsManager = () => {
         'video/webm'
       ];
       if (!allowedTypes.includes(file.type)) {
+        if (fileIndex !== undefined) {
+          setUploadingFiles(prev => {
+            const updated = [...prev];
+            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'Invalid file type' };
+            return updated;
+          });
+        }
         setError('Please select a valid video file (MP4, MOV, AVI, MKV, WebM)');
         return;
       }
       
       // Validate file size (100MB max for videos)
       if (file.size > 100 * 1024 * 1024) {
+        if (fileIndex !== undefined) {
+          setUploadingFiles(prev => {
+            const updated = [...prev];
+            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'File too large (max 100MB)' };
+            return updated;
+          });
+        }
         setError('Video file size must be less than 100MB');
         return;
       }
 
       // Upload immediately
-      await uploadFileImmediately(file, 'video');
+      await uploadFileImmediately(file, 'video', fileIndex);
     }
   };
 
-  const uploadFileImmediately = async (file: File, fileType: 'pdf' | 'image' | 'video') => {
+  const uploadFileImmediately = async (file: File, fileType: 'pdf' | 'image' | 'video', fileIndex?: number) => {
     setUploadingFile(true);
+    
+    // Update progress to show starting
+    if (fileIndex !== undefined) {
+      setUploadingFiles(prev => {
+        const updated = [...prev];
+        updated[fileIndex] = { ...updated[fileIndex], progress: 10, status: 'uploading' };
+        return updated;
+      });
+    }
+    
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `unit-${unitForm.unit_number}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       const filePath = `${fileName}`;
+
+      // Simulate progress during upload
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], progress: 30, status: 'uploading' };
+          return updated;
+        });
+      }
 
       const { error: uploadError } = await supabaseClient.storage
         .from('course-materials')
@@ -1666,6 +1723,15 @@ export const CourseUnitsManager = () => {
         });
 
       if (uploadError) throw uploadError;
+
+      // Update progress after upload
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], progress: 70, status: 'uploading' };
+          return updated;
+        });
+      }
 
       // Get public URL
       const { data: publicUrlData } = supabaseClient.storage
@@ -1686,9 +1752,27 @@ export const CourseUnitsManager = () => {
         setMaterialParts(prev => [...prev, '']);
       }
       
+      // Mark as completed
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], progress: 100, status: 'completed' };
+          return updated;
+        });
+      }
+      
       setError(null);
     } catch (uploadError: any) {
       console.error('Upload error:', uploadError);
+      
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: uploadError.message };
+          return updated;
+        });
+      }
+      
       setError(`Failed to upload material: ${uploadError.message}`);
     }
     setUploadingFile(false);
@@ -1697,11 +1781,19 @@ export const CourseUnitsManager = () => {
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
+      // Initialize upload tracking for all files
+      const fileArray = Array.from(files);
+      setUploadingFiles(fileArray.map(f => ({ name: f.name, progress: 0, status: 'uploading' })));
+      
       // Handle multiple files - upload them sequentially
-      for (const file of Array.from(files)) {
-        await handleFileUpload(file);
+      for (let i = 0; i < fileArray.length; i++) {
+        await handleFileUpload(fileArray[i], i);
       }
-      closeMaterialUploadModal();
+      
+      // Auto-close modal after all uploads complete
+      setTimeout(() => {
+        closeMaterialUploadModal();
+      }, 500);
     }
   };
 
@@ -3689,7 +3781,7 @@ export const CourseUnitsManager = () => {
       {showMaterialUploadModal && materialUploadType !== 'question' && (
         <div 
           className="modal-overlay" 
-          onClick={closeMaterialUploadModal}
+          onClick={uploadingFiles.length === 0 ? closeMaterialUploadModal : undefined}
           style={{
             position: 'fixed',
             top: 0,
@@ -3716,57 +3808,112 @@ export const CourseUnitsManager = () => {
             }}
           >
             <h2 className="modal-title">
-              {materialUploadType === 'pdf' ? 'Upload PDF or Image' : 'Upload Video'}
+              {uploadingFiles.length > 0 
+                ? `Uploading ${uploadingFiles.filter(f => f.status === 'completed').length}/${uploadingFiles.length} files...`
+                : materialUploadType === 'pdf' ? 'Upload PDF or Image' : 'Upload Video'}
             </h2>
             
             <div className="modal-form">
-              <div
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onClick={() => {
-                  if (materialUploadType === 'pdf') {
-                    document.getElementById('pdf-upload-input')?.click();
-                  } else {
-                    document.getElementById('video-upload-input')?.click();
-                  }
-                }}
-                style={{
-                  border: `2px dashed ${isDragging ? 'rgba(107, 140, 174, 0.8)' : 'rgba(255, 255, 255, 0.3)'}`,
-                  borderRadius: '12px',
-                  padding: '60px 40px',
-                  textAlign: 'center',
-                  backgroundColor: isDragging ? 'rgba(107, 140, 174, 0.1)' : 'rgba(255, 255, 255, 0.02)',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  marginBottom: '20px'
-                }}
-              >
-                <div style={{ fontSize: '64px', marginBottom: '16px' }}>
-                  {materialUploadType === 'pdf' ? '📄' : '🎬'}
+              {uploadingFiles.length > 0 ? (
+                // Show upload progress
+                <div style={{ marginBottom: '20px' }}>
+                  {uploadingFiles.map((file, index) => (
+                    <div key={index} style={{
+                      marginBottom: '16px',
+                      padding: '12px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ color: '#9ca3b5', fontSize: '14px', fontWeight: 500 }}>
+                          {file.name}
+                        </span>
+                        <span style={{ 
+                          fontSize: '12px', 
+                          color: file.status === 'completed' ? '#10b981' : file.status === 'error' ? '#ef4444' : '#6b8cae',
+                          fontWeight: 600
+                        }}>
+                          {file.status === 'completed' ? '✓ Complete' : file.status === 'error' ? '✗ Error' : `${file.progress}%`}
+                        </span>
+                      </div>
+                      
+                      {/* Progress bar */}
+                      <div style={{
+                        width: '100%',
+                        height: '6px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: '3px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          width: `${file.progress}%`,
+                          height: '100%',
+                          backgroundColor: file.status === 'completed' ? '#10b981' : file.status === 'error' ? '#ef4444' : '#6b8cae',
+                          transition: 'width 0.3s ease',
+                          borderRadius: '3px'
+                        }} />
+                      </div>
+                      
+                      {file.error && (
+                        <p style={{ color: '#ef4444', fontSize: '12px', margin: '4px 0 0 0' }}>
+                          {file.error}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <p style={{ color: '#9ca3b5', margin: '0 0 8px 0', fontSize: '16px', fontWeight: 500 }}>
-                  {isDragging ? 'Drop files here' : 'Drag and drop your files here'}
-                </p>
-                <p style={{ color: '#6b7280', fontSize: '14px', margin: '8px 0' }}>
-                  or click to browse (multiple files supported)
-                </p>
-                <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '12px' }}>
-                  {materialUploadType === 'pdf' 
-                    ? 'PDF or images (JPEG, PNG, GIF, WebP, BMP, SVG) - max 10MB'
-                    : 'MP4, MOV, AVI, MKV, WebM - max 100MB'}
-                </p>
-              </div>
+              ) : (
+                // Show upload dropzone
+                <div
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onClick={() => {
+                    if (materialUploadType === 'pdf') {
+                      document.getElementById('pdf-upload-input')?.click();
+                    } else {
+                      document.getElementById('video-upload-input')?.click();
+                    }
+                  }}
+                  style={{
+                    border: `2px dashed ${isDragging ? 'rgba(107, 140, 174, 0.8)' : 'rgba(255, 255, 255, 0.3)'}`,
+                    borderRadius: '12px',
+                    padding: '60px 40px',
+                    textAlign: 'center',
+                    backgroundColor: isDragging ? 'rgba(107, 140, 174, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    marginBottom: '20px'
+                  }}
+                >
+                  <div style={{ fontSize: '64px', marginBottom: '16px' }}>
+                    {materialUploadType === 'pdf' ? '📄' : '🎬'}
+                  </div>
+                  <p style={{ color: '#9ca3b5', margin: '0 0 8px 0', fontSize: '16px', fontWeight: 500 }}>
+                    {isDragging ? 'Drop files here' : 'Drag and drop your files here'}
+                  </p>
+                  <p style={{ color: '#6b7280', fontSize: '14px', margin: '8px 0' }}>
+                    or click to browse (multiple files supported)
+                  </p>
+                  <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '12px' }}>
+                    {materialUploadType === 'pdf' 
+                      ? 'PDF or images (JPEG, PNG, GIF, WebP, BMP, SVG) - max 10MB'
+                      : 'MP4, MOV, AVI, MKV, WebM - max 100MB'}
+                  </p>
+                </div>
+              )}
 
-              <button
-                type="button"
-                onClick={closeMaterialUploadModal}
-                className="ghost-btn"
-                style={{ width: '100%' }}
-              >
-                Cancel
-              </button>
+              {uploadingFiles.length === 0 && (
+                <button
+                  type="button"
+                  onClick={closeMaterialUploadModal}
+                  className="ghost-btn"
+                  style={{ width: '100%' }}
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           </div>
         </div>
