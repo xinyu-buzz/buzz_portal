@@ -43,12 +43,49 @@ export const useVersionCheck = (checkInterval = 60000) => { // Check every minut
     return () => clearInterval(interval);
   }, [currentVersion, checkInterval]);
 
-  const refreshApp = () => {
-    // Clear service worker cache if available
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+  const refreshApp = async () => {
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+
+      if (registration) {
+        // Clear service worker cache
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+        }
+
+        // If there's a waiting service worker, activate it
+        if (registration.waiting) {
+          console.log('Activating new service worker version.');
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+          // Wait for the new service worker to take control
+          return new Promise<void>((resolve) => {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              console.log('New service worker activated, reloading page.');
+              window.location.reload();
+              resolve();
+            }, { once: true });
+
+            // Fallback timeout in case controllerchange doesn't fire
+            setTimeout(() => {
+              console.log('Controller change timeout, reloading page.');
+              window.location.reload();
+              resolve();
+            }, 2000);
+          });
+        } else {
+          // No waiting worker, just reload
+          console.log('No waiting service worker, reloading page.');
+          window.location.reload();
+        }
+      } else {
+        // No service worker registration, just reload
+        window.location.reload();
+      }
+    } else {
+      // Service workers not supported, just reload
+      window.location.reload();
     }
-    window.location.reload();
   };
 
   const dismissPrompt = () => {

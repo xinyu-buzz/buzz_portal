@@ -6,6 +6,7 @@ const STATIC_CACHE_NAME = 'buzz-portal-static-v1';
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
+  console.log('Service Worker installing.');
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
       return cache.addAll([
@@ -19,8 +20,9 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and take control
 self.addEventListener('activate', (event) => {
+  console.log('Service Worker activating.');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -89,14 +91,30 @@ self.addEventListener('fetch', (event) => {
 // Listen for messages from the main thread
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('Service Worker: Skipping waiting and activating new version.');
     self.skipWaiting();
   }
 
   if (event.data && event.data.type === 'CLEAR_CACHE') {
+    console.log('Service Worker: Clearing all caches.');
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => caches.delete(cacheName))
+        cacheNames.map((cacheName) => {
+          console.log('Service Worker: Deleting cache:', cacheName);
+          return caches.delete(cacheName);
+        })
       );
+    }).then(() => {
+      console.log('Service Worker: All caches cleared.');
     });
   }
+
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({ version: '1.0.0' });
+  }
+});
+
+// Notify clients when a new service worker is available
+self.addEventListener('controllerchange', () => {
+  console.log('Service Worker: Controller changed, new version activated.');
 });
