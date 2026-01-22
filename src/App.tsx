@@ -17,6 +17,7 @@ import { PilotPortal } from "./portals/pilot/PilotPortal";
 import { EditorPortal } from "./portals/editor/EditorPortal";
 import { ClientPortal } from "./portals/client/ClientPortal";
 import { PortalRoute } from "./portals/shared/PortalRoute";
+import { VersionUpdatePrompt } from "./components/VersionUpdatePrompt";
 import {
   PERMISSION_ERROR_MESSAGE,
   portalBasePath,
@@ -124,6 +125,7 @@ const ProtectedRoutes = () => (
 function App() {
   return (
     <BrowserRouter>
+      <VersionUpdatePrompt />
       <RefineKbarProvider>
         <DevtoolsProvider>
           <Refine
