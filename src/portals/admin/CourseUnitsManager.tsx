@@ -1837,6 +1837,16 @@ export const CourseUnitsManager = () => {
     });
   }, []);
 
+  const movePreviewMaterial = useCallback((dragIndex: number, hoverIndex: number) => {
+    setPreviewMaterials(prev => {
+      const updated = [...prev];
+      const draggedItem = updated[dragIndex];
+      updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedItem);
+      return updated;
+    });
+  }, []);
+
   // Handle confirming the upload order and adding to materials
   const handleConfirmUploadOrder = () => {
     // Add materials in the order they appear in uploadingFiles
@@ -4665,88 +4675,17 @@ export const CourseUnitsManager = () => {
                       minHeight: '180px'
                     }}>
                       {previewMaterials.map((material, index) => (
-                        <div
+                        <DraggablePreviewItem
                           key={`preview-${index}-${material.name}`}
-                          style={{
-                            position: 'relative',
-                            width: '140px',
-                            cursor: 'grab',
+                          index={index}
+                          item={{
+                            name: material.name,
+                            type: material.type === 'question' ? 'pdf' : material.type, // Map question to pdf for display
+                            previewUrl: material.url,
+                            status: 'completed'
                           }}
-                        >
-                          <div
-                            style={{
-                              width: '140px',
-                              height: '140px',
-                              borderRadius: '8px',
-                              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                              border: '2px solid rgba(255, 255, 255, 0.1)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              overflow: 'hidden',
-                              transition: 'all 0.2s ease',
-                            }}
-                          >
-                            {material.type === 'image' ? (
-                              <img
-                                src={material.url}
-                                alt={material.name}
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover'
-                                }}
-                              />
-                            ) : material.type === 'video' ? (
-                              <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '8px'
-                              }}>
-                                <span style={{ fontSize: '32px' }}>🎬</span>
-                                <span style={{ fontSize: '12px', color: '#9ca3b5' }}>Video</span>
-                              </div>
-                            ) : material.type === 'question' ? (
-                              <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '8px'
-                              }}>
-                                <span style={{ fontSize: '32px' }}>❓</span>
-                                <span style={{ fontSize: '12px', color: '#9ca3b5' }}>Question</span>
-                              </div>
-                            ) : (
-                              <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '8px'
-                              }}>
-                                <span style={{ fontSize: '32px' }}>📄</span>
-                                <span style={{ fontSize: '12px', color: '#9ca3b5' }}>PDF</span>
-                              </div>
-                            )}
-                          </div>
-                          <div style={{
-                            position: 'absolute',
-                            bottom: '4px',
-                            left: '4px',
-                            right: '4px',
-                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                            color: 'white',
-                            fontSize: '10px',
-                            padding: '2px 4px',
-                            borderRadius: '4px',
-                            textAlign: 'center',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {material.name}
-                          </div>
-                        </div>
+                          onMove={movePreviewMaterial}
+                        />
                       ))}
                     </div>
                   </div>
