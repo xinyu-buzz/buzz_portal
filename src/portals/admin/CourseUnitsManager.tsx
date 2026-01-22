@@ -818,11 +818,14 @@ type DroppablePartContainerProps = {
   materialCount: number;
   onPartNameChange: (partIndex: number, name: string) => void;
   onRemovePart: (partIndex: number) => void;
+  onMovePart: (partIndex: number) => void;
   isCollapsed: boolean;
   onToggleCollapse: (partIndex: number) => void;
   onPreviewPart: (partIndex: number) => void;
   onAddMaterial: (partIndex: number) => void;
   showDropdown: boolean;
+  showPartDropdown: boolean;
+  onTogglePartDropdown: (partIndex: number | null) => void;
   onOpenUploadModal: (type: 'pdf' | 'video' | 'question', partIndex: number) => void;
 };
 
@@ -834,14 +837,35 @@ const DroppablePartContainer = ({
   materialCount,
   onPartNameChange,
   onRemovePart,
+  onMovePart,
   isCollapsed,
   onToggleCollapse,
   onPreviewPart,
   onAddMaterial,
   showDropdown,
+  showPartDropdown,
+  onTogglePartDropdown,
   onOpenUploadModal
 }: DroppablePartContainerProps) => {
   const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        onTogglePartDropdown(null);
+      }
+    };
+
+    if (showPartDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPartDropdown, onTogglePartDropdown]);
 
   const [{ isOver }, drop] = useDrop({
     accept: MATERIAL_ITEM_TYPE,
@@ -925,21 +949,86 @@ const DroppablePartContainer = ({
           >
             Preview
           </button>
-          <button
-            type="button"
-            onClick={() => onRemovePart(partIndex)}
-            style={{
-              padding: '4px 8px',
-              backgroundColor: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-          >
-            Remove Part
-          </button>
+          <div style={{ position: 'relative' }} ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => onTogglePartDropdown(showPartDropdown ? null : partIndex)}
+              style={{
+                padding: '4px 8px',
+                backgroundColor: '#6b8cae',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+            >
+              More
+            </button>
+            {showPartDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: '0',
+                  marginTop: '4px',
+                  backgroundColor: 'white',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  zIndex: 1000,
+                  minWidth: '120px'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onMovePart(partIndex);
+                    onTogglePartDropdown(null);
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: 'transparent',
+                    color: '#333',
+                    border: 'none',
+                    borderRadius: '4px 4px 0 0',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#f8f9fa'}
+                  onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
+                >
+                  Move Part
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onRemovePart(partIndex);
+                    onTogglePartDropdown(null);
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: 'transparent',
+                    color: '#dc3545',
+                    border: 'none',
+                    borderRadius: '0 0 4px 4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#f8f9fa'}
+                  onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
+                >
+                  Remove Part
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1473,6 +1562,7 @@ export const CourseUnitsManager = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [targetPartIndex, setTargetPartIndex] = useState<number | null>(null);
   const [showPartMaterialDropdown, setShowPartMaterialDropdown] = useState<number | null>(null);
+  const [showPartDropdown, setShowPartDropdown] = useState<number | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Array<{
     name: string,
     progress: number,
@@ -1506,6 +1596,9 @@ export const CourseUnitsManager = () => {
   const [movingItem, setMovingItem] = useState<{ type: 'unit' | 'test'; item: CourseUnit | CourseTest } | null>(null);
   const [showRemovePartWarningModal, setShowRemovePartWarningModal] = useState(false);
   const [partToRemove, setPartToRemove] = useState<number | null>(null);
+  const [showMovePartModal, setShowMovePartModal] = useState(false);
+  const [partToMove, setPartToMove] = useState<number | null>(null);
+  const [targetUnitForMove, setTargetUnitForMove] = useState<string>("");
   const [targetCourseId, setTargetCourseId] = useState<string>("");
   const [courseSearchQuery, setCourseSearchQuery] = useState("");
   const [bulkSelectionMode, setBulkSelectionMode] = useState(false);
@@ -2039,6 +2132,135 @@ export const CourseUnitsManager = () => {
   const closeRemovePartWarningModal = () => {
     setShowRemovePartWarningModal(false);
     setPartToRemove(null);
+  };
+
+  // Move part modal handlers
+  const openMovePartModal = (partIndex: number) => {
+    setPartToMove(partIndex);
+    setTargetUnitForMove("");
+    setShowMovePartModal(true);
+  };
+
+  const closeMovePartModal = () => {
+    setShowMovePartModal(false);
+    setPartToMove(null);
+    setTargetUnitForMove("");
+  };
+
+  const movePartToUnit = async () => {
+    if (partToMove === null || !targetUnitForMove || !editingUnit) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      // Get the target unit
+      const targetUnit = units.find(u => u.id === targetUnitForMove);
+      if (!targetUnit) {
+        setError("Target unit not found");
+        return;
+      }
+
+      // Get current part data
+      const partName = materialPartNames[partToMove];
+      const partNumber = (partToMove + 1).toString();
+
+      // Collect materials assigned to this part
+      const materialsToMove: { index: number, url: string, name: string, type: string }[] = [];
+      for (let i = 0; i < materialUrls.length; i++) {
+        if (materialParts[i] === partNumber) {
+          materialsToMove.push({
+            index: i,
+            url: materialUrls[i],
+            name: materialNames[i],
+            type: materialTypes[i]
+          });
+        }
+      }
+
+      // Remove part from current unit
+      const updatedPartNames = materialPartNames.filter((_, i) => i !== partToMove);
+      const updatedParts = materialParts.map(part => {
+        const currentPartNum = parseInt(part);
+        if (currentPartNum === parseInt(partNumber)) {
+          return ''; // Unassign materials from this part
+        } else if (currentPartNum > parseInt(partNumber)) {
+          return (currentPartNum - 1).toString(); // Shift down part numbers
+        }
+        return part;
+      });
+
+      // Update current unit
+      const currentUnitPayload = {
+        material_part_names: updatedPartNames.length > 0 ? updatedPartNames : [],
+        material_parts: updatedParts.length > 0 ? updatedParts : [],
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: currentUpdateError } = await supabaseClient
+        .from("course_units")
+        .update(currentUnitPayload)
+        .eq("id", editingUnit.id);
+
+      if (currentUpdateError) throw currentUpdateError;
+
+      // Add part to target unit
+      const targetPartNames = targetUnit.material_part_names || [];
+      const targetParts = targetUnit.material_parts || [];
+      const targetUrls = targetUnit.material_urls || [];
+      const targetNames = targetUnit.material_names || [];
+      const targetTypes = targetUnit.material_types || [];
+
+      // Add the part name
+      const newPartIndex = targetPartNames.length;
+      const newPartNumber = (newPartIndex + 1).toString();
+      const updatedTargetPartNames = [...targetPartNames, partName];
+
+      // Add materials to target unit
+      const updatedTargetUrls = [...targetUrls];
+      const updatedTargetNames = [...targetNames];
+      const updatedTargetTypes = [...targetTypes];
+      const updatedTargetParts = [...targetParts];
+
+      materialsToMove.forEach(material => {
+        updatedTargetUrls.push(material.url);
+        updatedTargetNames.push(material.name);
+        updatedTargetTypes.push(material.type);
+        updatedTargetParts.push(newPartNumber);
+      });
+
+      // Update target unit
+      const targetUnitPayload = {
+        material_part_names: updatedTargetPartNames.length > 0 ? updatedTargetPartNames : [],
+        material_urls: updatedTargetUrls.length > 0 ? updatedTargetUrls : [],
+        material_names: updatedTargetNames.length > 0 ? updatedTargetNames : [],
+        material_types: updatedTargetTypes.length > 0 ? updatedTargetTypes : [],
+        material_parts: updatedTargetParts.length > 0 ? updatedTargetParts : [],
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: targetUpdateError } = await supabaseClient
+        .from("course_units")
+        .update(targetUnitPayload)
+        .eq("id", targetUnit.id);
+
+      if (targetUpdateError) throw targetUpdateError;
+
+      // Update local state
+      setMaterialPartNames(updatedPartNames);
+      setMaterialParts(updatedParts);
+
+      // Close modal and reload data
+      closeMovePartModal();
+      await loadData();
+
+      setError(null);
+    } catch (err: any) {
+      console.error("Error moving part:", err);
+      setError(err.message);
+    }
+
+    setSubmitting(false);
   };
 
   // Drag and drop handlers for file uploads
@@ -3932,11 +4154,14 @@ export const CourseUnitsManager = () => {
                                   materialCount={materials.urls.length}
                                   onPartNameChange={updateMaterialPartName}
                                   onRemovePart={removeMaterialPart}
+                                  onMovePart={openMovePartModal}
                                   isCollapsed={collapsedParts.has(partIndex)}
                                   onToggleCollapse={togglePartCollapse}
                                   onPreviewPart={handlePreviewPart}
                                   onAddMaterial={handleAddMaterialToPart}
                                   showDropdown={showPartMaterialDropdown === partIndex}
+                                  showPartDropdown={showPartDropdown === partIndex}
+                                  onTogglePartDropdown={setShowPartDropdown}
                                   onOpenUploadModal={openMaterialUploadModal}
                                 >
                                   {materials.urls.map((url, localIndex) => {
@@ -5470,6 +5695,109 @@ export const CourseUnitsManager = () => {
           </div>
         </div>
       )}
+
+      {/* Move Part Modal */}
+      {showMovePartModal && (
+        <div
+          className="modal-overlay"
+          onClick={closeMovePartModal}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000
+          }}
+        >
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '500px',
+              width: '90%',
+              backgroundColor: '#1e293b',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <h2 className="modal-title" style={{ marginBottom: '16px', color: '#ffffff' }}>
+              Move Part to Another Unit
+            </h2>
+
+            <div style={{ marginBottom: '24px', color: '#e2e8f0' }}>
+              Select the unit to move "{partToMove !== null ? materialPartNames[partToMove] : ''}" to:
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <select
+                value={targetUnitForMove}
+                onChange={(e) => setTargetUnitForMove(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#334155',
+                  color: '#ffffff',
+                  border: '1px solid #475569',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="">Select a unit...</option>
+                {units
+                  .filter(unit => editingUnit && unit.id !== editingUnit.id) // Exclude current unit
+                  .map(unit => (
+                    <option key={unit.id} value={unit.id}>
+                      UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={closeMovePartModal}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#6b8cae',
+                  border: '1px solid #6b8cae',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={movePartToUnit}
+                disabled={!targetUnitForMove || submitting}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: targetUnitForMove ? '#6b8cae' : '#475569',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: targetUnitForMove && !submitting ? 'pointer' : 'not-allowed',
+                  fontSize: '14px'
+                }}
+              >
+                {submitting ? 'Moving...' : 'Move Part'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
