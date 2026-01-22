@@ -2806,12 +2806,23 @@ export const CourseUnitsManager = () => {
       // Prepend "UNIT X - " to the title for database storage
       const fullTitle = `UNIT ${unitForm.unit_number} - ${unitForm.title}`;
       
+      // Calculate correct order_index based on unit_number
+      // Find all units with unit_number less than or equal to current unit_number
+      const unitsWithLowerNumbers = units.filter(u => {
+        // Exclude the current unit if we're editing
+        if (editingUnit && u.id === editingUnit.id) return false;
+        return u.unit_number < unitForm.unit_number;
+      });
+      
+      // order_index should be the count of units with lower numbers + 1
+      const calculatedOrderIndex = unitsWithLowerNumbers.length + 1;
+      
       const payload: any = {
         title: fullTitle,
         description: unitForm.description,
         content: unitForm.content,
         unit_number: unitForm.unit_number,
-        order_index: unitForm.order_index,
+        order_index: calculatedOrderIndex,
         is_mandatory: unitForm.is_mandatory,
         section_id: unitForm.section_id || null,
         material_urls: finalUrls.length > 0 ? finalUrls : [],
@@ -2832,6 +2843,9 @@ export const CourseUnitsManager = () => {
           .eq("id", editingUnit.id);
 
         if (updateError) throw updateError;
+        
+        // Reorder other units if necessary
+        await reorderUnitsAfterChange();
       } else {
         // Create
         payload.course_id = courseId;
@@ -2840,6 +2854,9 @@ export const CourseUnitsManager = () => {
           .insert(payload);
 
         if (insertError) throw insertError;
+        
+        // Reorder other units if necessary
+        await reorderUnitsAfterChange();
       }
 
       // After successful save, directly close form without unsaved changes check
@@ -2868,6 +2885,31 @@ export const CourseUnitsManager = () => {
       console.error("Error deleting unit:", err);
       setError(err.message);
     }
+  };
+
+  const reorderUnitsAfterChange = async () => {
+    if (!courseId) return;
+    
+    // Fetch all units again to get the latest data
+    const { data: allUnits, error } = await supabaseClient
+      .from("course_units")
+      .select("id, unit_number")
+      .eq("course_id", courseId);
+    
+    if (error || !allUnits) return;
+    
+    // Sort by unit_number and assign correct order_index
+    const sortedUnits = [...allUnits].sort((a, b) => a.unit_number - b.unit_number);
+    
+    // Update all units with correct order_index
+    await Promise.all(
+      sortedUnits.map((unit, index) =>
+        supabaseClient
+          .from("course_units")
+          .update({ order_index: index + 1, updated_at: new Date().toISOString() })
+          .eq("id", unit.id)
+      )
+    );
   };
 
   const handleDuplicateUnit = async (unit: CourseUnit) => {
