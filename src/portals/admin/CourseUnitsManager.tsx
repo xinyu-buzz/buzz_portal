@@ -24,9 +24,11 @@ type DraggablePDFItemProps = {
   selectedMaterials?: Set<number>;
   onToggleSelection?: (index: number) => void;
   partAssignment?: string; // Added to track which part this material is assigned to
+  materialPartNames?: string[];
+  onAssignToPart?: (materialIndex: number, partIndex: number) => void;
 };
 
-const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment }: DraggablePDFItemProps) => {
+const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment, materialPartNames, onAssignToPart }: DraggablePDFItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -129,19 +131,49 @@ const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMo
             placeholder="Enter material name"
             onClick={(e) => e.stopPropagation()}
           />
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: '12px',
-              color: '#6b8cae',
-              display: 'block',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            View Material
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '12px',
+                color: '#6b8cae',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              View Material
+            </a>
+            {partAssignment === 'unassigned' && materialPartNames && materialPartNames.length > 0 && onAssignToPart && (
+              <select
+                value=""
+                onChange={(e) => {
+                  const partIndex = parseInt(e.target.value);
+                  if (!isNaN(partIndex) && partIndex >= 0) {
+                    onAssignToPart(index, partIndex);
+                  }
+                  e.target.value = ''; // Reset select after selection
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  fontSize: '11px',
+                  padding: '2px 4px',
+                  border: '1px solid #6b8cae',
+                  borderRadius: '3px',
+                  backgroundColor: 'white',
+                  color: '#6b8cae',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="" disabled>Move to part...</option>
+                {materialPartNames.map((partName, partIndex) => (
+                  <option key={partIndex} value={partIndex}>
+                    {partName || `Part ${partIndex + 1}`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
 
         {/* Material type and Remove button */}
@@ -193,9 +225,11 @@ type DraggableVideoItemProps = {
   selectedMaterials?: Set<number>;
   onToggleSelection?: (index: number) => void;
   partAssignment?: string; // Added to track which part this material is assigned to
+  materialPartNames?: string[];
+  onAssignToPart?: (materialIndex: number, partIndex: number) => void;
 };
 
-const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment }: DraggableVideoItemProps) => {
+const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment, materialPartNames, onAssignToPart }: DraggableVideoItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -299,19 +333,49 @@ const DraggableVideoItem = ({ index, url, name, onNameChange, onRemove, onMove, 
             placeholder="Enter video name"
             onClick={(e) => e.stopPropagation()}
           />
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: '12px',
-              color: '#6b8cae',
-              display: 'block',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            View Video
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '12px',
+                color: '#6b8cae',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              View Video
+            </a>
+            {partAssignment === 'unassigned' && materialPartNames && materialPartNames.length > 0 && onAssignToPart && (
+              <select
+                value=""
+                onChange={(e) => {
+                  const partIndex = parseInt(e.target.value);
+                  if (!isNaN(partIndex) && partIndex >= 0) {
+                    onAssignToPart(index, partIndex);
+                  }
+                  e.target.value = ''; // Reset select after selection
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  fontSize: '11px',
+                  padding: '2px 4px',
+                  border: '1px solid #6b8cae',
+                  borderRadius: '3px',
+                  backgroundColor: 'white',
+                  color: '#6b8cae',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="" disabled>Move to part...</option>
+                {materialPartNames.map((partName, partIndex) => (
+                  <option key={partIndex} value={partIndex}>
+                    {partName || `Part ${partIndex + 1}`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
 
         {/* Material type and Remove button */}
@@ -364,9 +428,11 @@ type DraggableQuestionItemProps = {
   selectedMaterials?: Set<number>;
   onToggleSelection?: (index: number) => void;
   partAssignment?: string; // Added to track which part this material is assigned to
+  materialPartNames?: string[];
+  onAssignToPart?: (materialIndex: number, partIndex: number) => void;
 };
 
-const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment }: DraggableQuestionItemProps) => {
+const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, onDelete, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment, materialPartNames, onAssignToPart }: DraggableQuestionItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -471,8 +537,39 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
           <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
             Q{index + 1}: {question.question_text}
           </div>
-          <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
-            {question.options.length} options • Correct: {question.options[question.correct_answer_index]}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '12px', color: '#9ca3b5' }}>
+              {question.options.length} options • Correct: {question.options[question.correct_answer_index]}
+            </div>
+            {partAssignment === 'unassigned' && materialPartNames && materialPartNames.length > 0 && onAssignToPart && (
+              <select
+                value=""
+                onChange={(e) => {
+                  const partIndex = parseInt(e.target.value);
+                  if (!isNaN(partIndex) && partIndex >= 0) {
+                    onAssignToPart(index, partIndex);
+                  }
+                  e.target.value = ''; // Reset select after selection
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  fontSize: '11px',
+                  padding: '2px 4px',
+                  border: '1px solid #6b8cae',
+                  borderRadius: '3px',
+                  backgroundColor: 'white',
+                  color: '#6b8cae',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="" disabled>Move to part...</option>
+                {materialPartNames.map((partName, partIndex) => (
+                  <option key={partIndex} value={partIndex}>
+                    {partName || `Part ${partIndex + 1}`}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -3825,6 +3922,8 @@ export const CourseUnitsManager = () => {
                                             index={globalIndex}
                                             name={name}
                                             partAssignment={partKey}
+                                            materialPartNames={materialPartNames}
+                                            onAssignToPart={assignMaterialToPart}
                                             onNameChange={(materialIndex, newName) => {
                                               setMaterialNames(prev => {
                                                 const updated = [...prev];
@@ -3860,6 +3959,8 @@ export const CourseUnitsManager = () => {
                                           url={url}
                                           name={name}
                                           partAssignment={partKey}
+                                          materialPartNames={materialPartNames}
+                                          onAssignToPart={assignMaterialToPart}
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
@@ -3888,6 +3989,8 @@ export const CourseUnitsManager = () => {
                                           name={name}
                                           type={type}
                                           partAssignment={partKey}
+                                          materialPartNames={materialPartNames}
+                                          onAssignToPart={assignMaterialToPart}
                                           onNameChange={updateMaterialName}
                                           onRemove={removeMaterial}
                                           onMove={moveMaterial}
@@ -3933,6 +4036,8 @@ export const CourseUnitsManager = () => {
                                           index={globalIndex}
                                           name={name}
                                           partAssignment="unassigned"
+                                          materialPartNames={materialPartNames}
+                                          onAssignToPart={assignMaterialToPart}
                                           onNameChange={(materialIndex, newName) => {
                                             setMaterialNames(prev => {
                                               const updated = [...prev];
@@ -3968,6 +4073,8 @@ export const CourseUnitsManager = () => {
                                         url={url}
                                         name={name}
                                         partAssignment="unassigned"
+                                        materialPartNames={materialPartNames}
+                                        onAssignToPart={assignMaterialToPart}
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
@@ -3996,6 +4103,8 @@ export const CourseUnitsManager = () => {
                                         name={name}
                                         type={type}
                                         partAssignment="unassigned"
+                                        materialPartNames={materialPartNames}
+                                        onAssignToPart={assignMaterialToPart}
                                         onNameChange={updateMaterialName}
                                         onRemove={removeMaterial}
                                         onMove={moveMaterial}
