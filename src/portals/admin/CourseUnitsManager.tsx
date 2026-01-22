@@ -1850,7 +1850,7 @@ export const CourseUnitsManager = () => {
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = () => {
-    if (!initialUnitForm || !initialMaterials) return false;
+    if (!initialUnitForm || !initialMaterials || !showUnitForm) return false;
 
     try {
       // Check unit form changes
@@ -1907,6 +1907,8 @@ export const CourseUnitsManager = () => {
     setMaterialPartNames([]);
     setMaterialParts([]);
     setPendingFiles([]);
+    setInitialUnitForm(null);
+    setInitialMaterials(null);
     setError(null);
     // Reset initial state tracking
     setInitialUnitForm(null);
@@ -2840,19 +2842,8 @@ export const CourseUnitsManager = () => {
         if (insertError) throw insertError;
       }
 
-      // Update initial state to reflect saved changes
-      const savedUnitForm = { ...unitForm };
-      const savedMaterials = {
-        materialUrls: [...materialUrls],
-        materialNames: [...materialNames],
-        materialTypes: [...materialTypes],
-        materialPartNames: [...materialPartNames],
-        materialParts: [...materialParts]
-      };
-      setInitialUnitForm(savedUnitForm);
-      setInitialMaterials(savedMaterials);
-
-      closeUnitForm();
+      // After successful save, directly close form without unsaved changes check
+      performCloseUnitForm();
       await loadData();
     } catch (err: any) {
       console.error("Error saving unit:", err);
