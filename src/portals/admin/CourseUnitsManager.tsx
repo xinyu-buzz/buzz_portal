@@ -1756,18 +1756,31 @@ export const CourseUnitsManager = () => {
   const hasUnsavedChanges = () => {
     if (!initialUnitForm || !initialMaterials) return false;
 
-    // Check unit form changes
-    const unitFormChanged = JSON.stringify(unitForm) !== JSON.stringify(initialUnitForm);
+    try {
+      // Check unit form changes
+      const unitFormChanged = JSON.stringify(unitForm) !== JSON.stringify(initialUnitForm);
 
-    // Check material changes
-    const materialsChanged =
-      JSON.stringify(materialUrls) !== JSON.stringify(initialMaterials.materialUrls) ||
-      JSON.stringify(materialNames) !== JSON.stringify(initialMaterials.materialNames) ||
-      JSON.stringify(materialTypes) !== JSON.stringify(initialMaterials.materialTypes) ||
-      JSON.stringify(materialPartNames) !== JSON.stringify(initialMaterials.materialPartNames) ||
-      JSON.stringify(materialParts) !== JSON.stringify(initialMaterials.materialParts);
+      // Check material changes
+      const materialsChanged =
+        JSON.stringify(materialUrls) !== JSON.stringify(initialMaterials.materialUrls) ||
+        JSON.stringify(materialNames) !== JSON.stringify(initialMaterials.materialNames) ||
+        JSON.stringify(materialTypes) !== JSON.stringify(initialMaterials.materialTypes) ||
+        JSON.stringify(materialPartNames) !== JSON.stringify(initialMaterials.materialPartNames) ||
+        JSON.stringify(materialParts) !== JSON.stringify(initialMaterials.materialParts);
 
-    return unitFormChanged || materialsChanged;
+      return unitFormChanged || materialsChanged;
+    } catch (error) {
+      // If JSON stringify fails, fall back to length comparison
+      console.warn('Error in hasUnsavedChanges comparison:', error);
+      return (
+        unitForm.title !== initialUnitForm.title ||
+        unitForm.description !== initialUnitForm.description ||
+        unitForm.content !== initialUnitForm.content ||
+        materialUrls.length !== initialMaterials.materialUrls.length ||
+        materialNames.length !== initialMaterials.materialNames.length ||
+        materialTypes.length !== initialMaterials.materialTypes.length
+      );
+    }
   };
 
   const closeUnitForm = () => {
@@ -2189,6 +2202,7 @@ export const CourseUnitsManager = () => {
     setMaterialUrls(prev => prev.filter((_, i) => i !== index));
     setMaterialNames(prev => prev.filter((_, i) => i !== index));
     setMaterialTypes(prev => prev.filter((_, i) => i !== index));
+    setMaterialParts(prev => prev.filter((_, i) => i !== index));
   };
 
   const updateMaterialName = (index: number, newName: string) => {
@@ -2730,14 +2744,16 @@ export const CourseUnitsManager = () => {
       }
 
       // Update initial state to reflect saved changes
-      setInitialUnitForm(unitForm);
-      setInitialMaterials({
+      const savedUnitForm = { ...unitForm };
+      const savedMaterials = {
         materialUrls: [...materialUrls],
         materialNames: [...materialNames],
         materialTypes: [...materialTypes],
         materialPartNames: [...materialPartNames],
         materialParts: [...materialParts]
-      });
+      };
+      setInitialUnitForm(savedUnitForm);
+      setInitialMaterials(savedMaterials);
 
       closeUnitForm();
       await loadData();
