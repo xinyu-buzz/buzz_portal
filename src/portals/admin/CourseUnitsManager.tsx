@@ -513,6 +513,143 @@ const DraggableQuestionItem = ({ question, index, name, onNameChange, onEdit, on
   );
 };
 
+const PREVIEW_ITEM_TYPE = "PREVIEW_ITEM";
+
+type DraggablePreviewItemProps = {
+  index: number;
+  item: {
+    name: string;
+    type: 'pdf' | 'image' | 'video';
+    previewUrl?: string;
+    status: 'uploading' | 'completed' | 'error';
+  };
+  onMove: (dragIndex: number, hoverIndex: number) => void;
+};
+
+const DraggablePreviewItem = ({ index, item, onMove }: DraggablePreviewItemProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: PREVIEW_ITEM_TYPE,
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver }, drop] = useDrop({
+    accept: PREVIEW_ITEM_TYPE,
+    hover: (draggedItem: { index: number }, monitor) => {
+      if (!ref.current) return;
+      const dragIndex = draggedItem.index;
+      const hoverIndex = index;
+      if (dragIndex === hoverIndex) return;
+
+      const hoverBoundingRect = ref.current.getBoundingClientRect();
+      const hoverMiddleX = (hoverBoundingRect.right - hoverBoundingRect.left) / 2;
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const hoverClientX = clientOffset.x - hoverBoundingRect.left;
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+
+      // Only perform the move when the mouse has crossed half of the item's height or width
+      if (dragIndex < hoverIndex && hoverClientX < hoverMiddleX && hoverClientY < hoverMiddleY) return;
+      if (dragIndex > hoverIndex && hoverClientX > hoverMiddleX && hoverClientY > hoverMiddleY) return;
+
+      onMove(dragIndex, hoverIndex);
+      draggedItem.index = hoverIndex;
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'relative',
+        width: '140px',
+        opacity: isDragging ? 0.5 : 1,
+        cursor: item.status === 'completed' ? 'grab' : 'default',
+        pointerEvents: item.status === 'completed' ? 'auto' : 'none',
+      }}
+    >
+      <div
+        style={{
+          width: '140px',
+          height: '140px',
+          borderRadius: '8px',
+          backgroundColor: isOver ? 'rgba(107, 140, 174, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+          border: `2px solid ${isOver ? 'rgba(107, 140, 174, 0.6)' : 'rgba(255, 255, 255, 0.1)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        {item.type === 'image' && item.previewUrl ? (
+          <img
+            src={item.previewUrl}
+            alt={item.name}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        ) : item.type === 'video' && item.previewUrl ? (
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <video
+              src={item.previewUrl}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                fontSize: '32px',
+                color: 'white',
+                textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              }}
+            >
+              🎬
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '8px' }}>📄</div>
+          </div>
+        )}
+      </div>
+      <div
+        style={{
+          marginTop: '8px',
+          fontSize: '12px',
+          color: '#9ca3b5',
+          textAlign: 'center',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          padding: '0 4px',
+        }}
+      >
+        {item.name}
+      </div>
+    </div>
+  );
+};
+
 type DroppableUnassignedContainerProps = {
   children: React.ReactNode;
   onMaterialDropped: (materialIndex: number) => void;
@@ -1213,7 +1350,17 @@ export const CourseUnitsManager = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [targetPartIndex, setTargetPartIndex] = useState<number | null>(null);
   const [showPartMaterialDropdown, setShowPartMaterialDropdown] = useState<number | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState<Array<{name: string, progress: number, status: 'uploading' | 'completed' | 'error', error?: string}>>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<Array<{
+    name: string, 
+    progress: number, 
+    status: 'uploading' | 'completed' | 'error', 
+    error?: string,
+    file: File,
+    previewUrl?: string,
+    uploadedUrl?: string,
+    type: 'pdf' | 'image' | 'video'
+  }>>([]);
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'reordering'>('uploading');
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
   const [questionForm, setQuestionForm] = useState({
@@ -1572,7 +1719,50 @@ export const CourseUnitsManager = () => {
     setTargetPartIndex(null);
     setIsDragging(false);
     setUploadingFiles([]);
+    setUploadPhase('uploading');
     // Don't clear files here - they might be in pending state
+  };
+
+  // Handle reordering of preview items
+  const movePreviewItem = useCallback((dragIndex: number, hoverIndex: number) => {
+    setUploadingFiles(prev => {
+      const updated = [...prev];
+      const draggedItem = updated[dragIndex];
+      updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedItem);
+      return updated;
+    });
+  }, []);
+
+  // Handle confirming the upload order and adding to materials
+  const handleConfirmUploadOrder = () => {
+    // Add materials in the order they appear in uploadingFiles
+    uploadingFiles.forEach(uploadedFile => {
+      if (uploadedFile.status === 'completed' && uploadedFile.uploadedUrl) {
+        const materialName = uploadedFile.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg|mp4|mov|avi|mkv|webm)$/i, '');
+        
+        setMaterialUrls(prev => [...prev, uploadedFile.uploadedUrl!]);
+        setMaterialNames(prev => [...prev, materialName]);
+        setMaterialTypes(prev => [...prev, uploadedFile.type]);
+        
+        // Assign to target part if specified
+        if (targetPartIndex !== null) {
+          setMaterialParts(prev => [...prev, (targetPartIndex + 1).toString()]);
+        } else {
+          setMaterialParts(prev => [...prev, '']);
+        }
+      }
+    });
+
+    // Clean up preview URLs
+    uploadingFiles.forEach(file => {
+      if (file.previewUrl) {
+        URL.revokeObjectURL(file.previewUrl);
+      }
+    });
+
+    // Close the modal
+    closeMaterialUploadModal();
   };
 
   // Remove part warning modal handlers
@@ -1611,19 +1801,34 @@ export const CourseUnitsManager = () => {
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      // Initialize upload tracking for all files
+      // Initialize upload tracking for all files with extended structure
       const fileArray = Array.from(files);
-      setUploadingFiles(fileArray.map(f => ({ name: f.name, progress: 0, status: 'uploading' })));
+      const fileType = materialUploadType === 'pdf' ? 'pdf' : 'video'; // Determine base type
+      
+      setUploadingFiles(fileArray.map(f => {
+        const actualType = f.type === 'application/pdf' ? 'pdf' : 
+                          f.type.startsWith('image/') ? 'image' : 'video';
+        const previewUrl = actualType === 'image' || actualType === 'video' ? URL.createObjectURL(f) : undefined;
+        
+        return {
+          name: f.name,
+          progress: 0,
+          status: 'uploading' as const,
+          file: f,
+          previewUrl,
+          type: actualType
+        };
+      }));
+      
+      setUploadPhase('uploading');
       
       // Handle multiple files - upload them sequentially
       for (let i = 0; i < fileArray.length; i++) {
         await handleFileUpload(fileArray[i], i);
       }
       
-      // Auto-close modal after all uploads complete
-      setTimeout(() => {
-        closeMaterialUploadModal();
-      }, 500);
+      // Transition to reordering phase instead of auto-closing
+      setUploadPhase('reordering');
     }
   };
 
@@ -1759,25 +1964,17 @@ export const CourseUnitsManager = () => {
         .from('course-materials')
         .getPublicUrl(filePath);
 
-      // Add the new material to the arrays
-      const materialName = file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg|mp4|mov|avi|mkv|webm)$/i, '');
-      
-      setMaterialUrls(prev => [...prev, publicUrlData.publicUrl]);
-      setMaterialNames(prev => [...prev, materialName]);
-      setMaterialTypes(prev => [...prev, fileType]);
-      
-      // Assign to target part if specified
-      if (targetPartIndex !== null) {
-        setMaterialParts(prev => [...prev, (targetPartIndex + 1).toString()]);
-      } else {
-        setMaterialParts(prev => [...prev, '']);
-      }
-      
-      // Mark as completed
+      // Store uploaded URL in the uploadingFiles state for later use
+      // DO NOT add to material arrays yet - wait for user to confirm order
       if (fileIndex !== undefined) {
         setUploadingFiles(prev => {
           const updated = [...prev];
-          updated[fileIndex] = { ...updated[fileIndex], progress: 100, status: 'completed' };
+          updated[fileIndex] = { 
+            ...updated[fileIndex], 
+            progress: 100, 
+            status: 'completed',
+            uploadedUrl: publicUrlData.publicUrl
+          };
           return updated;
         });
       }
@@ -1802,19 +1999,34 @@ export const CourseUnitsManager = () => {
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      // Initialize upload tracking for all files
+      // Initialize upload tracking for all files with extended structure
       const fileArray = Array.from(files);
-      setUploadingFiles(fileArray.map(f => ({ name: f.name, progress: 0, status: 'uploading' })));
+      const fileType = materialUploadType === 'pdf' ? 'pdf' : 'video'; // Determine base type
+      
+      setUploadingFiles(fileArray.map(f => {
+        const actualType = f.type === 'application/pdf' ? 'pdf' : 
+                          f.type.startsWith('image/') ? 'image' : 'video';
+        const previewUrl = actualType === 'image' || actualType === 'video' ? URL.createObjectURL(f) : undefined;
+        
+        return {
+          name: f.name,
+          progress: 0,
+          status: 'uploading' as const,
+          file: f,
+          previewUrl,
+          type: actualType
+        };
+      }));
+      
+      setUploadPhase('uploading');
       
       // Handle multiple files - upload them sequentially
       for (let i = 0; i < fileArray.length; i++) {
         await handleFileUpload(fileArray[i], i);
       }
       
-      // Auto-close modal after all uploads complete
-      setTimeout(() => {
-        closeMaterialUploadModal();
-      }, 500);
+      // Transition to reordering phase instead of auto-closing
+      setUploadPhase('reordering');
     }
   };
 
@@ -3894,22 +4106,27 @@ export const CourseUnitsManager = () => {
             className="modal-container" 
             onClick={(e) => e.stopPropagation()} 
             style={{ 
-              maxWidth: '600px',
+              maxWidth: uploadPhase === 'reordering' ? '900px' : '600px',
               width: '90%',
               backgroundColor: '#1e293b',
               borderRadius: '12px',
               padding: '24px',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+              transition: 'max-width 0.3s ease',
+              maxHeight: '90vh',
+              overflowY: 'auto'
             }}
           >
-            <h2 className="modal-title">
-              {uploadingFiles.length > 0 
+            <h2 className="modal-title" style={{ color: '#f1f5f9' }}>
+              {uploadPhase === 'uploading' && uploadingFiles.length > 0
                 ? `Uploading ${uploadingFiles.filter(f => f.status === 'completed').length}/${uploadingFiles.length} files...`
+                : uploadPhase === 'reordering' && uploadingFiles.length > 0
+                ? `Arrange Your Materials (${uploadingFiles.length} files)`
                 : materialUploadType === 'pdf' ? 'Upload PDF or Image' : 'Upload Video'}
             </h2>
             
             <div className="modal-form">
-              {uploadingFiles.length > 0 ? (
+              {uploadingFiles.length > 0 && uploadPhase === 'uploading' ? (
                 // Show upload progress
                 <div style={{ 
                   marginBottom: '20px',
@@ -3962,7 +4179,53 @@ export const CourseUnitsManager = () => {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : uploadingFiles.length > 0 && uploadPhase === 'reordering' ? (
+                // Show preview grid for reordering
+                <DndProvider backend={HTML5Backend}>
+                  <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '16px', borderRadius: '8px' }}>
+                    <p style={{ color: '#9ca3b5', marginBottom: '16px', fontSize: '14px' }}>
+                      Drag and drop to reorder your materials. This will determine the display order.
+                    </p>
+                    <div style={{ 
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                      gap: '16px',
+                      marginBottom: '20px',
+                      maxHeight: '500px',
+                      overflowY: 'auto',
+                      paddingRight: '8px',
+                      minHeight: '180px'
+                    }}>
+                      {uploadingFiles.map((file, index) => (
+                        <DraggablePreviewItem
+                          key={`preview-${index}-${file.name}`}
+                          index={index}
+                          item={file}
+                          onMove={movePreviewItem}
+                        />
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={handleConfirmUploadOrder}
+                        className="primary-btn"
+                        style={{ flex: 1 }}
+                      >
+                        Next
+                      </button>
+                      <button
+                        type="button"
+                        onClick={closeMaterialUploadModal}
+                        className="ghost-btn"
+                        style={{ flex: 1 }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </DndProvider>
+              ) : uploadingFiles.length === 0 ? (
                 // Show upload dropzone
                 <div
                   onDragEnter={handleDragEnter}
@@ -4001,6 +4264,14 @@ export const CourseUnitsManager = () => {
                       ? 'PDF or images (JPEG, PNG, GIF, WebP, BMP, SVG) - max 10MB'
                       : 'MP4, MOV, AVI, MKV, WebM - max 100MB'}
                   </p>
+                </div>
+              ) : (
+                // Debug: Show what state we're in
+                <div style={{ padding: '20px', color: '#fff' }}>
+                  <p>Debug Info:</p>
+                  <p>Files: {uploadingFiles.length}</p>
+                  <p>Phase: {uploadPhase}</p>
+                  <p>Status: {uploadingFiles.map(f => f.status).join(', ')}</p>
                 </div>
               )}
 
