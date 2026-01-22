@@ -1802,9 +1802,9 @@ export const CourseUnitsManager = () => {
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       // Initialize upload tracking for all files with extended structure
-      const fileArray = Array.from(files);
+      const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
       const fileType = materialUploadType === 'pdf' ? 'pdf' : 'video'; // Determine base type
-      
+
       setUploadingFiles(fileArray.map(f => {
         const actualType = f.type === 'application/pdf' ? 'pdf' : 
                           f.type.startsWith('image/') ? 'image' : 'video';
@@ -2000,9 +2000,9 @@ export const CourseUnitsManager = () => {
     const files = e.target.files;
     if (files && files.length > 0) {
       // Initialize upload tracking for all files with extended structure
-      const fileArray = Array.from(files);
+      const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
       const fileType = materialUploadType === 'pdf' ? 'pdf' : 'video'; // Determine base type
-      
+
       setUploadingFiles(fileArray.map(f => {
         const actualType = f.type === 'application/pdf' ? 'pdf' : 
                           f.type.startsWith('image/') ? 'image' : 'video';
