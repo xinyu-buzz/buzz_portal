@@ -2201,7 +2201,7 @@ export const CourseUnitsManager = () => {
 
   // Handler for adding material to a specific part
   const handleAddMaterialToPart = (partIndex: number) => {
-    setShowPartMaterialDropdown(partIndex);
+    setShowPartMaterialDropdown(prev => prev === partIndex ? null : partIndex);
   };
 
   // Group materials by parts for display
