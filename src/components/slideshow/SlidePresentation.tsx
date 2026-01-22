@@ -253,21 +253,6 @@ export default function SlidePresentation({ unit, materials, onComplete }: Slide
                   <p style={{ color: '#374151', fontSize: '18px', lineHeight: '1.75' }}>
                     {unit.content}
                   </p>
-                  <button
-                    onClick={handleImageLoad}
-                    style={{
-                      marginTop: '24px',
-                      padding: '8px 24px',
-                      backgroundColor: '#3b82f6',
-                      color: 'white',
-                      borderRadius: '8px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s'
-                    }}
-                  >
-                    Continue
-                  </button>
                 </div>
               ) : (
                 <div style={{ textAlign: 'center' }}>
