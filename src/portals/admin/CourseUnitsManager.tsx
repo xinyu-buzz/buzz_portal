@@ -722,6 +722,7 @@ type DroppablePartContainerProps = {
   onRemovePart: (partIndex: number) => void;
   isCollapsed: boolean;
   onToggleCollapse: (partIndex: number) => void;
+  onPreviewPart: (partIndex: number) => void;
   onAddMaterial: (partIndex: number) => void;
   showDropdown: boolean;
   onOpenUploadModal: (type: 'pdf' | 'video' | 'question', partIndex: number) => void;
@@ -737,6 +738,7 @@ const DroppablePartContainer = ({
   onRemovePart,
   isCollapsed,
   onToggleCollapse,
+  onPreviewPart,
   onAddMaterial,
   showDropdown,
   onOpenUploadModal
@@ -810,6 +812,23 @@ const DroppablePartContainer = ({
           </button>
           <button
             type="button"
+            onClick={() => onPreviewPart(partIndex)}
+            style={{
+              padding: '4px 8px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+            disabled={materialCount === 0}
+            title="Preview materials in this part"
+          >
+            Preview
+          </button>
+          <button
+            type="button"
             onClick={() => onRemovePart(partIndex)}
             style={{
               padding: '4px 8px',
@@ -828,22 +847,8 @@ const DroppablePartContainer = ({
 
       {!isCollapsed && (
         <>
-          {isOver && (
-            <div style={{
-              textAlign: 'center',
-              padding: '20px',
-              color: '#6b8cae',
-              fontSize: '14px',
-              fontWeight: 500
-            }}>
-              Drop material here to assign to {partName}
-            </div>
-          )}
-
-          {children}
-          
           {/* Add Material in this Part Button */}
-          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+          <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
             <button
               type="button"
               onClick={() => onAddMaterial(partIndex)}
@@ -864,7 +869,7 @@ const DroppablePartContainer = ({
               <span>+</span>
               <span>Add Material in this Part</span>
             </button>
-            
+
             {/* Dropdown menu for material type selection */}
             {showDropdown && (
               <div
@@ -945,6 +950,20 @@ const DroppablePartContainer = ({
               </div>
             )}
           </div>
+
+          {isOver && (
+            <div style={{
+              textAlign: 'center',
+              padding: '20px',
+              color: '#6b8cae',
+              fontSize: '14px',
+              fontWeight: 500
+            }}>
+              Drop material here to assign to {partName}
+            </div>
+          )}
+
+          {children}
         </>
       )}
     </div>
@@ -1343,6 +1362,12 @@ export const CourseUnitsManager = () => {
   const [materialPartNames, setMaterialPartNames] = useState<string[]>([]);
   const [materialParts, setMaterialParts] = useState<string[]>([]);
   const [collapsedParts, setCollapsedParts] = useState<Set<number>>(new Set());
+  const [previewPartIndex, setPreviewPartIndex] = useState<number | null>(null);
+  const [previewMaterials, setPreviewMaterials] = useState<Array<{
+    name: string;
+    type: 'pdf' | 'image' | 'video' | 'question';
+    url: string;
+  }>>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showMaterialTypeDropdown, setShowMaterialTypeDropdown] = useState(false);
   const [showMaterialUploadModal, setShowMaterialUploadModal] = useState(false);
@@ -1678,6 +1703,8 @@ export const CourseUnitsManager = () => {
       const partNames = Array.isArray(unit.material_part_names) ? unit.material_part_names : [];
       setMaterialPartNames(partNames);
       setMaterialParts(parts);
+      // Set all parts as collapsed by default
+      setCollapsedParts(new Set(partNames.map((_, index) => index)));
       setPendingFiles([]);
 
       // Save initial state for change detection
@@ -2126,6 +2153,8 @@ export const CourseUnitsManager = () => {
     const partNumber = materialPartNames.length + 1;
     const newPartName = `Part ${partNumber}`;
     setMaterialPartNames(prev => [...prev, newPartName]);
+    // Add new part as collapsed by default
+    setCollapsedParts(prev => new Set([...prev, materialPartNames.length]));
   };
 
   const updateMaterialPartName = (partIndex: number, newName: string) => {
@@ -2257,6 +2286,21 @@ export const CourseUnitsManager = () => {
       }
       return newSet;
     });
+  };
+
+  const handlePreviewPart = (partIndex: number) => {
+    const { groups } = getMaterialsGroupedByParts();
+    const partKey = `part-${partIndex + 1}`;
+    const materials = groups[partKey] || { urls: [], names: [], types: [], indices: [] };
+
+    const previewData = materials.urls.map((url: string, localIndex: number) => ({
+      name: materials.names[localIndex],
+      type: materials.types[localIndex] as 'pdf' | 'image' | 'video' | 'question',
+      url: url
+    }));
+
+    setPreviewMaterials(previewData);
+    setPreviewPartIndex(partIndex);
   };
 
   const assignMaterialToPart = (materialIndex: number, partIndex: number) => {
@@ -3694,6 +3738,7 @@ export const CourseUnitsManager = () => {
                                   onRemovePart={removeMaterialPart}
                                   isCollapsed={collapsedParts.has(partIndex)}
                                   onToggleCollapse={togglePartCollapse}
+                                  onPreviewPart={handlePreviewPart}
                                   onAddMaterial={handleAddMaterialToPart}
                                   showDropdown={showPartMaterialDropdown === partIndex}
                                   onOpenUploadModal={openMaterialUploadModal}
@@ -4555,6 +4600,166 @@ export const CourseUnitsManager = () => {
                   className="ghost-btn"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewPartIndex !== null && (
+        <div
+          className="modal-overlay"
+          onClick={() => setPreviewPartIndex(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000
+          }}
+        >
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '900px',
+              width: '90%',
+              backgroundColor: '#1e293b',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <h2 className="modal-title" style={{ color: '#f1f5f9', marginBottom: '16px' }}>
+              Preview: {materialPartNames[previewPartIndex]}
+            </h2>
+
+            <div className="modal-form">
+              {previewMaterials.length === 0 ? (
+                <p style={{ color: '#9ca3b5', textAlign: 'center', padding: '40px' }}>
+                  No materials in this part.
+                </p>
+              ) : (
+                <DndProvider backend={HTML5Backend}>
+                  <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '16px', borderRadius: '8px' }}>
+                    <p style={{ color: '#9ca3b5', marginBottom: '16px', fontSize: '14px' }}>
+                      Drag and drop to reorder materials in this part.
+                    </p>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                      gap: '16px',
+                      marginBottom: '20px',
+                      maxHeight: '500px',
+                      overflowY: 'auto',
+                      paddingRight: '8px',
+                      minHeight: '180px'
+                    }}>
+                      {previewMaterials.map((material, index) => (
+                        <div
+                          key={`preview-${index}-${material.name}`}
+                          style={{
+                            position: 'relative',
+                            width: '140px',
+                            cursor: 'grab',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '140px',
+                              height: '140px',
+                              borderRadius: '8px',
+                              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                              border: '2px solid rgba(255, 255, 255, 0.1)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            {material.type === 'image' ? (
+                              <img
+                                src={material.url}
+                                alt={material.name}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                            ) : material.type === 'video' ? (
+                              <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span style={{ fontSize: '32px' }}>🎬</span>
+                                <span style={{ fontSize: '12px', color: '#9ca3b5' }}>Video</span>
+                              </div>
+                            ) : material.type === 'question' ? (
+                              <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span style={{ fontSize: '32px' }}>❓</span>
+                                <span style={{ fontSize: '12px', color: '#9ca3b5' }}>Question</span>
+                              </div>
+                            ) : (
+                              <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span style={{ fontSize: '32px' }}>📄</span>
+                                <span style={{ fontSize: '12px', color: '#9ca3b5' }}>PDF</span>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '4px',
+                            left: '4px',
+                            right: '4px',
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            color: 'white',
+                            fontSize: '10px',
+                            padding: '2px 4px',
+                            borderRadius: '4px',
+                            textAlign: 'center',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {material.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </DndProvider>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPartIndex(null)}
+                  className="ghost-btn"
+                >
+                  Close
                 </button>
               </div>
             </div>
