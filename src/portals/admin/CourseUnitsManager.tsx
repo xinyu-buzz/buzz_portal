@@ -1351,9 +1351,9 @@ export const CourseUnitsManager = () => {
   const [targetPartIndex, setTargetPartIndex] = useState<number | null>(null);
   const [showPartMaterialDropdown, setShowPartMaterialDropdown] = useState<number | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Array<{
-    name: string, 
-    progress: number, 
-    status: 'uploading' | 'completed' | 'error', 
+    name: string,
+    progress: number,
+    status: 'uploading' | 'completed' | 'error',
     error?: string,
     file: File,
     previewUrl?: string,
@@ -1362,6 +1362,15 @@ export const CourseUnitsManager = () => {
   }>>([]);
   const [uploadPhase, setUploadPhase] = useState<'uploading' | 'reordering'>('uploading');
   const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [showUnsavedChangesWarning, setShowUnsavedChangesWarning] = useState(false);
+  const [initialUnitForm, setInitialUnitForm] = useState<any>(null);
+  const [initialMaterials, setInitialMaterials] = useState<{
+    materialUrls: string[],
+    materialNames: string[],
+    materialTypes: string[],
+    materialPartNames: string[],
+    materialParts: string[]
+  } | null>(null);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
   const [questionForm, setQuestionForm] = useState({
     question_text: "",
@@ -1433,6 +1442,20 @@ export const CourseUnitsManager = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showMaterialTypeDropdown]);
+
+  // Handle browser beforeunload to warn about unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (showUnitForm && hasUnsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+        return ''; // Some browsers show this message
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [showUnitForm, unitForm, materialUrls, materialNames, materialTypes, materialPartNames, materialParts, initialUnitForm, initialMaterials]);
 
   const loadData = async () => {
     if (!courseId) return;
@@ -1611,7 +1634,7 @@ export const CourseUnitsManager = () => {
   const openUnitForm = (unit?: CourseUnit) => {
     if (unit) {
       setEditingUnit(unit);
-      setUnitForm({
+      const unitFormData = {
         title: stripUnitPrefix(unit.title),
         description: unit.description || "",
         content: unit.content || "",
@@ -1621,12 +1644,14 @@ export const CourseUnitsManager = () => {
         section_id: unit.section_id || "",
         prerequisite_units: unit.prerequisite_units || [],
         prerequisite_tests: unit.prerequisite_tests || [],
-      });
+      };
+      setUnitForm(unitFormData);
+
       // Load material data - prioritize new columns, fallback to legacy columns for backward compatibility
       let urls: string[] = [];
       let names: string[] = [];
       let types: string[] = [];
-      
+
       if (unit.material_urls && Array.isArray(unit.material_urls) && unit.material_urls.length > 0) {
         // Use new columns - all materials stored in unified arrays
         urls = unit.material_urls;
@@ -1638,7 +1663,7 @@ export const CourseUnitsManager = () => {
         names = Array.isArray(unit.pdf_names) ? unit.pdf_names : urls.map((_, i) => `Material ${i + 1}`);
         types = urls.map(() => 'pdf');
       }
-      
+
       // Ensure materialParts has the same length as materialUrls
       let parts = Array.isArray(unit.material_parts) ? unit.material_parts : [];
       if (parts.length < urls.length) {
@@ -1650,12 +1675,23 @@ export const CourseUnitsManager = () => {
       setMaterialUrls(urls);
       setMaterialNames(names);
       setMaterialTypes(types);
-      setMaterialPartNames(Array.isArray(unit.material_part_names) ? unit.material_part_names : []);
+      const partNames = Array.isArray(unit.material_part_names) ? unit.material_part_names : [];
+      setMaterialPartNames(partNames);
       setMaterialParts(parts);
       setPendingFiles([]);
+
+      // Save initial state for change detection
+      setInitialUnitForm(unitFormData);
+      setInitialMaterials({
+        materialUrls: urls,
+        materialNames: names,
+        materialTypes: types,
+        materialPartNames: partNames,
+        materialParts: parts
+      });
     } else {
       setEditingUnit(null);
-      setUnitForm({
+      const unitFormData = {
         title: "",
         description: "",
         content: "",
@@ -1665,18 +1701,55 @@ export const CourseUnitsManager = () => {
         section_id: "",
         prerequisite_units: [],
         prerequisite_tests: [],
-      });
+      };
+      setUnitForm(unitFormData);
       setMaterialUrls([]);
       setMaterialNames([]);
       setMaterialTypes([]);
       setMaterialPartNames([]);
       setMaterialParts([]);
       setPendingFiles([]);
+
+      // Save initial state for change detection (empty for new units)
+      setInitialUnitForm(unitFormData);
+      setInitialMaterials({
+        materialUrls: [],
+        materialNames: [],
+        materialTypes: [],
+        materialPartNames: [],
+        materialParts: []
+      });
     }
     setShowUnitForm(true);
   };
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = () => {
+    if (!initialUnitForm || !initialMaterials) return false;
+
+    // Check unit form changes
+    const unitFormChanged = JSON.stringify(unitForm) !== JSON.stringify(initialUnitForm);
+
+    // Check material changes
+    const materialsChanged =
+      JSON.stringify(materialUrls) !== JSON.stringify(initialMaterials.materialUrls) ||
+      JSON.stringify(materialNames) !== JSON.stringify(initialMaterials.materialNames) ||
+      JSON.stringify(materialTypes) !== JSON.stringify(initialMaterials.materialTypes) ||
+      JSON.stringify(materialPartNames) !== JSON.stringify(initialMaterials.materialPartNames) ||
+      JSON.stringify(materialParts) !== JSON.stringify(initialMaterials.materialParts);
+
+    return unitFormChanged || materialsChanged;
+  };
+
   const closeUnitForm = () => {
+    if (hasUnsavedChanges()) {
+      setShowUnsavedChangesWarning(true);
+    } else {
+      performCloseUnitForm();
+    }
+  };
+
+  const performCloseUnitForm = () => {
     setShowUnitForm(false);
     setEditingUnit(null);
     setUnitForm({
@@ -1697,6 +1770,9 @@ export const CourseUnitsManager = () => {
     setMaterialParts([]);
     setPendingFiles([]);
     setError(null);
+    // Reset initial state tracking
+    setInitialUnitForm(null);
+    setInitialMaterials(null);
   };
 
   // Material upload modal handlers
@@ -2557,6 +2633,16 @@ export const CourseUnitsManager = () => {
 
         if (insertError) throw insertError;
       }
+
+      // Update initial state to reflect saved changes
+      setInitialUnitForm(unitForm);
+      setInitialMaterials({
+        materialUrls: [...materialUrls],
+        materialNames: [...materialNames],
+        materialTypes: [...materialTypes],
+        materialPartNames: [...materialPartNames],
+        materialParts: [...materialParts]
+      });
 
       closeUnitForm();
       await loadData();
@@ -4080,6 +4166,39 @@ export const CourseUnitsManager = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved Changes Warning Modal */}
+      {showUnsavedChangesWarning && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: 400 }}>
+            <h3 style={{ margin: 0, marginBottom: 16 }}>Unsaved Changes</h3>
+            <p style={{ margin: 0, marginBottom: 20, color: '#666' }}>
+              You have unsaved changes in this unit. Are you sure you want to close without saving?
+              All your changes will be lost.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setShowUnsavedChangesWarning(false)}
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                style={{ backgroundColor: '#dc2626' }}
+                onClick={() => {
+                  setShowUnsavedChangesWarning(false);
+                  performCloseUnitForm();
+                }}
+              >
+                Discard Changes
+              </button>
+            </div>
           </div>
         </div>
       )}
