@@ -4,7 +4,7 @@ export interface UseFullscreenReturn {
   isFullScreen: boolean;
   enterFullScreen: () => Promise<void>;
   exitFullScreen: () => Promise<void>;
-  fullScreenRef: React.RefObject<HTMLDivElement>;
+  fullScreenRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const useFullscreen = (): UseFullscreenReturn => {
