@@ -1219,10 +1219,9 @@ const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit
       <td>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ color: '#9ca3b5', cursor: 'grab', fontSize: '14px' }}>⋮⋮</span>
-          <span>{unit.order_index}</span>
+          UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}
         </div>
       </td>
-      <td>UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}</td>
       <td>{sectionName}</td>
       <td>{prerequisitesText}</td>
       <td>{unit.is_mandatory ? "Yes" : "No"}</td>
@@ -2708,18 +2707,19 @@ export const CourseUnitsManager = () => {
       const [draggedUnit] = updated.splice(dragIndex, 1);
       updated.splice(hoverIndex, 0, draggedUnit);
       
-      // Update order_index for all units
+      // Update order_index and unit_number for all units (unit_number should match display order)
       const reordered = updated.map((unit, index) => ({
         ...unit,
         order_index: index + 1,
+        unit_number: index + 1,
       }));
-      
+
       // Save to database
       Promise.all(
         reordered.map(unit =>
           supabaseClient
             .from("course_units")
-            .update({ order_index: unit.order_index, updated_at: new Date().toISOString() })
+            .update({ order_index: unit.order_index, unit_number: unit.unit_number, updated_at: new Date().toISOString() })
             .eq("id", unit.id)
         )
       ).catch(err => {
@@ -3424,7 +3424,6 @@ export const CourseUnitsManager = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Order</th>
                   <th>Title</th>
                   <th>Section</th>
                   <th>Prerequisites</th>
