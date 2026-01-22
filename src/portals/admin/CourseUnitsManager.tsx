@@ -5,6 +5,7 @@ import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TestQuestionsManager } from "./TestQuestionsManager";
 import { PracticalTestCriteriaManager } from "./PracticalTestCriteriaManager";
+import SlidePresentation from "../../components/slideshow/SlidePresentation";
 
 const MATERIAL_ITEM_TYPE = "MATERIAL_ITEM";
 const SECTION_ITEM_TYPE = "SECTION_ITEM";
@@ -1368,6 +1369,7 @@ export const CourseUnitsManager = () => {
     type: 'pdf' | 'image' | 'video' | 'question';
     url: string;
   }>>([]);
+  const [showSlideshow, setShowSlideshow] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showMaterialTypeDropdown, setShowMaterialTypeDropdown] = useState(false);
   const [showMaterialUploadModal, setShowMaterialUploadModal] = useState(false);
@@ -1845,6 +1847,45 @@ export const CourseUnitsManager = () => {
       updated.splice(hoverIndex, 0, draggedItem);
       return updated;
     });
+  }, []);
+
+  // Convert previewMaterials to CourseMaterial format for slideshow
+  const getSlideshowMaterials = useCallback((): Array<{
+    index: number;
+    name: string;
+    url: string;
+    type: string;
+    isVideo: boolean;
+    isImage: boolean;
+    isPDF: boolean;
+    isQuestion?: boolean;
+  }> => {
+    return previewMaterials.map((material, index) => ({
+      index,
+      name: material.name,
+      url: material.url,
+      type: material.type,
+      isVideo: material.type === 'video',
+      isImage: material.type === 'image',
+      isPDF: material.type === 'pdf',
+      isQuestion: material.type === 'question'
+    }));
+  }, [previewMaterials]);
+
+  // Create unit data for slideshow
+  const getSlideshowUnit = useCallback(() => {
+    const partName = previewPartIndex !== null ? materialPartNames[previewPartIndex] : 'Preview';
+    return {
+      id: `preview-part-${previewPartIndex}`,
+      title: partName,
+      content: `Preview of materials in ${partName}`,
+      unit_number: (previewPartIndex || 0) + 1
+    };
+  }, [previewPartIndex, materialPartNames]);
+
+  const handleSlideshowComplete = useCallback(() => {
+    setShowSlideshow(false);
+    // Could add completion handling here if needed
   }, []);
 
   // Handle confirming the upload order and adding to materials
@@ -4695,12 +4736,88 @@ export const CourseUnitsManager = () => {
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
+                  onClick={() => setShowSlideshow(true)}
+                  className="primary-btn"
+                  disabled={previewMaterials.length === 0}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  ▶️ Play
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPreviewPartIndex(null)}
                   className="ghost-btn"
                 >
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slideshow Modal */}
+      {showSlideshow && previewPartIndex !== null && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10001,
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '1400px',
+              height: '95vh',
+              backgroundColor: '#f8fafc',
+              borderRadius: '12px',
+              overflow: 'auto',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            <div style={{
+              position: 'sticky',
+              top: 0,
+              right: 0,
+              display: 'flex',
+              justifyContent: 'flex-end',
+              padding: '16px',
+              backgroundColor: 'rgba(248, 250, 252, 0.95)',
+              zIndex: 100,
+              borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
+            }}>
+              <button
+                onClick={() => setShowSlideshow(false)}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <SlidePresentation
+                unit={getSlideshowUnit()}
+                materials={getSlideshowMaterials()}
+                onComplete={handleSlideshowComplete}
+              />
             </div>
           </div>
         </div>
