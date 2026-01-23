@@ -1653,8 +1653,8 @@ export const CourseUnitsManager = () => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [showMaterialTypeDropdown]);
 
   // Handle browser beforeunload to warn about unsaved changes
@@ -2770,7 +2770,13 @@ export const CourseUnitsManager = () => {
     try {
       if (url.startsWith('data:application/json;base64,')) {
         const base64 = url.replace('data:application/json;base64,', '');
-        const json = atob(base64);
+        const binary = atob(base64);
+        // Decode UTF-8 bytes back to Unicode string
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const json = new TextDecoder().decode(bytes);
         return JSON.parse(json);
       }
       return null;
@@ -2781,7 +2787,10 @@ export const CourseUnitsManager = () => {
 
   const createQuestionDataUrl = (question: ReviewQuestion): string => {
     const json = JSON.stringify(question);
-    const base64 = btoa(json);
+    // Use TextEncoder to properly handle Unicode characters before base64 encoding
+    const bytes = new TextEncoder().encode(json);
+    const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+    const base64 = btoa(binary);
     return `data:application/json;base64,${base64}`;
   };
 
@@ -3929,7 +3938,7 @@ export const CourseUnitsManager = () => {
                         borderRadius: '8px',
                         minWidth: '200px',
                         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
-                        zIndex: 1000,
+                        zIndex: 1001,
                         overflow: 'hidden'
                       }}
                     >
@@ -3983,7 +3992,10 @@ export const CourseUnitsManager = () => {
                       
                       <button
                         type="button"
-                        onClick={() => openMaterialUploadModal('question')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMaterialUploadModal('question');
+                        }}
                         style={{
                           width: '100%',
                           padding: '12px 16px',
