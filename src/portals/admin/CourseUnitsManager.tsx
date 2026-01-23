@@ -3168,6 +3168,11 @@ export const CourseUnitsManager = () => {
     return test?.test_name || "Unknown Test";
   };
 
+  const getUnitName = (unitNumber: number) => {
+    const unit = units.find(u => u.unit_number === unitNumber);
+    return unit?.title || "Unknown Unit";
+  };
+
   // Test handlers
   const openTestForm = (test?: CourseTest) => {
     if (test) {
@@ -3663,12 +3668,18 @@ export const CourseUnitsManager = () => {
               <tbody>
                 {units.map((unit, index) => {
                   const prereqs = [];
-                  if (unit.prerequisite_units && unit.prerequisite_units.length > 0) {
-                    prereqs.push(`Units: ${unit.prerequisite_units.sort((a, b) => a - b).join(", ")}`);
+                  const hasPrereqUnits = unit.prerequisite_units && unit.prerequisite_units.length > 0;
+                  const hasPrereqTests = unit.prerequisite_tests && unit.prerequisite_tests.length > 0;
+                  
+                  if (hasPrereqUnits) {
+                    const unitNames = unit.prerequisite_units.map(id => getUnitName(id)).join(", ");
+                    // Only add "Units:" prefix if there are also tests
+                    prereqs.push(hasPrereqTests ? `Units: ${unitNames}` : unitNames);
                   }
-                  if (unit.prerequisite_tests && unit.prerequisite_tests.length > 0) {
+                  if (hasPrereqTests) {
                     const testNames = unit.prerequisite_tests.map(id => getTestName(id)).join(", ");
-                    prereqs.push(`Tests: ${testNames}`);
+                    // Only add "Tests:" prefix if there are also units
+                    prereqs.push(hasPrereqUnits ? `Tests: ${testNames}` : testNames);
                   }
                   const prerequisitesText = prereqs.length > 0 ? prereqs.join(" | ") : "None";
                   
