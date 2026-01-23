@@ -1252,12 +1252,11 @@ type DraggableUnitItemProps = {
   onEdit: () => void;
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
-  stripUnitPrefix: (title: string) => string;
   isFirstInSection: boolean;
   sectionColor: string;
 };
 
-const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit, onDelete, onMove, stripUnitPrefix, isFirstInSection, sectionColor }: DraggableUnitItemProps) => {
+const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit, onDelete, onMove, isFirstInSection, sectionColor }: DraggableUnitItemProps) => {
   const ref = useRef<HTMLTableRowElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -1308,7 +1307,7 @@ const DraggableUnitItem = ({ unit, index, sectionName, prerequisitesText, onEdit
       <td>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ color: '#9ca3b5', cursor: 'grab', fontSize: '14px' }}>⋮⋮</span>
-          UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}
+          {unit.title}
         </div>
       </td>
       <td>{sectionName}</td>
@@ -1614,7 +1613,6 @@ export const CourseUnitsManager = () => {
     title: "",
     description: "",
     content: "",
-    unit_number: 0,
     order_index: 0,
     is_mandatory: false,
     section_id: "",
@@ -1841,20 +1839,14 @@ export const CourseUnitsManager = () => {
     }
   };
 
-  // Helper to strip "UNIT X - " prefix from title if present
-  const stripUnitPrefix = (title: string): string => {
-    return title.replace(/^UNIT\s*\d+\s*-\s*/i, "");
-  };
-
   // Unit handlers
   const openUnitForm = (unit?: CourseUnit) => {
     if (unit) {
       setEditingUnit(unit);
       const unitFormData = {
-        title: stripUnitPrefix(unit.title),
+        title: unit.title,
         description: unit.description || "",
         content: unit.content || "",
-        unit_number: unit.unit_number,
         order_index: unit.order_index,
         is_mandatory: unit.is_mandatory,
         section_id: unit.section_id || "",
@@ -1913,7 +1905,6 @@ export const CourseUnitsManager = () => {
         title: "",
         description: "",
         content: "",
-        unit_number: units.length + 1,
         order_index: units.length + 1,
         is_mandatory: false,
         section_id: "",
@@ -1987,7 +1978,6 @@ export const CourseUnitsManager = () => {
       title: "",
       description: "",
       content: "",
-      unit_number: 0,
       order_index: 0,
       is_mandatory: false,
       section_id: "",
@@ -2416,7 +2406,7 @@ export const CourseUnitsManager = () => {
     
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `unit-${unitForm.unit_number}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const fileName = `unit-${unitForm.order_index}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       const filePath = `${fileName}`;
 
       // Simulate progress during upload
@@ -3025,26 +3015,11 @@ export const CourseUnitsManager = () => {
       let finalParts = [...materialParts];
       while (finalParts.length < maxLength) finalParts.push('');
 
-      // Prepend "UNIT X - " to the title for database storage
-      const fullTitle = `UNIT ${unitForm.unit_number} - ${unitForm.title}`;
-      
-      // Calculate correct order_index based on unit_number
-      // Find all units with unit_number less than or equal to current unit_number
-      const unitsWithLowerNumbers = units.filter(u => {
-        // Exclude the current unit if we're editing
-        if (editingUnit && u.id === editingUnit.id) return false;
-        return u.unit_number < unitForm.unit_number;
-      });
-      
-      // order_index should be the count of units with lower numbers + 1
-      const calculatedOrderIndex = unitsWithLowerNumbers.length + 1;
-      
       const payload: any = {
-        title: fullTitle,
+        title: unitForm.title,
         description: unitForm.description,
         content: unitForm.content,
-        unit_number: unitForm.unit_number,
-        order_index: calculatedOrderIndex,
+        order_index: editingUnit ? editingUnit.order_index : units.length + 1,
         is_mandatory: unitForm.is_mandatory,
         section_id: unitForm.section_id || null,
         material_urls: finalUrls.length > 0 ? finalUrls : [],
@@ -3142,13 +3117,11 @@ export const CourseUnitsManager = () => {
       setError(null);
 
       // Create a copy of the unit
-      const nextUnitNumber = Math.max(...units.map(u => u.unit_number), 0) + 1;
       const nextOrderIndex = Math.max(...units.map(u => u.order_index), 0) + 1;
-      
+
       const duplicatedUnit = {
         course_id: unit.course_id,
-        unit_number: nextUnitNumber,
-        title: `UNIT ${nextUnitNumber} - ${stripUnitPrefix(unit.title)} (Copy)`,
+        title: `${unit.title} (Copy)`,
         description: unit.description,
         content: unit.content,
         is_mandatory: unit.is_mandatory,
@@ -3717,7 +3690,6 @@ export const CourseUnitsManager = () => {
                       onEdit={() => openUnitForm(unit)}
                       onDelete={() => handleDeleteUnit(unit.id)}
                       onMove={moveUnit}
-                      stripUnitPrefix={stripUnitPrefix}
                       isFirstInSection={isFirstInSection}
                       sectionColor={sectionColor}
                     />
@@ -3859,33 +3831,15 @@ export const CourseUnitsManager = () => {
             <form className="modal-form" onSubmit={handleUnitSubmit}>
               {error && <div className="alert error">{error}</div>}
 
-              <label className="input-label">Unit Number & Title *</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
-                  <span style={{ color: "#9ca3b5", fontWeight: 500 }}>UNIT</span>
-                  <input
-                    name="unit_number"
-                    type="number"
-                    value={unitForm.unit_number}
-                    onChange={(e) => setUnitForm({ ...unitForm, unit_number: parseInt(e.target.value) || 0 })}
-                    className="text-input"
-                    placeholder="1"
-                    min="1"
-                    style={{ width: "80px" }}
-                    required
-                  />
-                  <span style={{ color: "#9ca3b5", fontWeight: 500 }}>-</span>
-                </div>
-                <input
-                  name="title"
-                  value={unitForm.title}
-                  onChange={(e) => setUnitForm({ ...unitForm, title: e.target.value })}
-                  className="text-input"
-                  placeholder="Unit title"
-                  style={{ flex: 1 }}
-                  required
-                />
-              </div>
+              <label className="input-label">Unit Title *</label>
+              <input
+                name="title"
+                value={unitForm.title}
+                onChange={(e) => setUnitForm({ ...unitForm, title: e.target.value })}
+                className="text-input"
+                placeholder="Unit title"
+                required
+              />
 
               <label className="input-label">Description</label>
               <textarea
@@ -4537,7 +4491,7 @@ export const CourseUnitsManager = () => {
                             checked={unitForm.prerequisite_units.includes(unit.unit_number)}
                             onChange={() => togglePrerequisiteUnit(unit.unit_number)}
                           />
-                          <span>Unit {unit.unit_number}: {stripUnitPrefix(unit.title)}</span>
+                          <span>{unit.title}</span>
                         </label>
                       ))}
                   </div>
@@ -5340,7 +5294,7 @@ export const CourseUnitsManager = () => {
                           checked={testForm.required_units.includes(unit.unit_number)}
                           onChange={() => toggleUnitSelection(unit.unit_number)}
                         />
-                        <span>Unit {unit.unit_number}: {unit.title}</span>
+                        <span>{unit.title}</span>
                       </label>
                     ))}
                   </div>
@@ -5753,7 +5707,7 @@ export const CourseUnitsManager = () => {
                   .filter(unit => editingUnit && unit.id !== editingUnit.id) // Exclude current unit
                   .map(unit => (
                     <option key={unit.id} value={unit.id}>
-                      UNIT {unit.unit_number} - {stripUnitPrefix(unit.title)}
+                      {unit.title}
                     </option>
                   ))
                 }
