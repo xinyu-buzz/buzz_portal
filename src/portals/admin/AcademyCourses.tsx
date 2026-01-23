@@ -541,6 +541,10 @@ export const AcademyCourses = () => {
             questions: test.questions,
             is_active: test.is_active,
             section_id: test.section_id ? sectionIdMap[test.section_id] || null : null,
+            needs_proctor: test.needs_proctor,
+            duration: test.duration || 60,
+            price_of_schedule: test.price_of_schedule ?? null,
+            question_source: test.question_source || 'csv',
           };
 
           const { data: newTest, error: insertTestError } = await supabaseClient
@@ -585,6 +589,11 @@ export const AcademyCourses = () => {
             section_id: unit.section_id ? sectionIdMap[unit.section_id] || null : null,
             prerequisite_units: unit.prerequisite_units,
             prerequisite_tests: newPrerequisiteTests,
+            material_urls: unit.material_urls || [],
+            material_names: unit.material_names || [],
+            material_types: unit.material_types || [],
+            material_part_names: unit.material_part_names || [],
+            material_parts: unit.material_parts || [],
           };
 
           const { error: insertUnitError } = await supabaseClient
