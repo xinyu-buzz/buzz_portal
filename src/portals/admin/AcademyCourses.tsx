@@ -1362,7 +1362,7 @@ export const AcademyCourses = () => {
                     onClick={handleDuplicate}
                     disabled={submitting || uploadingCover}
                   >
-                    Duplicate
+                    Duplicate course
                   </button>
                 )}
                 <button
