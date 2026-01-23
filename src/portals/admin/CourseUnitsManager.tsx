@@ -2002,6 +2002,7 @@ export const CourseUnitsManager = () => {
   const openMaterialUploadModal = (type: 'pdf' | 'video' | 'question', partIndex: number | null = null) => {
     if (type === 'question') {
       // Directly open question modal for questions
+      setTargetPartIndex(partIndex);
       openQuestionModal();
     } else {
       setMaterialUploadType(type);
