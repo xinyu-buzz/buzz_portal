@@ -425,12 +425,25 @@ export const AcademyCourses = () => {
     try {
       const { data: session } = await supabaseClient.auth.getSession();
       const userId = session?.session?.user?.id;
-      
-      if (!userId) {
+      const userEmail = session?.session?.user?.email?.toLowerCase();
+
+      if (!userId || !userEmail) {
         setError("User not authenticated");
         return;
       }
-      
+
+      // Check if user has owner role for course deletion
+      const { data: employeeProfile } = await supabaseClient
+        .from("employee_profiles")
+        .select("role")
+        .eq("email", userEmail)
+        .maybeSingle();
+
+      if (!employeeProfile || employeeProfile.role !== "owner") {
+        setError("Only users with Owner role can delete courses. This is a critical safety feature.");
+        return;
+      }
+
       const now = new Date().toISOString();
 
       // Soft delete course
@@ -1556,6 +1569,7 @@ export const AcademyCourses = () => {
                       <li>Items will be permanently deleted after <strong>30 days</strong></li>
                       <li>You can restore items from the Recycle Bin anytime</li>
                       <li>This action cannot be undone after 30 days</li>
+                      <li><strong>Only Owner role can perform this action</strong></li>
                     </ul>
                   </div>
                 </div>
