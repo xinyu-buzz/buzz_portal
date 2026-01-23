@@ -1699,6 +1699,7 @@ export const CourseUnitsManager = () => {
         .from("course_sections")
         .select("*")
         .eq("course_id", courseId)
+        .is("deleted_at", null)
         .order("display_order", { ascending: true });
 
       if (sectionsError) throw sectionsError;
@@ -1709,6 +1710,7 @@ export const CourseUnitsManager = () => {
         .from("course_units")
         .select("*")
         .eq("course_id", courseId)
+        .is("deleted_at", null)
         .order("order_index", { ascending: true });
 
       if (unitsError) throw unitsError;
@@ -1719,6 +1721,7 @@ export const CourseUnitsManager = () => {
         .from("course_tests")
         .select("*")
         .eq("course_id", courseId)
+        .is("deleted_at", null)
         .order("order_index", { ascending: true });
 
       if (testsError) throw testsError;
@@ -1737,6 +1740,7 @@ export const CourseUnitsManager = () => {
         .from("training_courses")
         .select("id, title, provider")
         .eq("provider", "Buzz")
+        .is("deleted_at", null)
         .order("title", { ascending: true });
 
       if (coursesError) throw coursesError;
@@ -1823,12 +1827,16 @@ export const CourseUnitsManager = () => {
   };
 
   const handleDeleteSection = async (sectionId: string) => {
-    if (!confirm("Are you sure you want to delete this section? Units in this section will be unassigned.")) return;
+    if (!confirm("Are you sure you want to delete this section?\n\nThis will move the section to the recycle bin.\n\nItems in the recycle bin will be permanently deleted after 30 days.\n\nYou can restore items from the recycle bin if needed.")) return;
 
     try {
+      const { data: session } = await supabaseClient.auth.getSession();
+      const userId = session?.session?.user?.id;
+      const now = new Date().toISOString();
+
       const { error: deleteError } = await supabaseClient
         .from("course_sections")
-        .delete()
+        .update({ deleted_at: now, deleted_by: userId })
         .eq("id", sectionId);
 
       if (deleteError) throw deleteError;
@@ -3078,15 +3086,30 @@ export const CourseUnitsManager = () => {
   };
 
   const handleDeleteUnit = async (unitId: string) => {
-    if (!confirm("Are you sure you want to delete this unit?")) return;
+    if (!confirm("Are you sure you want to delete this unit?\n\nThis will move the unit and any associated files to the recycle bin.\n\nItems in the recycle bin will be permanently deleted after 30 days.\n\nYou can restore items from the recycle bin if needed.")) return;
 
     try {
+      const { data: session } = await supabaseClient.auth.getSession();
+      const userId = session?.session?.user?.id;
+      
+      if (!userId) {
+        setError("User not authenticated");
+        return;
+      }
+      
+      const now = new Date().toISOString();
+
       const { error: deleteError } = await supabaseClient
         .from("course_units")
-        .delete()
+        .update({ deleted_at: now, deleted_by: userId })
         .eq("id", unitId);
 
       if (deleteError) throw deleteError;
+
+      // Move storage files to deleted folder
+      const { moveStorageFilesToDeleted } = await import("../../utility/storageHelpers");
+      await moveStorageFilesToDeleted(unitId, "unit", userId);
+
       await loadData();
     } catch (err: any) {
       console.error("Error deleting unit:", err);
@@ -3307,15 +3330,38 @@ export const CourseUnitsManager = () => {
   };
 
   const handleDeleteTest = async (testId: string) => {
-    if (!confirm("Are you sure you want to delete this test?")) return;
+    if (!confirm("Are you sure you want to delete this test?\n\nThis will move the test and ALL its questions to the recycle bin.\n\nItems in the recycle bin will be permanently deleted after 30 days.\n\nYou can restore items from the recycle bin if needed.")) return;
 
     try {
+      const { data: session } = await supabaseClient.auth.getSession();
+      const userId = session?.session?.user?.id;
+      
+      if (!userId) {
+        setError("User not authenticated");
+        return;
+      }
+      
+      const now = new Date().toISOString();
+
+      // Soft delete the test
       const { error: deleteError } = await supabaseClient
         .from("course_tests")
-        .delete()
+        .update({ deleted_at: now, deleted_by: userId })
         .eq("id", testId);
 
       if (deleteError) throw deleteError;
+
+      // Cascade soft delete to test questions
+      await supabaseClient
+        .from("test_questions")
+        .update({ deleted_at: now, deleted_by: userId })
+        .eq("test_id", testId)
+        .is("deleted_at", null);
+
+      // Move storage files to deleted folder
+      const { moveStorageFilesToDeleted } = await import("../../utility/storageHelpers");
+      await moveStorageFilesToDeleted(testId, "test", userId);
+
       await loadData();
     } catch (err: any) {
       console.error("Error deleting test:", err);

@@ -285,6 +285,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
         .from("test_questions")
         .select("*")
         .eq("test_id", testId)
+        .is("deleted_at", null)
         .order("question_number", { ascending: true });
 
       if (fetchError) throw fetchError;
@@ -550,12 +551,16 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
-    if (!confirm("Are you sure you want to delete this question?")) return;
+    if (!confirm("Are you sure you want to delete this question?\n\nThis will move the question to the recycle bin.\n\nItems in the recycle bin will be permanently deleted after 30 days.\n\nYou can restore items from the recycle bin if needed.")) return;
 
     try {
+      const { data: session } = await supabaseClient.auth.getSession();
+      const userId = session?.session?.user?.id;
+      const now = new Date().toISOString();
+
       const { error: deleteError } = await supabaseClient
         .from("test_questions")
-        .delete()
+        .update({ deleted_at: now, deleted_by: userId })
         .eq("id", questionId);
 
       if (deleteError) throw deleteError;

@@ -47,6 +47,9 @@ export const AcademyCourses = () => {
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingCourse, setDeletingCourse] = useState<TrainingCourse | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -69,6 +72,7 @@ export const AcademyCourses = () => {
     const { data, error: loadError } = await supabaseClient
       .from("training_courses")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -409,21 +413,114 @@ export const AcademyCourses = () => {
     await load();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this course?")) return;
+  const handleDelete = (course: TrainingCourse) => {
+    setDeletingCourse(course);
+    setDeleteConfirmation("");
+    setShowDeleteModal(true);
+  };
 
-    const { error: deleteError } = await supabaseClient
-      .from("training_courses")
-      .delete()
-      .eq("id", id);
+  const confirmDelete = async () => {
+    if (!deletingCourse) return;
 
-    if (deleteError) {
-      console.error(deleteError);
-      setError(deleteError.message);
-      return;
+    try {
+      const { data: session } = await supabaseClient.auth.getSession();
+      const userId = session?.session?.user?.id;
+      
+      if (!userId) {
+        setError("User not authenticated");
+        return;
+      }
+      
+      const now = new Date().toISOString();
+
+      // Soft delete course
+      const { error: courseError } = await supabaseClient
+        .from("training_courses")
+        .update({ deleted_at: now, deleted_by: userId, active: false })
+        .eq("id", deletingCourse.id);
+
+      if (courseError) {
+        console.error(courseError);
+        setError(courseError.message);
+        return;
+      }
+
+      // Cascade soft delete to related entities
+      await cascadeSoftDelete(deletingCourse.id, userId, now);
+      await load();
+
+      // Close modal
+      setShowDeleteModal(false);
+      setDeletingCourse(null);
+      setDeleteConfirmation("");
+    } catch (error: any) {
+      console.error("Error deleting course:", error);
+      setError(error.message);
     }
+  };
 
-    await load();
+  const cascadeSoftDelete = async (courseId: string, userId: string, deletedAt: string) => {
+    try {
+      // Get all sections
+      const { data: sections } = await supabaseClient
+        .from("course_sections")
+        .select("id")
+        .eq("course_id", courseId)
+        .is("deleted_at", null);
+
+      if (sections && sections.length > 0) {
+        await supabaseClient
+          .from("course_sections")
+          .update({ deleted_at: deletedAt, deleted_by: userId })
+          .eq("course_id", courseId)
+          .is("deleted_at", null);
+      }
+
+      // Get all tests
+      const { data: tests } = await supabaseClient
+        .from("course_tests")
+        .select("id")
+        .eq("course_id", courseId)
+        .is("deleted_at", null);
+
+      if (tests && tests.length > 0) {
+        await supabaseClient
+          .from("course_tests")
+          .update({ deleted_at: deletedAt, deleted_by: userId })
+          .eq("course_id", courseId)
+          .is("deleted_at", null);
+
+        // Soft delete test questions for each test
+        for (const test of tests) {
+          await supabaseClient
+            .from("test_questions")
+            .update({ deleted_at: deletedAt, deleted_by: userId })
+            .eq("test_id", test.id)
+            .is("deleted_at", null);
+        }
+      }
+
+      // Get all units
+      const { data: units } = await supabaseClient
+        .from("course_units")
+        .select("id")
+        .eq("course_id", courseId)
+        .is("deleted_at", null);
+
+      if (units && units.length > 0) {
+        await supabaseClient
+          .from("course_units")
+          .update({ deleted_at: deletedAt, deleted_by: userId })
+          .eq("course_id", courseId)
+          .is("deleted_at", null);
+      }
+
+      // Move storage files to deleted folder (imported from utility)
+      const { moveStorageFilesToDeleted } = await import("../../utility/storageHelpers");
+      await moveStorageFilesToDeleted(courseId, "course", userId);
+    } catch (error) {
+      console.error("Error in cascade soft delete:", error);
+    }
   };
 
   const handleDuplicate = async () => {
@@ -714,11 +811,20 @@ export const AcademyCourses = () => {
 
   return (
     <div className="page-card">
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: "24px" }}>
         <h1>Academy Courses</h1>
-        <button className="primary-btn" onClick={() => setShowCreate(true)}>
-          + New course
-        </button>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button
+            className="primary-btn"
+            onClick={() => navigate("/admin/recycle-bin")}
+            style={{ display: "flex", alignItems: "center", gap: 8 }}
+          >
+            🗑️ Recycle Bin
+          </button>
+          <button className="primary-btn" onClick={() => setShowCreate(true)}>
+            + New course
+          </button>
+        </div>
       </div>
 
       {error && !showCreate && !showEdit && (
@@ -1016,7 +1122,7 @@ export const AcademyCourses = () => {
                       <button
                         className="ghost-btn"
                         style={{ padding: "6px 10px", fontSize: 12 }}
-                        onClick={() => handleDelete(row.id)}
+                        onClick={() => handleDelete(row)}
                       >
                         Delete
                       </button>
@@ -1052,7 +1158,7 @@ export const AcademyCourses = () => {
         </>
       )}
 
-      {(showCreate || showEdit) && (
+      {(showCreate || showEdit || showDeleteModal) && (
         <div className="modal-backdrop">
           <div className="modal-card" style={{ maxWidth: 700 }}>
             <div
@@ -1375,6 +1481,132 @@ export const AcademyCourses = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && deletingCourse && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: 500 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+            >
+              <h3 style={{ margin: 0, color: "#ef4444" }}>⚠️ Delete Course</h3>
+              <button
+                className="ghost-btn"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletingCourse(null);
+                  setDeleteConfirmation("");
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ fontSize: "16px", fontWeight: 600, marginBottom: 12 }}>
+                Are you sure you want to delete "{deletingCourse.title}"?
+              </p>
+
+              <div style={{
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "8px",
+                padding: "16px",
+                marginBottom: 20
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                  <span style={{ fontSize: "24px" }}>🗑️</span>
+                  <div>
+                    <p style={{ margin: "0 0 8px 0", fontWeight: 600, color: "#991b1b" }}>
+                      This action will move the following to the recycle bin:
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: "20px", color: "#7f1d1d" }}>
+                      <li>The course "{deletingCourse.title}"</li>
+                      <li>All sections in this course</li>
+                      <li>All units in this course</li>
+                      <li>All tests in this course</li>
+                      <li>All questions in this course</li>
+                      <li>Any associated files and images</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                backgroundColor: "#f0f9ff",
+                border: "1px solid #bae6fd",
+                borderRadius: "8px",
+                padding: "16px",
+                marginBottom: 20
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                  <span style={{ fontSize: "20px" }}>⏰</span>
+                  <div>
+                    <p style={{ margin: "0 0 8px 0", fontWeight: 600, color: "#0369a1" }}>
+                      Safety Information:
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: "20px", color: "#075985" }}>
+                      <li>Items will be permanently deleted after <strong>30 days</strong></li>
+                      <li>You can restore items from the Recycle Bin anytime</li>
+                      <li>This action cannot be undone after 30 days</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <p style={{ margin: 0, fontSize: "14px", color: "#6b7280" }}>
+                <strong>Type "DELETE" to confirm:</strong>
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <input
+                type="text"
+                placeholder="Type DELETE to confirm"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px"
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && deleteConfirmation === "DELETE") {
+                    confirmDelete();
+                  }
+                }}
+              />
+              <button
+                className="primary-btn"
+                style={{
+                  backgroundColor: deleteConfirmation === "DELETE" ? "#ef4444" : "#9ca3af",
+                  borderColor: deleteConfirmation === "DELETE" ? "#ef4444" : "#9ca3af"
+                }}
+                disabled={deleteConfirmation !== "DELETE"}
+                onClick={confirmDelete}
+              >
+                Delete Course
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletingCourse(null);
+                  setDeleteConfirmation("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
