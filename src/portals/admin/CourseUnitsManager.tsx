@@ -1602,6 +1602,7 @@ export const CourseUnitsManager = () => {
   const [courseSearchQuery, setCourseSearchQuery] = useState("");
   const [bulkSelectionMode, setBulkSelectionMode] = useState(false);
   const [selectedMaterials, setSelectedMaterials] = useState<Set<number>>(new Set());
+  const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
 
   const [sectionForm, setSectionForm] = useState({
     name: "",
@@ -2771,6 +2772,64 @@ export const CourseUnitsManager = () => {
     setSelectedMaterials(new Set());
     setBulkSelectionMode(false);
   }, [selectedMaterials]);
+
+  const deleteSelectedMaterials = useCallback(() => {
+    const selectedIndices = Array.from(selectedMaterials).sort((a, b) => b - a); // Sort in descending order to remove from end first
+    
+    setMaterialUrls(prev => prev.filter((_, index) => !selectedMaterials.has(index)));
+    setMaterialNames(prev => prev.filter((_, index) => !selectedMaterials.has(index)));
+    setMaterialTypes(prev => prev.filter((_, index) => !selectedMaterials.has(index)));
+    setMaterialParts(prev => prev.filter((_, index) => !selectedMaterials.has(index)));
+    
+    setSelectedMaterials(new Set());
+    setBulkSelectionMode(false);
+    setShowDeleteSelectedModal(false);
+  }, [selectedMaterials]);
+
+  const moveSelectedToPosition = useCallback((position: 'top' | 'bottom') => {
+    // Separate items into non-selected and selected (preserving relative order)
+    const nonSelectedUrls: string[] = [];
+    const nonSelectedNames: string[] = [];
+    const nonSelectedTypes: string[] = [];
+    const nonSelectedParts: string[] = [];
+    
+    const selectedUrls: string[] = [];
+    const selectedNames: string[] = [];
+    const selectedTypes: string[] = [];
+    const selectedParts: string[] = [];
+    
+    materialUrls.forEach((url, index) => {
+      if (selectedMaterials.has(index)) {
+        selectedUrls.push(url);
+        selectedNames.push(materialNames[index] || '');
+        selectedTypes.push(materialTypes[index] || '');
+        selectedParts.push(materialParts[index] || '');
+      } else {
+        nonSelectedUrls.push(url);
+        nonSelectedNames.push(materialNames[index] || '');
+        nonSelectedTypes.push(materialTypes[index] || '');
+        nonSelectedParts.push(materialParts[index] || '');
+      }
+    });
+    
+    // Combine based on position
+    if (position === 'top') {
+      // Selected first, then non-selected
+      setMaterialUrls([...selectedUrls, ...nonSelectedUrls]);
+      setMaterialNames([...selectedNames, ...nonSelectedNames]);
+      setMaterialTypes([...selectedTypes, ...nonSelectedTypes]);
+      setMaterialParts([...selectedParts, ...nonSelectedParts]);
+    } else {
+      // Non-selected first, then selected at bottom
+      setMaterialUrls([...nonSelectedUrls, ...selectedUrls]);
+      setMaterialNames([...nonSelectedNames, ...selectedNames]);
+      setMaterialTypes([...nonSelectedTypes, ...selectedTypes]);
+      setMaterialParts([...nonSelectedParts, ...selectedParts]);
+    }
+    
+    setSelectedMaterials(new Set());
+    setBulkSelectionMode(false);
+  }, [selectedMaterials, materialUrls, materialNames, materialTypes, materialParts]);
 
   // Review Question handlers
   // Questions are stored with type 'question' and the URL contains the question data as JSON
@@ -4110,6 +4169,43 @@ export const CourseUnitsManager = () => {
                       ))}
                       <option value="-1">Unassigned</option>
                     </select>
+                    <select
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(107, 140, 174, 0.3)',
+                        backgroundColor: '#1e293b',
+                        color: 'white',
+                        fontSize: '14px'
+                      }}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          moveSelectedToPosition(e.target.value as 'top' | 'bottom');
+                          e.target.value = '';
+                        }
+                      }}
+                      defaultValue=""
+                    >
+                      <option value="">Move to...</option>
+                      <option value="top">Move to Top</option>
+                      <option value="bottom">Move to Bottom</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteSelectedModal(true)}
+                      style={{
+                        backgroundColor: 'rgba(220, 38, 38, 0.9)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 500
+                      }}
+                    >
+                      Delete Selected
+                    </button>
                     <button
                       type="button"
                       onClick={() => setSelectedMaterials(new Set())}
@@ -5714,6 +5810,82 @@ export const CourseUnitsManager = () => {
                 }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Selected Materials Modal */}
+      {showDeleteSelectedModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowDeleteSelectedModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000
+          }}
+        >
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '500px',
+              width: '90%',
+              backgroundColor: '#1e293b',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <h2 className="modal-title" style={{ marginBottom: '16px', color: '#ffffff' }}>
+              Delete Selected Materials
+            </h2>
+
+            <div style={{ marginBottom: '24px', color: '#e2e8f0' }}>
+              Are you sure you want to delete {selectedMaterials.size} selected material{selectedMaterials.size !== 1 ? 's' : ''}? This action cannot be undone.
+            </div>
+
+            <div style={{ display: "flex", gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteSelectedModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: 'transparent',
+                  color: '#6b8cae',
+                  border: '1px solid #6b8cae',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={deleteSelectedMaterials}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                Delete
               </button>
             </div>
           </div>
