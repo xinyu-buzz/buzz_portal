@@ -2737,31 +2737,30 @@ export const CourseUnitsManager = () => {
   };
 
   const moveMaterial = useCallback((dragIndex: number, hoverIndex: number) => {
-    setMaterialUrls(prev => {
-      const updated = [...prev];
-      const [draggedUrl] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedUrl);
-      return updated;
-    });
-    setMaterialNames(prev => {
-      const updated = [...prev];
-      const [draggedName] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedName);
-      return updated;
-    });
-    setMaterialTypes(prev => {
-      const updated = [...prev];
-      const [draggedType] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedType);
-      return updated;
-    });
-    setMaterialParts(prev => {
-      const updated = [...prev];
-      const [draggedPart] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedPart);
-      return updated;
-    });
-  }, []);
+    // Perform all array operations atomically to prevent race conditions
+    // Calculate new arrays first, then update all states together
+    const newUrls = [...materialUrls];
+    const [draggedUrl] = newUrls.splice(dragIndex, 1);
+    newUrls.splice(hoverIndex, 0, draggedUrl);
+
+    const newNames = [...materialNames];
+    const [draggedName] = newNames.splice(dragIndex, 1);
+    newNames.splice(hoverIndex, 0, draggedName);
+
+    const newTypes = [...materialTypes];
+    const [draggedType] = newTypes.splice(dragIndex, 1);
+    newTypes.splice(hoverIndex, 0, draggedType);
+
+    const newParts = [...materialParts];
+    const [draggedPart] = newParts.splice(dragIndex, 1);
+    newParts.splice(hoverIndex, 0, draggedPart);
+
+    // Update all states together - React 18+ batches these automatically
+    setMaterialUrls(newUrls);
+    setMaterialNames(newNames);
+    setMaterialTypes(newTypes);
+    setMaterialParts(newParts);
+  }, [materialUrls, materialNames, materialTypes, materialParts]);
 
   const moveSelectedMaterialsToPart = useCallback((targetPartIndex: number) => {
     const selectedIndices = Array.from(selectedMaterials).sort((a, b) => b - a); // Sort in descending order
@@ -2999,63 +2998,79 @@ export const CourseUnitsManager = () => {
   }, [sections]);
 
   const moveUnit = useCallback(async (dragIndex: number, hoverIndex: number) => {
-    setUnits(prev => {
-      const updated = [...prev];
-      const [draggedUnit] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedUnit);
-      
-      // Update order_index and unit_number for all units (unit_number should match display order)
-      const reordered = updated.map((unit, index) => ({
-        ...unit,
-        order_index: index + 1,
-        unit_number: index + 1,
-      }));
+    // Store original state for potential rollback
+    const originalUnits = [...units];
 
+    // Calculate the reordered units
+    const updatedUnits = [...units];
+    const [draggedUnit] = updatedUnits.splice(dragIndex, 1);
+    updatedUnits.splice(hoverIndex, 0, draggedUnit);
+    
+    // Update order_index and unit_number for all units (unit_number should match display order)
+    const reorderedUnits = updatedUnits.map((unit, index) => ({
+      ...unit,
+      order_index: index + 1,
+      unit_number: index + 1,
+    }));
+
+    // Optimistically update UI
+    setUnits(reorderedUnits);
+
+    try {
       // Save to database
-      Promise.all(
-        reordered.map(unit =>
-          supabaseClient
-            .from("course_units")
-            .update({ order_index: unit.order_index, unit_number: unit.unit_number, updated_at: new Date().toISOString() })
-            .eq("id", unit.id)
-        )
-      ).catch(err => {
-        console.error("Error updating unit order:", err);
-        setError("Failed to update unit order");
-      });
-      
-      return reordered;
-    });
-  }, []);
+      const updatePromises = reorderedUnits.map(unit =>
+        supabaseClient
+          .from("course_units")
+          .update({ order_index: unit.order_index, unit_number: unit.unit_number, updated_at: new Date().toISOString() })
+          .eq("id", unit.id)
+      );
+
+      await Promise.all(updatePromises);
+      setError(null); // Clear any previous errors
+    } catch (err: any) {
+      console.error("Error updating unit order:", err);
+      setError("Failed to update unit order. Please try again.");
+      // Revert UI to original state
+      setUnits(originalUnits);
+    }
+  }, [units]);
 
   const moveTest = useCallback(async (dragIndex: number, hoverIndex: number) => {
-    setTests(prev => {
-      const updated = [...prev];
-      const [draggedTest] = updated.splice(dragIndex, 1);
-      updated.splice(hoverIndex, 0, draggedTest);
-      
-      // Update order_index for all tests
-      const reordered = updated.map((test, index) => ({
-        ...test,
-        order_index: index + 1,
-      }));
-      
+    // Store original state for potential rollback
+    const originalTests = [...tests];
+
+    // Calculate the reordered tests
+    const updatedTests = [...tests];
+    const [draggedTest] = updatedTests.splice(dragIndex, 1);
+    updatedTests.splice(hoverIndex, 0, draggedTest);
+    
+    // Update order_index for all tests
+    const reorderedTests = updatedTests.map((test, index) => ({
+      ...test,
+      order_index: index + 1,
+    }));
+
+    // Optimistically update UI
+    setTests(reorderedTests);
+
+    try {
       // Save to database
-      Promise.all(
-        reordered.map(test =>
-          supabaseClient
-            .from("course_tests")
-            .update({ order_index: test.order_index, updated_at: new Date().toISOString() })
-            .eq("id", test.id)
-        )
-      ).catch(err => {
-        console.error("Error updating test order:", err);
-        setError("Failed to update test order");
-      });
-      
-      return reordered;
-    });
-  }, []);
+      const updatePromises = reorderedTests.map(test =>
+        supabaseClient
+          .from("course_tests")
+          .update({ order_index: test.order_index, updated_at: new Date().toISOString() })
+          .eq("id", test.id)
+      );
+
+      await Promise.all(updatePromises);
+      setError(null); // Clear any previous errors
+    } catch (err: any) {
+      console.error("Error updating test order:", err);
+      setError("Failed to update test order. Please try again.");
+      // Revert UI to original state
+      setTests(originalTests);
+    }
+  }, [tests]);
 
   const togglePrerequisiteUnit = (unitNumber: number) => {
     setUnitForm(prev => ({
@@ -3214,8 +3229,18 @@ export const CourseUnitsManager = () => {
       setSubmitting(true);
       setError(null);
 
-      // Create a copy of the unit
-      const nextOrderIndex = Math.max(...units.map(u => u.order_index), 0) + 1;
+      // Fetch fresh data from database to get accurate next order_index
+      // This prevents stale closure issues when units were modified elsewhere
+      const { data: currentUnits, error: fetchError } = await supabaseClient
+        .from("course_units")
+        .select("order_index")
+        .eq("course_id", unit.course_id);
+
+      if (fetchError) throw fetchError;
+
+      const nextOrderIndex = currentUnits && currentUnits.length > 0
+        ? Math.max(...currentUnits.map(u => u.order_index), 0) + 1
+        : 1;
 
       const duplicatedUnit = {
         course_id: unit.course_id,
@@ -3443,8 +3468,18 @@ export const CourseUnitsManager = () => {
       setSubmitting(true);
       setError(null);
 
-      // Create a copy of the test
-      const nextOrderIndex = Math.max(...tests.map(t => t.order_index), 0) + 1;
+      // Fetch fresh data from database to get accurate next order_index
+      // This prevents stale closure issues when tests were modified elsewhere
+      const { data: currentTests, error: fetchError } = await supabaseClient
+        .from("course_tests")
+        .select("order_index")
+        .eq("course_id", test.course_id);
+
+      if (fetchError) throw fetchError;
+
+      const nextOrderIndex = currentTests && currentTests.length > 0
+        ? Math.max(...currentTests.map(t => t.order_index), 0) + 1
+        : 1;
       
       const duplicatedTest = {
         course_id: test.course_id,

@@ -543,6 +543,58 @@ export const AcademyCourses = () => {
     setSubmitting(true);
     setError(null);
 
+    let newCourseId: string | null = null;
+
+    // Rollback helper function to clean up partially created course on failure
+    const rollbackDuplication = async (courseId: string) => {
+      console.log("Rolling back partial duplication for course:", courseId);
+      try {
+        // Delete in reverse order of creation to handle foreign key constraints
+        // 1. Delete test_questions (via cascade from course_tests, but explicit is safer)
+        const { data: testsToDelete } = await supabaseClient
+          .from("course_tests")
+          .select("id")
+          .eq("course_id", courseId);
+        
+        if (testsToDelete && testsToDelete.length > 0) {
+          const testIds = testsToDelete.map(t => t.id);
+          await supabaseClient
+            .from("test_questions")
+            .delete()
+            .in("test_id", testIds);
+        }
+
+        // 2. Delete course_units
+        await supabaseClient
+          .from("course_units")
+          .delete()
+          .eq("course_id", courseId);
+
+        // 3. Delete course_tests
+        await supabaseClient
+          .from("course_tests")
+          .delete()
+          .eq("course_id", courseId);
+
+        // 4. Delete course_sections
+        await supabaseClient
+          .from("course_sections")
+          .delete()
+          .eq("course_id", courseId);
+
+        // 5. Delete the course itself
+        await supabaseClient
+          .from("training_courses")
+          .delete()
+          .eq("id", courseId);
+
+        console.log("Rollback completed successfully");
+      } catch (rollbackError) {
+        console.error("Error during rollback:", rollbackError);
+        // Log but don't throw - we want to show the original error to the user
+      }
+    };
+
     try {
       // Step 1: Create the new course with "(Copy)" suffix
       const newCoursePayload: Record<string, any> = {
@@ -571,7 +623,7 @@ export const AcademyCourses = () => {
 
       if (courseError) throw courseError;
 
-      const newCourseId = newCourse.id;
+      newCourseId = newCourse.id;
 
       // Step 2: Fetch and duplicate sections
       const { data: originalSections, error: sectionsError } = await supabaseClient
@@ -725,8 +777,9 @@ export const AcademyCourses = () => {
           .order("question_number", { ascending: true });
 
         if (questionsError) {
-          console.error("Error fetching questions for test:", oldTestId, questionsError);
-          continue; // Skip if test_questions table doesn't exist or other error
+          // For test_questions errors, we throw to trigger rollback
+          // since partial question duplication leaves inconsistent state
+          throw new Error(`Failed to fetch questions for test: ${questionsError.message}`);
         }
 
         if (originalQuestions && originalQuestions.length > 0) {
@@ -747,7 +800,7 @@ export const AcademyCourses = () => {
             .insert(newQuestionsPayload);
 
           if (insertQuestionsError) {
-            console.error("Error inserting questions for test:", newTestId, insertQuestionsError);
+            throw new Error(`Failed to insert questions: ${insertQuestionsError.message}`);
           }
         }
       }
@@ -760,7 +813,14 @@ export const AcademyCourses = () => {
       alert(`Course "${editingCourse.title}" has been duplicated successfully!`);
     } catch (err: any) {
       console.error("Error duplicating course:", err);
-      setError(`Failed to duplicate course: ${err.message}`);
+      
+      // Rollback the partial duplication if a course was created
+      if (newCourseId) {
+        await rollbackDuplication(newCourseId);
+        setError(`Failed to duplicate course: ${err.message}. The partial duplication has been rolled back.`);
+      } else {
+        setError(`Failed to duplicate course: ${err.message}`);
+      }
     }
 
     setSubmitting(false);
