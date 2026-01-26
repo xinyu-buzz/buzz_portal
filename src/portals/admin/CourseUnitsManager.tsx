@@ -12,6 +12,14 @@ const SECTION_ITEM_TYPE = "SECTION_ITEM";
 const UNIT_ITEM_TYPE = "UNIT_ITEM";
 const TEST_ITEM_TYPE = "TEST_ITEM";
 
+// Helper function to truncate long strings in the middle, showing both ends
+const truncateMiddle = (str: string, maxLength: number = 30): string => {
+  if (!str || str.length <= maxLength) return str;
+  const startChars = Math.ceil((maxLength - 3) / 2);
+  const endChars = Math.floor((maxLength - 3) / 2);
+  return `${str.slice(0, startChars)}...${str.slice(-endChars)}`;
+};
+
 type DraggablePDFItemProps = {
   index: number;
   url: string;
@@ -30,6 +38,7 @@ type DraggablePDFItemProps = {
 
 const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMove, bulkSelectionMode, selectedMaterials, onToggleSelection, partAssignment, materialPartNames, onAssignToPart }: DraggablePDFItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
+  const [isNameFocused, setIsNameFocused] = useState(false);
 
   const [{ isDragging }, drag, preview] = useDrag({
     type: MATERIAL_ITEM_TYPE,
@@ -119,8 +128,11 @@ const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMo
         <div style={{ flex: 1, minWidth: 0 }}>
           <input
             type="text"
-            value={name}
+            value={isNameFocused ? name : truncateMiddle(name, 30)}
             onChange={(e) => onNameChange(index, e.target.value)}
+            onFocus={() => setIsNameFocused(true)}
+            onBlur={() => setIsNameFocused(false)}
+            title={name}
             className="text-input"
             style={{
               width: '100%',
@@ -737,12 +749,12 @@ const DraggablePreviewItem = ({ index, item, onMove }: DraggablePreviewItemProps
           color: '#9ca3b5',
           textAlign: 'center',
           overflow: 'hidden',
-          textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
           padding: '0 4px',
         }}
+        title={item.name}
       >
-        {item.name}
+        {truncateMiddle(item.name, 20)}
       </div>
     </div>
   );
@@ -4580,7 +4592,7 @@ export const CourseUnitsManager = () => {
                                 {pendingFile.type === 'video' ? '🎬' : '📄'}
                               </span>
                               <div>
-                                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>{pendingFile.file.name}</p>
+                                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }} title={pendingFile.file.name}>{truncateMiddle(pendingFile.file.name, 30)}</p>
                                 <p style={{ margin: 0, fontSize: '12px', color: '#9ca3b5' }}>
                                   {(pendingFile.file.size / 1024 / 1024).toFixed(2)} MB
                                 </p>
@@ -4617,6 +4629,7 @@ export const CourseUnitsManager = () => {
                                   i === index ? { ...f, name: e.target.value } : f
                                 ));
                               }}
+                              title={pendingFile.name}
                               className="text-input"
                               style={{ width: '100%', padding: '8px 12px' }}
                               placeholder={`Enter a name for this ${pendingFile.type === 'video' ? 'video' : 'material'}`}
@@ -4902,8 +4915,8 @@ export const CourseUnitsManager = () => {
                       borderRadius: '8px'
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ color: '#9ca3b5', fontSize: '14px', fontWeight: 500 }}>
-                          {file.name}
+                        <span style={{ color: '#9ca3b5', fontSize: '14px', fontWeight: 500 }} title={file.name}>
+                          {truncateMiddle(file.name, 30)}
                         </span>
                         <span style={{ 
                           fontSize: '12px', 
