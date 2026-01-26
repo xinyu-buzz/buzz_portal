@@ -2755,6 +2755,12 @@ export const CourseUnitsManager = () => {
       updated.splice(hoverIndex, 0, draggedType);
       return updated;
     });
+    setMaterialParts(prev => {
+      const updated = [...prev];
+      const [draggedPart] = updated.splice(dragIndex, 1);
+      updated.splice(hoverIndex, 0, draggedPart);
+      return updated;
+    });
   }, []);
 
   const moveSelectedMaterialsToPart = useCallback((targetPartIndex: number) => {
@@ -3222,6 +3228,8 @@ export const CourseUnitsManager = () => {
         material_urls: unit.material_urls || [],
         material_names: unit.material_names || [],
         material_types: unit.material_types || [],
+        material_part_names: unit.material_part_names || [],
+        material_parts: unit.material_parts || [],
         prerequisite_units: unit.prerequisite_units,
         prerequisite_tests: unit.prerequisite_tests,
       };
