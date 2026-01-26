@@ -2191,7 +2191,6 @@ export const CourseUnitsManager = () => {
       });
 
       setPreviewOrderChanged(true);
-      setSuccess('Material inserted successfully');
     } catch (err: any) {
       console.error('Upload error:', err);
       setError('Failed to upload file: ' + (err.message || 'Unknown error'));
@@ -2271,8 +2270,6 @@ export const CourseUnitsManager = () => {
       ...m,
       originalIndex: startIdx + idx
     })));
-    
-    setSuccess('Changes saved successfully');
   }, [previewOrderChanged, previewPartIndex, previewMaterials, materialUrls, materialNames, materialTypes, materialParts, deletedPreviewOriginalIndices]);
 
   // Convert previewMaterials to CourseMaterial format for slideshow
