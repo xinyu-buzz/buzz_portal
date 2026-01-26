@@ -634,9 +634,10 @@ type DraggablePreviewItemProps = {
     status: 'uploading' | 'completed' | 'error';
   };
   onMove: (dragIndex: number, hoverIndex: number) => void;
+  onContextMenu?: (e: React.MouseEvent, index: number) => void;
 };
 
-const DraggablePreviewItem = ({ index, item, onMove }: DraggablePreviewItemProps) => {
+const DraggablePreviewItem = ({ index, item, onMove, onContextMenu }: DraggablePreviewItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -680,6 +681,12 @@ const DraggablePreviewItem = ({ index, item, onMove }: DraggablePreviewItemProps
   return (
     <div
       ref={ref}
+      onContextMenu={(e) => {
+        if (onContextMenu && item.status === 'completed') {
+          e.preventDefault();
+          onContextMenu(e, index);
+        }
+      }}
       style={{
         position: 'relative',
         width: '140px',
@@ -1567,6 +1574,11 @@ export const CourseUnitsManager = () => {
     originalIndex: number; // Track original position in main arrays
   }>>([]);
   const [previewOrderChanged, setPreviewOrderChanged] = useState(false);
+  const [previewContextMenu, setPreviewContextMenu] = useState<{x: number, y: number, index: number} | null>(null);
+  const [deletedPreviewOriginalIndices, setDeletedPreviewOriginalIndices] = useState<Set<number>>(new Set());
+  const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
+  const [previewUploading, setPreviewUploading] = useState(false);
+  const previewFileInputRef = useRef<HTMLInputElement>(null);
   const [showSlideshow, setShowSlideshow] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showMaterialTypeDropdown, setShowMaterialTypeDropdown] = useState(false);
@@ -2068,35 +2080,182 @@ export const CourseUnitsManager = () => {
     setPreviewOrderChanged(true); // Mark that order has changed
   }, []);
 
+  // Delete a material from preview (tracks for later sync)
+  const deletePreviewMaterial = useCallback((index: number) => {
+    setPreviewMaterials(prev => {
+      const materialToDelete = prev[index];
+      // Track the original index for deletion when saving
+      if (materialToDelete.originalIndex >= 0) {
+        setDeletedPreviewOriginalIndices(prevDeleted => {
+          const newDeleted = new Set(prevDeleted);
+          newDeleted.add(materialToDelete.originalIndex);
+          return newDeleted;
+        });
+      }
+      // Remove from preview
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
+    setPreviewOrderChanged(true);
+    setPreviewContextMenu(null);
+  }, []);
+
+  // Handle context menu for preview items
+  const handlePreviewContextMenu = useCallback((e: React.MouseEvent, index: number) => {
+    e.preventDefault();
+    setPreviewContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      index
+    });
+  }, []);
+
+  // Handle insert after - opens file picker
+  const handleInsertAfter = useCallback((index: number) => {
+    setInsertAfterIndex(index);
+    setPreviewContextMenu(null);
+    // Trigger file input click
+    if (previewFileInputRef.current) {
+      previewFileInputRef.current.click();
+    }
+  }, []);
+
+  // Handle file selection for inserting new material in preview
+  const handlePreviewFileInsert = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || insertAfterIndex === null || previewPartIndex === null) {
+      setInsertAfterIndex(null);
+      return;
+    }
+
+    const file = files[0];
+    
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml',
+      'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/webm'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please select a valid PDF, image, or video file');
+      setInsertAfterIndex(null);
+      e.target.value = '';
+      return;
+    }
+
+    // Determine file type
+    let fileType: 'pdf' | 'image' | 'video';
+    if (file.type === 'application/pdf') {
+      fileType = 'pdf';
+    } else if (file.type.startsWith('image/')) {
+      fileType = 'image';
+    } else {
+      fileType = 'video';
+    }
+
+    setPreviewUploading(true);
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `unit-${unitForm.order_index}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+
+      const { error: uploadError } = await supabaseClient.storage
+        .from('course-materials')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabaseClient.storage
+        .from('course-materials')
+        .getPublicUrl(fileName);
+
+      const materialName = file.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg|mp4|mov|avi|mkv|webm)$/i, '');
+
+      // Insert into previewMaterials after the selected index
+      const newMaterial = {
+        name: materialName,
+        type: fileType as 'pdf' | 'image' | 'video' | 'question',
+        url: urlData.publicUrl,
+        originalIndex: -1 // Mark as new (not yet in main arrays)
+      };
+
+      setPreviewMaterials(prev => {
+        const updated = [...prev];
+        updated.splice(insertAfterIndex + 1, 0, newMaterial);
+        return updated;
+      });
+
+      setPreviewOrderChanged(true);
+      setSuccess('Material inserted successfully');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setError('Failed to upload file: ' + (err.message || 'Unknown error'));
+    } finally {
+      setPreviewUploading(false);
+      setInsertAfterIndex(null);
+      e.target.value = '';
+    }
+  }, [insertAfterIndex, previewPartIndex, unitForm.order_index]);
+
   // Save the reordered preview materials back to the main arrays
   const savePreviewOrder = useCallback(() => {
     if (!previewOrderChanged || previewPartIndex === null) return;
 
-    // Get the original indices from previewMaterials in their new order
-    const newOrder = previewMaterials.map(m => m.originalIndex);
-    
-    // Find all indices that belong to this part (in their current order in the arrays)
     const partNumber = (previewPartIndex + 1).toString();
-    const originalPartIndices: number[] = [];
+    
+    // Step 1: Remove deleted items and items from this part from main arrays
+    const indicesToRemove = new Set<number>();
+    
+    // Mark deleted items for removal
+    deletedPreviewOriginalIndices.forEach(idx => indicesToRemove.add(idx));
+    
+    // Mark all current part items for removal (we'll re-add them in new order)
     materialParts.forEach((part, idx) => {
-      if (part === partNumber) {
-        originalPartIndices.push(idx);
+      if (part === partNumber && !deletedPreviewOriginalIndices.has(idx)) {
+        indicesToRemove.add(idx);
       }
     });
     
-    // Create new arrays with the reordered items for this part
-    const newUrls = [...materialUrls];
-    const newNames = [...materialNames];
-    const newTypes = [...materialTypes];
-    const newPartsArr = [...materialParts];
+    // Filter out removed items
+    const filteredUrls: string[] = [];
+    const filteredNames: string[] = [];
+    const filteredTypes: string[] = [];
+    const filteredParts: string[] = [];
     
-    // For each position in the part, place the material in the new order
-    newOrder.forEach((originalIdx, newLocalIdx) => {
-      const targetIdx = originalPartIndices[newLocalIdx];
-      newUrls[targetIdx] = materialUrls[originalIdx];
-      newNames[targetIdx] = materialNames[originalIdx];
-      newTypes[targetIdx] = materialTypes[originalIdx];
-      newPartsArr[targetIdx] = materialParts[originalIdx];
+    materialUrls.forEach((url, idx) => {
+      if (!indicesToRemove.has(idx)) {
+        filteredUrls.push(url);
+        filteredNames.push(materialNames[idx]);
+        filteredTypes.push(materialTypes[idx]);
+        filteredParts.push(materialParts[idx]);
+      }
+    });
+    
+    // Step 2: Add materials from previewMaterials in their new order
+    const newUrls = [...filteredUrls];
+    const newNames = [...filteredNames];
+    const newTypes = [...filteredTypes];
+    const newPartsArr = [...filteredParts];
+    
+    previewMaterials.forEach((material) => {
+      if (material.originalIndex >= 0 && !deletedPreviewOriginalIndices.has(material.originalIndex)) {
+        // Existing material - add from original arrays
+        newUrls.push(materialUrls[material.originalIndex]);
+        newNames.push(materialNames[material.originalIndex]);
+        newTypes.push(materialTypes[material.originalIndex]);
+        newPartsArr.push(partNumber);
+      } else if (material.originalIndex === -1) {
+        // New material - add directly
+        newUrls.push(material.url);
+        newNames.push(material.name);
+        newTypes.push(material.type);
+        newPartsArr.push(partNumber);
+      }
     });
     
     setMaterialUrls(newUrls);
@@ -2104,13 +2263,17 @@ export const CourseUnitsManager = () => {
     setMaterialTypes(newTypes);
     setMaterialParts(newPartsArr);
     setPreviewOrderChanged(false);
+    setDeletedPreviewOriginalIndices(new Set());
     
     // Update previewMaterials with new originalIndex values
+    const startIdx = filteredUrls.length;
     setPreviewMaterials(prev => prev.map((m, idx) => ({
       ...m,
-      originalIndex: originalPartIndices[idx]
+      originalIndex: startIdx + idx
     })));
-  }, [previewOrderChanged, previewPartIndex, previewMaterials, materialUrls, materialNames, materialTypes, materialParts]);
+    
+    setSuccess('Changes saved successfully');
+  }, [previewOrderChanged, previewPartIndex, previewMaterials, materialUrls, materialNames, materialTypes, materialParts, deletedPreviewOriginalIndices]);
 
   // Convert previewMaterials to CourseMaterial format for slideshow
   const getSlideshowMaterials = useCallback((): Array<{
@@ -2747,6 +2910,8 @@ export const CourseUnitsManager = () => {
     setPreviewMaterials(previewData);
     setPreviewPartIndex(partIndex);
     setPreviewOrderChanged(false); // Reset change tracking
+    setDeletedPreviewOriginalIndices(new Set()); // Reset deleted tracking
+    setPreviewContextMenu(null); // Reset context menu
   };
 
   const assignMaterialToPart = (materialIndex: number, partIndex: number) => {
@@ -5269,7 +5434,13 @@ export const CourseUnitsManager = () => {
       {previewPartIndex !== null && (
         <div
           className="modal-overlay"
-          onClick={() => setPreviewPartIndex(null)}
+          onClick={() => {
+            if (previewContextMenu) {
+              setPreviewContextMenu(null);
+            } else if (!previewOrderChanged) {
+              setPreviewPartIndex(null);
+            }
+          }}
           style={{
             position: 'fixed',
             top: 0,
@@ -5285,7 +5456,12 @@ export const CourseUnitsManager = () => {
         >
           <div
             className="modal-container"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (previewContextMenu) {
+                setPreviewContextMenu(null);
+              }
+            }}
             style={{
               maxWidth: '900px',
               width: '90%',
@@ -5333,24 +5509,107 @@ export const CourseUnitsManager = () => {
                             status: 'completed'
                           }}
                           onMove={movePreviewMaterial}
+                          onContextMenu={handlePreviewContextMenu}
                         />
                       ))}
                     </div>
+                    <p style={{ color: '#6b8cae', fontSize: '12px', marginTop: '8px' }}>
+                      Right-click on a slide for more options (delete, insert after)
+                    </p>
                   </div>
                 </DndProvider>
+              )}
+
+              {/* Hidden file input for insert */}
+              <input
+                type="file"
+                ref={previewFileInputRef}
+                style={{ display: 'none' }}
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.mp4,.mov,.avi,.mkv,.webm"
+                onChange={handlePreviewFileInsert}
+              />
+
+              {/* Context Menu */}
+              {previewContextMenu && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    top: previewContextMenu.y,
+                    left: previewContextMenu.x,
+                    backgroundColor: '#1e293b',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)',
+                    zIndex: 10001,
+                    minWidth: '160px',
+                    overflow: 'hidden'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleInsertAfter(previewContextMenu.index)}
+                    disabled={previewUploading}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#f1f5f9',
+                      fontSize: '14px',
+                      textAlign: 'left',
+                      cursor: previewUploading ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      opacity: previewUploading ? 0.5 : 1
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(107, 140, 174, 0.2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    ➕ Insert slide after
+                  </button>
+                  <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
+                  <button
+                    type="button"
+                    onClick={() => deletePreviewMaterial(previewContextMenu.index)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#ef4444',
+                      fontSize: '14px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    🗑️ Delete this slide
+                  </button>
+                </div>
               )}
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', alignItems: 'center' }}>
                 {previewOrderChanged && (
                   <span style={{ color: '#f59e0b', fontSize: '12px', marginRight: 'auto' }}>
-                    ⚠️ You have unsaved order changes
+                    ⚠️ You have unsaved changes
+                  </span>
+                )}
+                {previewUploading && (
+                  <span style={{ color: '#6b8cae', fontSize: '12px' }}>
+                    Uploading...
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => setShowSlideshow(true)}
                   className="primary-btn"
-                  disabled={previewMaterials.length === 0}
+                  disabled={previewMaterials.length === 0 || previewUploading}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                   ▶️ Play
@@ -5363,23 +5622,28 @@ export const CourseUnitsManager = () => {
                     }}
                     className="primary-btn"
                     style={{ backgroundColor: '#10b981' }}
+                    disabled={previewUploading}
                   >
-                    Save Order
+                    Save Changes
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => {
                     if (previewOrderChanged) {
-                      if (window.confirm('You have unsaved order changes. Close without saving?')) {
+                      if (window.confirm('You have unsaved changes. Close without saving?')) {
                         setPreviewPartIndex(null);
                         setPreviewOrderChanged(false);
+                        setDeletedPreviewOriginalIndices(new Set());
+                        setPreviewContextMenu(null);
                       }
                     } else {
                       setPreviewPartIndex(null);
+                      setPreviewContextMenu(null);
                     }
                   }}
                   className="ghost-btn"
+                  disabled={previewUploading}
                 >
                   Close
                 </button>
