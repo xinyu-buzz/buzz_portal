@@ -1564,7 +1564,9 @@ export const CourseUnitsManager = () => {
     name: string;
     type: 'pdf' | 'image' | 'video' | 'question';
     url: string;
+    originalIndex: number; // Track original position in main arrays
   }>>([]);
+  const [previewOrderChanged, setPreviewOrderChanged] = useState(false);
   const [showSlideshow, setShowSlideshow] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showMaterialTypeDropdown, setShowMaterialTypeDropdown] = useState(false);
@@ -2063,7 +2065,52 @@ export const CourseUnitsManager = () => {
       updated.splice(hoverIndex, 0, draggedItem);
       return updated;
     });
+    setPreviewOrderChanged(true); // Mark that order has changed
   }, []);
+
+  // Save the reordered preview materials back to the main arrays
+  const savePreviewOrder = useCallback(() => {
+    if (!previewOrderChanged || previewPartIndex === null) return;
+
+    // Get the original indices from previewMaterials in their new order
+    const newOrder = previewMaterials.map(m => m.originalIndex);
+    
+    // Find all indices that belong to this part (in their current order in the arrays)
+    const partNumber = (previewPartIndex + 1).toString();
+    const originalPartIndices: number[] = [];
+    materialParts.forEach((part, idx) => {
+      if (part === partNumber) {
+        originalPartIndices.push(idx);
+      }
+    });
+    
+    // Create new arrays with the reordered items for this part
+    const newUrls = [...materialUrls];
+    const newNames = [...materialNames];
+    const newTypes = [...materialTypes];
+    const newPartsArr = [...materialParts];
+    
+    // For each position in the part, place the material in the new order
+    newOrder.forEach((originalIdx, newLocalIdx) => {
+      const targetIdx = originalPartIndices[newLocalIdx];
+      newUrls[targetIdx] = materialUrls[originalIdx];
+      newNames[targetIdx] = materialNames[originalIdx];
+      newTypes[targetIdx] = materialTypes[originalIdx];
+      newPartsArr[targetIdx] = materialParts[originalIdx];
+    });
+    
+    setMaterialUrls(newUrls);
+    setMaterialNames(newNames);
+    setMaterialTypes(newTypes);
+    setMaterialParts(newPartsArr);
+    setPreviewOrderChanged(false);
+    
+    // Update previewMaterials with new originalIndex values
+    setPreviewMaterials(prev => prev.map((m, idx) => ({
+      ...m,
+      originalIndex: originalPartIndices[idx]
+    })));
+  }, [previewOrderChanged, previewPartIndex, previewMaterials, materialUrls, materialNames, materialTypes, materialParts]);
 
   // Convert previewMaterials to CourseMaterial format for slideshow
   const getSlideshowMaterials = useCallback((): Array<{
@@ -2693,11 +2740,13 @@ export const CourseUnitsManager = () => {
     const previewData = materials.urls.map((url: string, localIndex: number) => ({
       name: materials.names[localIndex],
       type: materials.types[localIndex] as 'pdf' | 'image' | 'video' | 'question',
-      url: url
+      url: url,
+      originalIndex: materials.indices[localIndex] // Track original position
     }));
 
     setPreviewMaterials(previewData);
     setPreviewPartIndex(partIndex);
+    setPreviewOrderChanged(false); // Reset change tracking
   };
 
   const assignMaterialToPart = (materialIndex: number, partIndex: number) => {
@@ -5291,7 +5340,12 @@ export const CourseUnitsManager = () => {
                 </DndProvider>
               )}
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                {previewOrderChanged && (
+                  <span style={{ color: '#f59e0b', fontSize: '12px', marginRight: 'auto' }}>
+                    ⚠️ You have unsaved order changes
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowSlideshow(true)}
@@ -5301,9 +5355,30 @@ export const CourseUnitsManager = () => {
                 >
                   ▶️ Play
                 </button>
+                {previewOrderChanged && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      savePreviewOrder();
+                    }}
+                    className="primary-btn"
+                    style={{ backgroundColor: '#10b981' }}
+                  >
+                    Save Order
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setPreviewPartIndex(null)}
+                  onClick={() => {
+                    if (previewOrderChanged) {
+                      if (window.confirm('You have unsaved order changes. Close without saving?')) {
+                        setPreviewPartIndex(null);
+                        setPreviewOrderChanged(false);
+                      }
+                    } else {
+                      setPreviewPartIndex(null);
+                    }
+                  }}
                   className="ghost-btn"
                 >
                   Close
