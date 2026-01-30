@@ -179,6 +179,23 @@ CREATE TABLE public.contact_submissions (
   error_message text,
   CONSTRAINT contact_submissions_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.course_discussions (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  course_id uuid NOT NULL,
+  unit_id uuid,
+  parent_id uuid,
+  author_id uuid NOT NULL,
+  title text,
+  content text NOT NULL,
+  reply_count integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT course_discussions_pkey PRIMARY KEY (id),
+  CONSTRAINT course_discussions_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.training_courses(id),
+  CONSTRAINT course_discussions_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.course_units(id),
+  CONSTRAINT course_discussions_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.course_discussions(id),
+  CONSTRAINT course_discussions_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.course_enrollments (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   pilot_id uuid NOT NULL,
@@ -234,7 +251,7 @@ CREATE TABLE public.course_tests (
   test_type text NOT NULL DEFAULT 'multiple_choice'::text CHECK (test_type = ANY (ARRAY['multiple_choice'::text, 'practical'::text, 'written'::text, 'oral'::text])),
   passing_score integer NOT NULL DEFAULT 70 CHECK (passing_score >= 0 AND passing_score <= 100),
   required_for_progression boolean DEFAULT true,
-  required_units ARRAY,
+  required_units uuid[],
   order_index integer NOT NULL DEFAULT 0,
   questions jsonb,
   is_active boolean DEFAULT true,

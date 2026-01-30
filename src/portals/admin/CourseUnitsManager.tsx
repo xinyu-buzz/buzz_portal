@@ -1362,9 +1362,10 @@ type DraggableTestItemProps = {
   onDelete: () => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
   onManageQuestions?: () => void;
+  getUnitNameById: (unitId: string) => string;
 };
 
-const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove, onManageQuestions }: DraggableTestItemProps) => {
+const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove, onManageQuestions, getUnitNameById }: DraggableTestItemProps) => {
   const ref = useRef<HTMLTableRowElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
@@ -1425,7 +1426,7 @@ const DraggableTestItem = ({ test, index, sectionName, onEdit, onDelete, onMove,
       <td>{sectionName}</td>
       <td>
         {test.required_units && test.required_units.length > 0
-          ? test.required_units.sort((a, b) => a - b).join(", ")
+          ? test.required_units.map(id => getUnitNameById(String(id))).join(", ")
           : "None"}
       </td>
       <td>{test.required_for_progression ? "Yes" : "No"}</td>
@@ -1527,7 +1528,7 @@ type CourseTest = {
   test_type: "multiple_choice" | "practical" | "written" | "oral";
   passing_score: number;
   required_for_progression: boolean;
-  required_units: number[];
+  required_units: string[];
   order_index: number;
   questions: any;
   is_active: boolean;
@@ -1653,7 +1654,7 @@ export const CourseUnitsManager = () => {
     test_type: "multiple_choice" as "multiple_choice" | "practical" | "written" | "oral",
     passing_score: 70,
     required_for_progression: true,
-    required_units: [] as number[],
+    required_units: [] as string[],
     order_index: 0,
     is_active: true,
     section_id: "",
@@ -3520,6 +3521,11 @@ export const CourseUnitsManager = () => {
     return unit?.title || "Unknown Unit";
   };
 
+  const getUnitNameById = (unitId: string) => {
+    const unit = units.find(u => u.id === unitId);
+    return unit?.title || "Unknown Unit";
+  };
+
   // Test handlers
   const openTestForm = (test?: CourseTest) => {
     if (test) {
@@ -3530,7 +3536,7 @@ export const CourseUnitsManager = () => {
         test_type: test.test_type,
         passing_score: test.passing_score,
         required_for_progression: test.required_for_progression,
-        required_units: test.required_units || [],
+        required_units: (test.required_units || []).map(id => String(id)),
         order_index: test.order_index,
         is_active: test.is_active,
         section_id: test.section_id || "",
@@ -3711,7 +3717,7 @@ export const CourseUnitsManager = () => {
         test_type: test.test_type,
         passing_score: test.passing_score,
         required_for_progression: test.required_for_progression,
-        required_units: test.required_units,
+        required_units: (test.required_units || []).map(id => String(id)),
         order_index: nextOrderIndex,
         questions: test.questions, // Legacy JSON questions
         is_active: false, // Start as inactive
@@ -3780,12 +3786,12 @@ export const CourseUnitsManager = () => {
     setShowMoveModal(true);
   };
 
-  const toggleUnitSelection = (unitNumber: number) => {
+  const toggleUnitSelection = (unitId: string) => {
     setTestForm(prev => ({
       ...prev,
-      required_units: prev.required_units.includes(unitNumber)
-        ? prev.required_units.filter(u => u !== unitNumber)
-        : [...prev.required_units, unitNumber].sort((a, b) => a - b)
+      required_units: prev.required_units.includes(unitId)
+        ? prev.required_units.filter(u => u !== unitId)
+        : [...prev.required_units, unitId]
     }));
   };
 
@@ -4135,6 +4141,7 @@ export const CourseUnitsManager = () => {
                       setManagingTest(test);
                       setShowQuestionsManager(true);
                     } : undefined}
+                    getUnitNameById={getUnitNameById}
                   />
                 ))}
               </tbody>
@@ -5840,7 +5847,7 @@ export const CourseUnitsManager = () => {
                           alignItems: "center", 
                           gap: 8,
                           padding: "8px",
-                          backgroundColor: testForm.required_units.includes(unit.unit_number) 
+                          backgroundColor: testForm.required_units.includes(unit.id) 
                             ? "rgba(107, 140, 174, 0.2)" 
                             : "transparent",
                           borderRadius: "4px",
@@ -5849,8 +5856,8 @@ export const CourseUnitsManager = () => {
                       >
                         <input
                           type="checkbox"
-                          checked={testForm.required_units.includes(unit.unit_number)}
-                          onChange={() => toggleUnitSelection(unit.unit_number)}
+                          checked={testForm.required_units.includes(unit.id)}
+                          onChange={() => toggleUnitSelection(unit.id)}
                         />
                         <span>{unit.title}</span>
                       </label>
