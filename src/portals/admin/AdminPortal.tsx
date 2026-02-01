@@ -3,6 +3,7 @@ import { PortalLayout } from "../shared/PortalLayout";
 import { BookingList } from "../shared/bookings/BookingList";
 import { BookingShow } from "../shared/bookings/BookingShow";
 import { IncidentLogList } from "../shared/bookings/IncidentLogList";
+import { FlightPlanList } from "../shared/bookings/FlightPlanList";
 import { AdminDashboard } from "./AdminDashboard";
 import { AdminCenter } from "./AdminCenter";
 import { NewAccountsList } from "./NewAccountsList";
@@ -49,6 +50,10 @@ export const AdminPortal = () => {
         <Route
           path="bookings/:id/incident-logs"
           element={<IncidentLogList />}
+        />
+        <Route
+          path="bookings/:id/flight-plans"
+          element={<FlightPlanList />}
         />
         <Route path="admin-center" element={<AdminCenter />} />
         <Route path="academy-courses" element={<AcademyCourses />} />

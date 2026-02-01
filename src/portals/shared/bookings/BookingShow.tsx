@@ -644,6 +644,14 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           <div style={{ display: "flex", gap: 8 }}>
             <button
               className="ghost-btn"
+              onClick={() => navigate(`${basePath}/bookings/${bookingId}/flight-plans`)}
+              aria-label="View flight plans"
+              title="View flight plans"
+            >
+              Flight Plans
+            </button>
+            <button
+              className="ghost-btn"
               onClick={() => navigate(`${basePath}/bookings/${bookingId}/incident-logs`)}
               aria-label="View incident logs"
               title="View incident logs"
