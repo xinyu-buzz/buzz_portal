@@ -292,7 +292,7 @@ export const FlightPlanList = () => {
                     title="Flight Plan PDF"
                     style={{
                       width: "100%",
-                      height: 800,
+                      height: 1000,
                       border: "1px solid #555a66",
                       borderRadius: 8,
                     }}
