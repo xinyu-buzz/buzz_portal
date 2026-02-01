@@ -393,7 +393,7 @@ export const FlightPlanList = () => {
                 </p>
                 {selectedPlan.laanc_grid_ceiling && (
                   <p>
-                    <strong>LAANC Grid Ceiling:</strong> {selectedPlan.laanc_grid_ceiling} ft
+                    <strong>Grid Ceiling:</strong> {selectedPlan.laanc_grid_ceiling} ft
                   </p>
                 )}
                 <p>
@@ -420,7 +420,7 @@ export const FlightPlanList = () => {
                   <strong>Certification Regulation:</strong> {selectedPlan.certification_regulation}
                 </p>
                 <p>
-                  <strong>LAANC Authorization:</strong>{" "}
+                  <strong>Authorization Status:</strong>{" "}
                   <span
                     style={{
                       padding: "2px 8px",
@@ -433,7 +433,7 @@ export const FlightPlanList = () => {
                   </span>
                 </p>
                 <p>
-                  <strong>Part 107 Compliant:</strong> {selectedPlan.part107_compliant ? "Yes" : "No"}
+                  <strong>Civil Regulatory Compliant:</strong> {selectedPlan.part107_compliant ? "Yes" : "No"}
                 </p>
                 {!selectedPlan.part107_compliant && selectedPlan.part107_non_compliance_explanation && (
                   <p>
