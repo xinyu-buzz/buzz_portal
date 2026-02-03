@@ -329,7 +329,7 @@ export const FlightPlanList = () => {
                   <strong>Name:</strong> {selectedPlan.pilot_name}
                 </p>
                 <p>
-                  <strong>Call Sign:</strong> {selectedPlan.call_sign}
+                  <strong>Callsign:</strong> {selectedPlan.call_sign}
                 </p>
                 {selectedPlan.pilot_license_number && (
                   <p>
@@ -374,8 +374,28 @@ export const FlightPlanList = () => {
                   FLIGHT DETAILS
                 </h3>
                 <p>
-                  <strong>Takeoff Date/Time:</strong>{" "}
-                  {new Date(selectedPlan.takeoff_date_time).toLocaleString()}
+                <p>
+                  <strong>Takeoff (Zulu):</strong>{" "}
+                  {(() => {
+                    const dt = new Date(selectedPlan.takeoff_date_time);
+                    const zuluStr = dt.toISOString().replace('T', ' ').substring(0, 16) + 'Z';
+                    return zuluStr;
+                  })()}
+                </p>
+                  <strong>Takeoff (Local):</strong>{" "}
+                  {(() => {
+                    const dt = new Date(selectedPlan.takeoff_date_time);
+                    const year = dt.getFullYear();
+                    const month = String(dt.getMonth() + 1).padStart(2, '0');
+                    const day = String(dt.getDate()).padStart(2, '0');
+                    const timeStr = dt.toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                      timeZoneName: 'short'
+                    });
+                    return `${year}-${month}-${day}, ${timeStr}`;
+                  })()}
                 </p>
                 <p>
                   <strong>Location:</strong> {selectedPlan.location}
