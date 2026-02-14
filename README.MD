@@ -1,3 +1,5 @@
+![CI](https://github.com/xinyu-buzz/buzz_portal/actions/workflows/ci.yml/badge.svg)
+
 # buzz_portal
 
 <div align="center" style="margin: 30px;">

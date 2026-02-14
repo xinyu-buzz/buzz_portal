@@ -20,26 +20,36 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@typescript-eslint/eslint-plugin": "^5.57.1",
     "@typescript-eslint/parser": "^5.57.1",
     "@vitejs/plugin-react": "^4.4.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "jsdom": "^28.0.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.30.1",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^4.0.18"
   },
   "scripts": {
     "dev": "refine dev",
     "build": "npm run generate-version && tsc && refine build",
     "start": "refine start",
     "refine": "refine",
-    "generate-version": "node -e \"console.log(JSON.stringify({version: Date.now(), commit: process.env.VERCEL_GIT_COMMIT_SHA || 'dev'}, null, 2))\" > public/version.json"
+    "generate-version": "node -e \"console.log(JSON.stringify({version: Date.now(), commit: process.env.VERCEL_GIT_COMMIT_SHA || 'dev'}, null, 2))\" > public/version.json",
+    "test": "NODE_OPTIONS='--max-old-space-size=4096' vitest run",
+    "test:watch": "NODE_OPTIONS='--max-old-space-size=4096' vitest",
+    "test:coverage": "NODE_OPTIONS='--max-old-space-size=4096' vitest run --coverage"
   },
   "browserslist": {
     "production": [
