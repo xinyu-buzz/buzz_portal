@@ -87,6 +87,9 @@ export type RoleValidationResult = {
 /**
  * Validate a specific portal selection. Does not silently fall back.
  * Stores the chosen role only when eligible.
+ *
+ * NOTE: The localStorage role ("buzz_portal_role") is used for UI routing only.
+ * Supabase RLS policies are the actual security boundary for all data access.
  */
 export const validatePortalSelection = async (
   selected: PortalRole | null

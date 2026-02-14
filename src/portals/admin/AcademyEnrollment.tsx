@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabaseClient } from "../../utility";
 
 type Enrollment = {
@@ -26,7 +26,7 @@ const COMPLETION_STATUSES = ["in_progress", "completed"];
 const COURSE_CATEGORIES = ["Mandatory", "Extension", "Intermediate", "Advanced", "Specialized", "General"];
 
 export const AcademyEnrollment = () => {
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [allEnrollments, setAllEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>({
@@ -89,31 +89,7 @@ export const AcademyEnrollment = () => {
         };
       }) as Enrollment[];
 
-      // Apply client-side filters
-      if (filter.completionStatus) {
-        if (filter.completionStatus === "completed") {
-          results = results.filter((r) => r.completed_at !== null);
-        } else if (filter.completionStatus === "in_progress") {
-          results = results.filter((r) => r.completed_at === null);
-        }
-      }
-
-      if (filter.courseCategory) {
-        results = results.filter((r) => r.course_category === filter.courseCategory);
-      }
-
-      if (filter.searchQuery) {
-        const query = filter.searchQuery.toLowerCase();
-        results = results.filter(
-          (r) =>
-            r.pilot_name?.toLowerCase().includes(query) ||
-            r.pilot_email?.toLowerCase().includes(query) ||
-            r.course_title?.toLowerCase().includes(query) ||
-            r.course_provider?.toLowerCase().includes(query)
-        );
-      }
-
-      setEnrollments(results);
+      setAllEnrollments(results);
     } catch (err: any) {
       console.error("Failed to load enrollments", err);
       setError(err.message || "Failed to load enrollments");
@@ -174,6 +150,35 @@ export const AcademyEnrollment = () => {
       </div>
     );
   };
+
+  const enrollments = useMemo(() => {
+    let results = allEnrollments;
+
+    if (filter.completionStatus) {
+      if (filter.completionStatus === "completed") {
+        results = results.filter((r) => r.completed_at !== null);
+      } else if (filter.completionStatus === "in_progress") {
+        results = results.filter((r) => r.completed_at === null);
+      }
+    }
+
+    if (filter.courseCategory) {
+      results = results.filter((r) => r.course_category === filter.courseCategory);
+    }
+
+    if (filter.searchQuery) {
+      const q = filter.searchQuery.toLowerCase();
+      results = results.filter(
+        (r) =>
+          r.pilot_name?.toLowerCase().includes(q) ||
+          r.pilot_email?.toLowerCase().includes(q) ||
+          r.course_title?.toLowerCase().includes(q) ||
+          r.course_provider?.toLowerCase().includes(q)
+      );
+    }
+
+    return results;
+  }, [allEnrollments, filter.completionStatus, filter.courseCategory, filter.searchQuery]);
 
   const clearFilters = () => {
     setFilter({

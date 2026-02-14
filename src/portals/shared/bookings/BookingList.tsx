@@ -262,7 +262,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
       is_internal_test: form.is_internal_test === "true",
     };
 
-    if (form.description) payload.description = form.description;
+    payload.description = form.description || "";
     if (form.pilot_id) payload.pilot_id = form.pilot_id;
     if (form.scheduled_date) payload.scheduled_date = new Date(form.scheduled_date).toISOString();
     if (form.estimated_flight_hours) payload.estimated_flight_hours = parseFloat(form.estimated_flight_hours);

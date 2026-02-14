@@ -25,6 +25,7 @@ export const useVersionCheck = (checkInterval = 60000) => { // Check every minut
         const newVersion: VersionInfo = await response.json();
 
         if (currentVersion && currentVersion.version !== newVersion.version) {
+          setCurrentVersion(newVersion);
           setShowRefreshPrompt(true);
         } else if (!currentVersion) {
           setCurrentVersion(newVersion);

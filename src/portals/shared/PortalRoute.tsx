@@ -10,6 +10,11 @@ type PortalRouteProps = {
   busyFallback?: ReactNode;
 };
 
+/**
+ * Client-side route guard — controls UI access only.
+ * useResolvedRole validates the role against the server, but actual data-level
+ * authorization is enforced by Supabase RLS policies, not this component.
+ */
 export const PortalRoute = ({
   allowed,
   children,

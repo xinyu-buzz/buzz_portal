@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface CourseUnit {
   id: string;
@@ -111,6 +111,7 @@ export const useSlideshowLogic = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [slideContents, setSlideContents] = useState<SlideContent[]>([]);
   const [completedSlides, setCompletedSlides] = useState<Set<number>>(new Set());
+  const hasCompleted = useRef(false);
   const [selectedAnswer, setSelectedAnswerState] = useState<number | null>(null);
   const [showAnswerFeedback, setShowAnswerFeedback] = useState(false);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
@@ -242,7 +243,8 @@ export const useSlideshowLogic = ({
 
   // Check if all slides are completed
   useEffect(() => {
-    if (completedSlides.size === slideContents.length && slideContents.length > 0) {
+    if (completedSlides.size === slideContents.length && slideContents.length > 0 && !hasCompleted.current) {
+      hasCompleted.current = true;
       onComplete();
     }
   }, [completedSlides, slideContents.length, onComplete]);

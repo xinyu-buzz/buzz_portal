@@ -221,7 +221,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
       setCrew(members);
       if (members.some((m) => m.role === "lead")) {
         setSelectedPilot(
-          members.find((m) => m.role === "lead")?.pilot_id || selectedPilot
+          members.find((m) => m.role === "lead")?.pilot_id || ""
         );
       }
     };
@@ -573,7 +573,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
       is_internal_test: editForm.is_internal_test === "true",
     };
 
-    if (editForm.description) payload.description = editForm.description;
+    payload.description = editForm.description || "";
     if (editForm.pilot_id) payload.pilot_id = editForm.pilot_id;
     if (editForm.scheduled_date)
       payload.scheduled_date = new Date(editForm.scheduled_date).toISOString();

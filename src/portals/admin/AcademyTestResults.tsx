@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabaseClient } from "../../utility";
 
 type TestResult = {
@@ -35,7 +35,7 @@ const UPLOAD_STATUSES = ["not_submitted", "pending", "approved", "rejected"];
 const TEST_TYPES = ["multiple_choice", "practical", "written", "oral"];
 
 export const AcademyTestResults = () => {
-  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [allTestResults, setAllTestResults] = useState<TestResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
@@ -119,24 +119,7 @@ export const AcademyTestResults = () => {
         };
       }) as TestResult[];
 
-      // Apply client-side filters
-      if (filter.testType) {
-        results = results.filter((r) => r.test_type === filter.testType);
-      }
-
-      if (filter.searchQuery) {
-        const query = filter.searchQuery.toLowerCase();
-        results = results.filter(
-          (r) =>
-            r.pilot_name?.toLowerCase().includes(query) ||
-            r.pilot_email?.toLowerCase().includes(query) ||
-            r.test_name?.toLowerCase().includes(query) ||
-            r.course_title?.toLowerCase().includes(query) ||
-            r.course_uuid?.toLowerCase().includes(query)
-        );
-      }
-
-      setTestResults(results);
+      setAllTestResults(results);
     } catch (err: any) {
       console.error("Failed to load test results", err);
       setError(err.message || "Failed to load test results");
@@ -293,6 +276,28 @@ export const AcademyTestResults = () => {
       </span>
     );
   };
+
+  const testResults = useMemo(() => {
+    let results = allTestResults;
+
+    if (filter.testType) {
+      results = results.filter((r) => r.test_type === filter.testType);
+    }
+
+    if (filter.searchQuery) {
+      const q = filter.searchQuery.toLowerCase();
+      results = results.filter(
+        (r) =>
+          r.pilot_name?.toLowerCase().includes(q) ||
+          r.pilot_email?.toLowerCase().includes(q) ||
+          r.test_name?.toLowerCase().includes(q) ||
+          r.course_title?.toLowerCase().includes(q) ||
+          r.course_uuid?.toLowerCase().includes(q)
+      );
+    }
+
+    return results;
+  }, [allTestResults, filter.testType, filter.searchQuery]);
 
   const clearFilters = () => {
     setFilter({

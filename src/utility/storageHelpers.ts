@@ -15,25 +15,43 @@ export async function moveStorageFilesToDeleted(
 
   for (const bucket of buckets) {
     try {
-      // List all files in the bucket
-      const { data: allFiles, error: listError } = await supabaseClient.storage
-        .from(bucket)
-        .list("", { limit: 1000 });
+      // List all files recursively (Supabase .list() only returns one level)
+      const listRecursive = async (
+        bucketName: string,
+        prefix: string
+      ): Promise<{ name: string; fullPath: string }[]> => {
+        const { data: items, error: lErr } = await supabaseClient.storage
+          .from(bucketName)
+          .list(prefix, { limit: 1000 });
 
-      if (listError) {
-        console.error(`Error listing files in ${bucket}:`, listError);
-        continue;
-      }
+        if (lErr || !items) return [];
 
-      if (!allFiles || allFiles.length === 0) continue;
+        const results: { name: string; fullPath: string }[] = [];
+        for (const item of items) {
+          const itemPath = prefix ? `${prefix}/${item.name}` : item.name;
+          if (item.id) {
+            // It's a file
+            results.push({ name: item.name, fullPath: itemPath });
+          } else {
+            // It's a folder — recurse into it
+            const nested = await listRecursive(bucketName, itemPath);
+            results.push(...nested);
+          }
+        }
+        return results;
+      };
 
-      // Filter files that contain the entityId in their name or path
+      const allFiles = await listRecursive(bucket, "");
+
+      if (allFiles.length === 0) continue;
+
+      // Filter files that contain the entityId in their path
       const relatedFiles = allFiles.filter(
-        (file) => file.name && file.name.includes(entityId)
+        (file) => file.fullPath.includes(entityId)
       );
 
       for (const file of relatedFiles) {
-        const originalPath = file.name;
+        const originalPath = file.fullPath;
         const deletedPath = `deleted/${entityId}/${file.name}`;
 
         // Move file to deleted folder
@@ -165,7 +183,7 @@ export async function permanentlyDeleteStorageFiles(
  * Get count of storage files associated with an entity
  */
 export async function getStorageFileCount(entityId: string): Promise<number> {
-  const { data, error } = await supabaseClient
+  const { count, error } = await supabaseClient
     .from("deleted_storage_files")
     .select("id", { count: "exact", head: true })
     .eq("entity_id", entityId);
@@ -175,5 +193,5 @@ export async function getStorageFileCount(entityId: string): Promise<number> {
     return 0;
   }
 
-  return (data as any) || 0;
+  return count || 0;
 }

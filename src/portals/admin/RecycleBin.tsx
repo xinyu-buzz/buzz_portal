@@ -345,7 +345,9 @@ export const RecycleBin = () => {
         await permanentlyDeleteStorageFiles(item.id);
       }
 
-      // Hard delete from database
+      // Hard delete from database.
+      // Authorization is enforced by Supabase RLS policies — the client-side
+      // confirmation dialog is for UX only.
       const { error: deleteError } = await supabaseClient.from(tableName).delete().eq("id", item.id);
 
       if (deleteError) throw deleteError;

@@ -35,6 +35,7 @@ const deriveNameFromEmail = (email: string) => {
 
 export const AdminCenter: FC = () => {
   const [role, setRole] = useState<EmployeeRole | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [rows, setRows] = useState<EmployeeProfile[]>([]);
@@ -79,6 +80,8 @@ export const AdminCenter: FC = () => {
       } catch (err) {
         console.error("Failed to load current role", err);
         setRole(null);
+      } finally {
+        setRoleLoading(false);
       }
     };
     loadRole();
@@ -120,6 +123,8 @@ export const AdminCenter: FC = () => {
     }
     setSavingId(id);
     setError(null);
+    // Authorization for role changes is enforced by Supabase RLS policies.
+    // The client-side checks above are for UX only.
     const { error } = await supabaseClient
       .from("employee_profiles")
       .update({ role: nextRole })
@@ -179,7 +184,7 @@ export const AdminCenter: FC = () => {
     await loadEmployees();
   };
 
-  if (role === null) {
+  if (roleLoading) {
     return (
       <div className="page-card">
         <h1>Admin Center</h1>
@@ -188,7 +193,16 @@ export const AdminCenter: FC = () => {
     );
   }
 
-  if (role && role !== "admin" && role !== "owner") {
+  if (role === null) {
+    return (
+      <div className="page-card">
+        <h1>Admin Center</h1>
+        <p>Access denied. You do not have an employee profile with admin privileges.</p>
+      </div>
+    );
+  }
+
+  if (role !== "admin" && role !== "owner") {
     return (
       <div className="page-card">
         <h1>Admin Center</h1>

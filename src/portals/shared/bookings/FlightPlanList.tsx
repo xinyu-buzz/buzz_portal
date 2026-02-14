@@ -374,7 +374,6 @@ export const FlightPlanList = () => {
                   FLIGHT DETAILS
                 </h3>
                 <p>
-                <p>
                   <strong>Takeoff (Zulu):</strong>{" "}
                   {(() => {
                     const dt = new Date(selectedPlan.takeoff_date_time);
@@ -382,6 +381,7 @@ export const FlightPlanList = () => {
                     return zuluStr;
                   })()}
                 </p>
+                <p>
                   <strong>Takeoff (Local):</strong>{" "}
                   {(() => {
                     const dt = new Date(selectedPlan.takeoff_date_time);

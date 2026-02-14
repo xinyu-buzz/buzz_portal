@@ -44,6 +44,7 @@ export const BookingMediaManager = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // UI-only role for showing/hiding controls; Supabase RLS enforces actual authorization.
     setRole(localStorage.getItem("buzz_portal_role"));
   }, []);
 
@@ -220,7 +221,8 @@ export const BookingMediaManager = ({
     setDeletingId(null);
   };
 
-  const canRemove = role === "pilot";
+  // Client-side UI gate only; actual delete authorization is enforced by Supabase RLS.
+  const canRemove = ["pilot", "admin", "owner"].includes(role || "");
   const formatUploader = (uploaderId: string | null) => {
     if (!uploaderId) return "—";
     return uploaders[uploaderId] || uploaderId;
