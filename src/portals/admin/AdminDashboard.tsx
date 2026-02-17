@@ -64,6 +64,13 @@ const dashboardCardsWithNewsletter: DashboardCard[] = [
     to: "/admin/newsletter",
     actionLabel: "Compose newsletter",
   },
+  {
+    key: "app-analytics",
+    title: "App Analytics",
+    description: "View cockpit component usage statistics, trends, and user engagement data.",
+    to: "/admin/app-analytics",
+    actionLabel: "View analytics",
+  },
 ];
 
 export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
@@ -72,7 +79,7 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
     () =>
       dashboardCardsWithNewsletter.filter((card) => {
         if (card.key === "accounts" && role === "editor") return false;
-        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy" || card.key === "academy-manager") {
+        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy" || card.key === "academy-manager" || card.key === "app-analytics") {
           return role === "admin" || role === "owner";
         }
         return true;

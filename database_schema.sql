@@ -163,6 +163,15 @@ CREATE TABLE public.bookings (
   CONSTRAINT bookings_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.profiles(id),
   CONSTRAINT bookings_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.cockpit_usage_logs (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  component_name text NOT NULL,
+  section_name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT cockpit_usage_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT cockpit_usage_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.contact_submissions (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,

@@ -14,6 +14,7 @@ import { AcademyEnrollment } from "./AcademyEnrollment";
 import { AcademyManager } from "./AcademyManager";
 import { CourseUnitsManager } from "./CourseUnitsManager";
 import { RecycleBin } from "./RecycleBin";
+import { AppAnalytics } from "./AppAnalytics";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -33,6 +34,7 @@ export const AdminPortal = () => {
         { to: "/admin/academy-courses", label: "Academy Courses" },
         { to: "/admin/academy-manager", label: "Academy Manager" },
         { to: "/admin/newsletter", label: "Newsletter" },
+        { to: "/admin/app-analytics", label: "App Analytics" },
       ]}
     >
       <Routes>
@@ -63,6 +65,7 @@ export const AdminPortal = () => {
         <Route path="academy-test-results" element={<AcademyTestResults />} />
         <Route path="recycle-bin" element={<RecycleBin />} />
         <Route path="newsletter" element={<Newsletter />} />
+        <Route path="app-analytics" element={<AppAnalytics />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </PortalLayout>
