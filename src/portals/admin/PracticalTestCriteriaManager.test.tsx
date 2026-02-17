@@ -83,7 +83,7 @@ let mockFrom: ReturnType<typeof vi.fn>;
 
 vi.mock("../../utility", () => ({
   supabaseClient: {
-    from: (...args: any[]) => mockFrom(...args),
+    from: (...args: any[]) => (mockFrom as any)(...args),
     storage: {
       from: () => ({
         upload: (...args: any[]) => mockUpload(...args),
@@ -444,7 +444,7 @@ describe("PracticalTestCriteriaManager", () => {
           (r: any) => r.value.insert.mock.calls.length > 0
         );
         expect(insertChain).toBeDefined();
-        const payload = insertChain.value.insert.mock.calls[0][0];
+        const payload = insertChain!.value.insert.mock.calls[0][0];
         expect(payload.question_text).toBe(
           "Checks airspace clearance"
         );
@@ -479,7 +479,7 @@ describe("PracticalTestCriteriaManager", () => {
             mockFrom.mock.calls[i][0] === "course_tests"
         );
         expect(courseChain).toBeDefined();
-        expect(courseChain.value.update).toHaveBeenCalledWith({
+        expect(courseChain!.value.update).toHaveBeenCalledWith({
           question_source: "database",
         });
       });
@@ -620,9 +620,9 @@ describe("PracticalTestCriteriaManager", () => {
         );
         expect(updateChain).toBeDefined();
         expect(
-          updateChain.value.update.mock.calls[0][0]
+          updateChain!.value.update.mock.calls[0][0]
         ).toHaveProperty("deleted_by", "user-1");
-        expect(updateChain.value.eq).toHaveBeenCalledWith("id", "c1");
+        expect(updateChain!.value.eq).toHaveBeenCalledWith("id", "c1");
       });
     });
 
@@ -790,7 +790,7 @@ describe("PracticalTestCriteriaManager", () => {
           (r: any) => r.value.insert.mock.calls.length > 0
         );
         expect(insertChain).toBeDefined();
-        const payload = insertChain.value.insert.mock.calls[0][0];
+        const payload = insertChain!.value.insert.mock.calls[0][0];
         expect(payload.options).toEqual(["Pass", "Fail"]);
       });
     });
@@ -819,7 +819,7 @@ describe("PracticalTestCriteriaManager", () => {
         );
         expect(insertChain).toBeDefined();
         expect(
-          insertChain.value.insert.mock.calls[0][0]
+          insertChain!.value.insert.mock.calls[0][0]
             .correct_answer_index
         ).toBe(0);
       });

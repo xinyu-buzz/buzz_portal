@@ -1627,7 +1627,7 @@ describe("AcademyCourses", () => {
       ).toBeInTheDocument();
 
       // Use the cancel button inside the delete modal
-      const deleteModal = screen.getByText("Delete Course").closest(".modal-card")!;
+      const deleteModal = screen.getByText("Delete Course").closest(".modal-card") as HTMLElement;
       const cancelBtn = within(deleteModal).getByText("Cancel");
       fireEvent.click(cancelBtn);
 

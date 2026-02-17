@@ -87,7 +87,7 @@ const sampleEnrollments = [
   }),
 ];
 
-function setupMock(data: any[] = [], error: any = null) {
+function setupMock(data: any[] | null = [], error: any = null) {
   mockFrom.mockImplementation(() =>
     createChainableBuilder({ data, error })
   );

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "../../test/test-utils";
 import { AcademyTestResults } from "./AcademyTestResults";
 
 // ── Chainable query builder ───────────────────────────────────────────
-function createQueryBuilder(resolvedValue = { data: [], error: null }) {
+function createQueryBuilder(resolvedValue: { data: any; error: any } = { data: [], error: null }) {
   const builder: any = {
     select: vi.fn(),
     insert: vi.fn(),
@@ -105,7 +105,7 @@ function setupDefaultMocks(results: any[] = [makeRawResult()]) {
   const selectBuilder = setupSelectBuilder(results);
   const updateBuilder = createQueryBuilder({ data: null, error: null });
 
-  mockFrom.mockImplementation((table: string) => {
+  mockFrom.mockImplementation((_table: string) => {
     // All from() calls get a builder; select vs update is determined by usage
     // We return the selectBuilder for the initial load, updateBuilder for updates
     return selectBuilder;
