@@ -353,7 +353,7 @@ export const AcademyCourses = () => {
       payload.cover_image_url = null;
     }
 
-    const { data, error: updateError } = await supabaseClient
+    const { error: updateError } = await supabaseClient
       .from("training_courses")
       .update(payload)
       .eq("id", editingCourse.id)

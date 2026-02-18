@@ -89,7 +89,7 @@ export const AcademyTestResults = () => {
       }
 
       // Transform data and apply additional filters
-      let results = (data || []).map((item: any) => {
+      const results = (data || []).map((item: any) => {
         const firstName = item.pilot?.first_name || "";
         const lastName = item.pilot?.last_name || "";
         const pilotName = [firstName, lastName].filter(Boolean).join(" ") || "Unknown";

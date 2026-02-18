@@ -41,7 +41,7 @@ export const AcademyEnrollment = () => {
 
     try {
       // Fetch enrollments with joined data
-      let query = supabaseClient
+      const query = supabaseClient
         .from("course_enrollments")
         .select(`
           *,
@@ -68,7 +68,7 @@ export const AcademyEnrollment = () => {
       }
 
       // Transform data
-      let results = (data || []).map((item: any) => {
+      const results = (data || []).map((item: any) => {
         const firstName = item.pilot?.first_name || "";
         const lastName = item.pilot?.last_name || "";
         const pilotName = [firstName, lastName].filter(Boolean).join(" ") || "Unknown";

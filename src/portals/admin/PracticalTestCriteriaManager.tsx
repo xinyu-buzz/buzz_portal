@@ -435,7 +435,7 @@ export const PracticalTestCriteriaManager = ({ testId, testName, onClose }: Prac
     setError(null);
 
     try {
-      let imageUrls = [...currentImageUrls];
+      const imageUrls = [...currentImageUrls];
 
       // Upload pending images
       if (pendingImageFiles.length > 0) {

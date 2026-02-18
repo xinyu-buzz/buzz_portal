@@ -468,7 +468,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
     setError(null);
 
     try {
-      let imageUrls = [...currentImageUrls];
+      const imageUrls = [...currentImageUrls];
 
       // Upload pending images
       if (pendingImageFiles.length > 0) {
@@ -726,6 +726,7 @@ export const TestQuestionsManager = ({ testId, testName, onClose }: TestQuestion
       }
 
       // Insert new questions
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const questionsToInsert = csvPreview.map(({ id, created_at, updated_at, ...question }) => ({
         ...question,
         test_id: testId,

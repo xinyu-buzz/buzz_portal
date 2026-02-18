@@ -29,10 +29,6 @@ type IncidentLog = {
   pilot_call_sign?: string;
 };
 
-type IncidentLogListProps = {
-  // Props can be extended in the future if needed
-};
-
 export const IncidentLogList = () => {
   const { id } = useParams<{ id: string }>();
   const bookingId = id || "";

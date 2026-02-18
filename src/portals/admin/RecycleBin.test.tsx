@@ -41,7 +41,7 @@ vi.mock("../../utility/supabaseClient", () => ({
 // ── helpers ─────────────────────────────────────────────────────────
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
 
-const makeCourse = (id: string, title: string, daysOld: number, profile: any, _hasStorage = true) => ({
+const makeCourse = (id: string, title: string, daysOld: number, profile: any) => ({
   id,
   title,
   deleted_at: daysAgo(daysOld),
@@ -59,7 +59,7 @@ const makeSection = (id: string, name: string, daysOld: number, profile: any) =>
   profiles: profile,
 });
 
-const makeUnit = (id: string, title: string, daysOld: number, profile: any, _hasStorage = true) => ({
+const makeUnit = (id: string, title: string, daysOld: number, profile: any) => ({
   id,
   title,
   deleted_at: daysAgo(daysOld),
@@ -69,7 +69,7 @@ const makeUnit = (id: string, title: string, daysOld: number, profile: any, _has
   profiles: profile,
 });
 
-const makeTest = (id: string, testName: string, daysOld: number, profile: any, _hasStorage = true) => ({
+const makeTest = (id: string, testName: string, daysOld: number, profile: any) => ({
   id,
   test_name: testName,
   deleted_at: daysAgo(daysOld),
@@ -447,7 +447,6 @@ describe("RecycleBin", () => {
         expect(screen.getByText("Course 1")).toBeInTheDocument();
       });
 
-      const callCountBefore = mockFrom.mock.calls.length;
       const restoreButtons = screen.getAllByText("Restore");
       fireEvent.click(restoreButtons[0]);
 

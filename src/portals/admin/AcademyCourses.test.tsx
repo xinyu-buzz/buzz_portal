@@ -508,7 +508,7 @@ describe("AcademyCourses", () => {
     });
 
     it("uploads cover image during creation", async () => {
-      const builders = setupDefaultLoad([]);
+      setupDefaultLoad([]);
 
       render(<AcademyCourses />);
 
@@ -1108,7 +1108,6 @@ describe("AcademyCourses", () => {
       ];
 
       // We need section inserts to return new IDs
-      let sectionInsertCount = 0;
       const sectionBuilder = createChainableBuilder({
         thenData: { data: sections, error: null },
       });

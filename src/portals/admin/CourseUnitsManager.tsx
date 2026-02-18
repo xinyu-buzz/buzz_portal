@@ -40,7 +40,7 @@ const DraggablePDFItem = ({ index, url, name, type, onNameChange, onRemove, onMo
   const ref = useRef<HTMLDivElement>(null);
   const [isNameFocused, setIsNameFocused] = useState(false);
 
-  const [{ isDragging }, drag, preview] = useDrag({
+  const [{ isDragging }, drag] = useDrag({
     type: MATERIAL_ITEM_TYPE,
     item: { index, partAssignment },
     collect: (monitor) => ({
@@ -2510,7 +2510,6 @@ export const CourseUnitsManager = () => {
     if (files && files.length > 0) {
       // Initialize upload tracking for all files with extended structure
       const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-      const fileType = materialUploadType === 'pdf' ? 'pdf' : 'video'; // Determine base type
 
       setUploadingFiles(fileArray.map(f => {
         const actualType = f.type === 'application/pdf' ? 'pdf' : 
@@ -2708,7 +2707,6 @@ export const CourseUnitsManager = () => {
     if (files && files.length > 0) {
       // Initialize upload tracking for all files with extended structure
       const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-      const fileType = materialUploadType === 'pdf' ? 'pdf' : 'video'; // Determine base type
 
       setUploadingFiles(fileArray.map(f => {
         const actualType = f.type === 'application/pdf' ? 'pdf' : 
@@ -3003,8 +3001,6 @@ export const CourseUnitsManager = () => {
   }, [selectedMaterials]);
 
   const deleteSelectedMaterials = useCallback(() => {
-    const selectedIndices = Array.from(selectedMaterials).sort((a, b) => b - a); // Sort in descending order to remove from end first
-    
     setMaterialUrls(prev => prev.filter((_, index) => !selectedMaterials.has(index)));
     setMaterialNames(prev => prev.filter((_, index) => !selectedMaterials.has(index)));
     setMaterialTypes(prev => prev.filter((_, index) => !selectedMaterials.has(index)));
@@ -3323,9 +3319,9 @@ export const CourseUnitsManager = () => {
 
     try {
       // Start with existing materials
-      let finalUrls: string[] = [...materialUrls];
-      let finalNames: string[] = [...materialNames];
-      let finalTypes: string[] = [...materialTypes];
+      const finalUrls: string[] = [...materialUrls];
+      const finalNames: string[] = [...materialNames];
+      const finalTypes: string[] = [...materialTypes];
 
       // Ensure all arrays have the same length
       const maxLength = Math.max(finalUrls.length, finalNames.length, finalTypes.length, materialParts.length);
@@ -3334,7 +3330,7 @@ export const CourseUnitsManager = () => {
       while (finalTypes.length < maxLength) finalTypes.push('pdf');
 
       // Ensure materialParts matches the length
-      let finalParts = [...materialParts];
+      const finalParts = [...materialParts];
       while (finalParts.length < maxLength) finalParts.push('');
 
       const payload: any = {

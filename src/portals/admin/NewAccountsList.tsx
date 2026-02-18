@@ -72,7 +72,7 @@ export const NewAccountsList = () => {
 
     const max = cumulative.reduce((m, [, c]) => Math.max(m, c), 0);
 
-    const points = cumulative.map(([_, total], idx) => {
+    const points = cumulative.map(([, total], idx) => {
       const x = cumulative.length <= 1 ? 0 : (idx / (cumulative.length - 1)) * 100;
       const y = max ? 100 - (total / max) * 100 : 100;
       return `${x},${y}`;

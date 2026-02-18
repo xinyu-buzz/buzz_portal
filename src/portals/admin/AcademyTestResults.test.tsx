@@ -32,7 +32,6 @@ function createQueryBuilder(resolvedValue: { data: any; error: any } = { data: [
 // ── Mock supabaseClient ───────────────────────────────────────────────
 const mockFrom = vi.fn();
 const mockGetUser = vi.fn();
-const mockCreateSignedUrl = vi.fn();
 const mockStorageFrom = vi.fn();
 
 vi.mock("../../utility", () => ({
@@ -105,7 +104,7 @@ function setupDefaultMocks(results: any[] = [makeRawResult()]) {
   const selectBuilder = setupSelectBuilder(results);
   const updateBuilder = createQueryBuilder({ data: null, error: null });
 
-  mockFrom.mockImplementation((_table: string) => {
+  mockFrom.mockImplementation(() => {
     // All from() calls get a builder; select vs update is determined by usage
     // We return the selectBuilder for the initial load, updateBuilder for updates
     return selectBuilder;

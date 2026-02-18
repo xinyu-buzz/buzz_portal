@@ -3,7 +3,6 @@ import {
   getPortalLabel,
   portalBasePath,
   PERMISSION_ERROR_MESSAGE,
-  type PortalRole,
 } from "./role";
 
 // Mock supabase client used by role.ts (imported via ../../utility)
