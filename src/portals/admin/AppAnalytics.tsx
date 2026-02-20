@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseClient } from "../../utility";
+import { UserLocationMap } from "./UserLocationMap/UserLocationMap";
 
 type UsageLog = {
   id: string;
@@ -271,6 +272,9 @@ export const AppAnalytics = () => {
               </div>
             </div>
           </div>
+
+          {/* ── User location map ── */}
+          <UserLocationMap />
 
           {/* ── Component usage bar chart (vertical) ── */}
           <div className="chart-card" style={{ marginBottom: 24 }}>
