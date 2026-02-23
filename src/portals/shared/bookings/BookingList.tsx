@@ -26,6 +26,24 @@ const RANK_OPTIONS = [
   { value: "4", label: "Captain" },
 ];
 
+const ASSIGNMENT_TYPE_OPTIONS = [
+  { value: "ground_search", label: "Ground Search" },
+  { value: "air_search", label: "Air Search" },
+  { value: "water_rescue", label: "Water Rescue" },
+  { value: "medical_emergency", label: "Medical Emergency" },
+  { value: "fire_emergency", label: "Fire Emergency" },
+  { value: "disaster_response", label: "Disaster Response" },
+  { value: "missing_person", label: "Missing Person" },
+];
+
+const GOVERNMENT_AGENCY_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "police_department", label: "Police Department" },
+  { value: "fire_department", label: "Fire Department" },
+  { value: "sheriff_office", label: "Sheriff Office" },
+  { value: "state_emergency_management", label: "State Emergency Management" },
+];
+
 type BookingListProps = {
   basePath: string;
   role: PortalRole;
@@ -58,6 +76,32 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
     required_minimum_rank: "0",
     status: "available",
     is_internal_test: "false",
+  });
+
+  /* ── Beacon booking state ── */
+  const [showBeaconCreate, setShowBeaconCreate] = useState(false);
+  const [beaconError, setBeaconError] = useState<string | null>(null);
+  const [beaconSubmitting, setBeaconSubmitting] = useState(false);
+  const [beaconGeocoding, setBeaconGeocoding] = useState(false);
+  const [beaconSuggestions, setBeaconSuggestions] = useState<
+    { title: string; subtitle?: string; latitude: number; longitude: number }[]
+  >([]);
+  const [beaconSuggesting, setBeaconSuggesting] = useState(false);
+  const [beaconForm, setBeaconForm] = useState({
+    customer_id: DEFAULT_CUSTOMER_ID,
+    location_name: "",
+    location_lat: "",
+    location_lng: "",
+    address: "",
+    description: "",
+    assignment_type: "ground_search",
+    government_agency: "",
+    number_of_pilots: "1",
+    hourly_rate: "0",
+    scheduled_date: "",
+    end_date: "",
+    expires_at: "",
+    required_minimum_rank: "0",
   });
 
   const isPilot = role === "pilot";
@@ -340,6 +384,184 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
     }
   };
 
+  /* ── Beacon form handlers ── */
+  const onBeaconChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setBeaconForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  useEffect(() => {
+    const fetchBeaconSuggestions = async () => {
+      if (!beaconForm.address || beaconForm.address.length < 3) {
+        setBeaconSuggestions([]);
+        return;
+      }
+      setBeaconSuggesting(true);
+      try {
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            beaconForm.address
+          )}&limit=5&addressdetails=1`,
+          { headers: { "Accept-Language": "en" } }
+        );
+        if (!resp.ok) {
+          setBeaconSuggesting(false);
+          return;
+        }
+        const data = await resp.json();
+        const items: {
+          title: string;
+          subtitle?: string;
+          latitude: number;
+          longitude: number;
+        }[] = [];
+        data.forEach((place: any) => {
+          if (place.lat && place.lon) {
+            items.push({
+              title: place.name || place.display_name?.split(",")[0] || beaconForm.address,
+              subtitle: place.display_name,
+              latitude: parseFloat(place.lat),
+              longitude: parseFloat(place.lon),
+            });
+          }
+        });
+        setBeaconSuggestions(items);
+      } catch (err) {
+        console.error("beacon suggestions", err);
+      } finally {
+        setBeaconSuggesting(false);
+      }
+    };
+    const t = setTimeout(fetchBeaconSuggestions, 400);
+    return () => clearTimeout(t);
+  }, [beaconForm.address]);
+
+  const selectBeaconSuggestion = (s: {
+    title: string;
+    subtitle?: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    setBeaconForm((prev) => ({
+      ...prev,
+      address: s.subtitle || s.title,
+      location_lat: s.latitude.toString(),
+      location_lng: s.longitude.toString(),
+      location_name: prev.location_name || s.title,
+    }));
+    setBeaconSuggestions([]);
+  };
+
+  const geocodeBeaconAddress = async () => {
+    if (!beaconForm.address) {
+      setBeaconError("Enter an address to look up coordinates.");
+      return;
+    }
+    setBeaconGeocoding(true);
+    setBeaconError(null);
+    try {
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          beaconForm.address
+        )}&limit=1&addressdetails=1`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      if (!resp.ok) {
+        setBeaconError("Geocoding failed. Please try again.");
+        setBeaconGeocoding(false);
+        return;
+      }
+      const data = await resp.json();
+      if (data.length > 0 && data[0].lat && data[0].lon) {
+        setBeaconForm((prev) => ({
+          ...prev,
+          location_lat: data[0].lat,
+          location_lng: data[0].lon,
+        }));
+      } else {
+        setBeaconError("No coordinates found for that address.");
+      }
+    } catch (err) {
+      console.error(err);
+      setBeaconError("Geocoding error. See console for details.");
+    } finally {
+      setBeaconGeocoding(false);
+    }
+  };
+
+  const handleBeaconCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBeaconSubmitting(true);
+    setBeaconError(null);
+
+    if (
+      !beaconForm.customer_id ||
+      !beaconForm.location_name ||
+      !beaconForm.location_lat ||
+      !beaconForm.location_lng ||
+      !beaconForm.description ||
+      !beaconForm.assignment_type
+    ) {
+      setBeaconError("Please fill all required fields.");
+      setBeaconSubmitting(false);
+      return;
+    }
+
+    const payload: Record<string, any> = {
+      customer_id: beaconForm.customer_id,
+      location_name: beaconForm.location_name,
+      location_lat: parseFloat(beaconForm.location_lat),
+      location_lng: parseFloat(beaconForm.location_lng),
+      description: beaconForm.description,
+      specialization: "search_rescue",
+      payment_amount: 0,
+      status: "available",
+      uses_beacon_program: true,
+      is_voluntary: true,
+      assignment_type: beaconForm.assignment_type,
+      number_of_pilots: parseInt(beaconForm.number_of_pilots, 10) || 1,
+      hourly_rate: parseFloat(beaconForm.hourly_rate) || 0,
+    };
+
+    if (beaconForm.government_agency) payload.government_agency = beaconForm.government_agency;
+    if (beaconForm.scheduled_date) payload.scheduled_date = new Date(beaconForm.scheduled_date).toISOString();
+    if (beaconForm.end_date) payload.end_date = new Date(beaconForm.end_date).toISOString();
+    if (beaconForm.expires_at) payload.expires_at = new Date(beaconForm.expires_at).toISOString();
+    if (beaconForm.required_minimum_rank !== "") {
+      payload.required_minimum_rank = parseInt(beaconForm.required_minimum_rank, 10);
+    }
+
+    const { error } = await supabaseClient.from("bookings").insert(payload);
+    if (error) {
+      console.error(error);
+      setBeaconError(error.message);
+      setBeaconSubmitting(false);
+      return;
+    }
+
+    setShowBeaconCreate(false);
+    setBeaconSubmitting(false);
+    setBeaconForm({
+      customer_id: DEFAULT_CUSTOMER_ID,
+      location_name: "",
+      location_lat: "",
+      location_lng: "",
+      address: "",
+      description: "",
+      assignment_type: "ground_search",
+      government_agency: "",
+      number_of_pilots: "1",
+      hourly_rate: "0",
+      scheduled_date: "",
+      end_date: "",
+      expires_at: "",
+      required_minimum_rank: "0",
+    });
+    await load();
+  };
+
   return (
     <div className="page-card">
       <div className="page-header">
@@ -350,9 +572,18 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
             : "Assign editors and manage media per booking."}
         </p>
         {isAdminLike && (
-          <button className="primary-btn" onClick={() => setShowCreate(true)}>
-            + New booking
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="primary-btn" onClick={() => setShowCreate(true)}>
+              + New booking
+            </button>
+            <button
+              className="primary-btn"
+              style={{ background: "#e65100" }}
+              onClick={() => setShowBeaconCreate(true)}
+            >
+              + New Beacon Booking
+            </button>
+          </div>
         )}
       </div>
       {loading ? (
@@ -589,6 +820,229 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
                   className="ghost-btn"
                   onClick={() => setShowCreate(false)}
                   disabled={submitting}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showBeaconCreate && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, color: "#e65100" }}>Create Beacon Booking</h3>
+              <button className="ghost-btn" onClick={() => setShowBeaconCreate(false)}>
+                Close
+              </button>
+            </div>
+            <p style={{ margin: "8px 0 16px", color: "#9ca3b5", fontSize: 13 }}>
+              Beacon bookings are voluntary search &amp; rescue missions. Payment is set to $0 and the booking is flagged as a Beacon program mission.
+            </p>
+            <form className="modal-form" onSubmit={handleBeaconCreate}>
+              {beaconError && <div className="alert error">{beaconError}</div>}
+
+              <label className="input-label">Customer ID * (requesting agency/person)</label>
+              <input
+                name="customer_id"
+                value={beaconForm.customer_id}
+                onChange={onBeaconChange}
+                className="text-input"
+                placeholder="Customer UUID"
+                required
+              />
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label className="input-label">Assignment Type *</label>
+                  <select
+                    name="assignment_type"
+                    value={beaconForm.assignment_type}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                    required
+                  >
+                    {ASSIGNMENT_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="input-label">Government Agency</label>
+                  <select
+                    name="government_agency"
+                    value={beaconForm.government_agency}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                  >
+                    {GOVERNMENT_AGENCY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <label className="input-label">Location name *</label>
+              <input
+                name="location_name"
+                value={beaconForm.location_name}
+                onChange={onBeaconChange}
+                className="text-input"
+                placeholder="e.g., Riverside Park Search Area"
+                required
+              />
+
+              <label className="input-label">Address (search)</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  name="address"
+                  value={beaconForm.address}
+                  onChange={onBeaconChange}
+                  className="text-input"
+                  placeholder="Type address to fetch coordinates"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={geocodeBeaconAddress}
+                  disabled={beaconGeocoding}
+                >
+                  {beaconGeocoding ? "Looking..." : "Lookup"}
+                </button>
+              </div>
+              {beaconSuggestions.length > 0 && (
+                <div className="suggestions">
+                  {beaconSuggestions.map((s, idx) => (
+                    <button
+                      type="button"
+                      key={`${s.title}-${idx}`}
+                      className="suggestion-item"
+                      onClick={() => selectBeaconSuggestion(s)}
+                    >
+                      <div className="suggestion-title">{s.title}</div>
+                      {s.subtitle && <div className="suggestion-sub">{s.subtitle}</div>}
+                    </button>
+                  ))}
+                  {beaconSuggesting && <div className="suggestion-sub">Loading…</div>}
+                </div>
+              )}
+              <p style={{ margin: "4px 0", color: "#9ca3b5", fontSize: 12 }}>
+                Uses OpenStreetMap for address lookup. Coordinates are set automatically.
+              </p>
+
+              <input type="hidden" name="location_lat" value={beaconForm.location_lat} />
+              <input type="hidden" name="location_lng" value={beaconForm.location_lng} />
+
+              <label className="input-label">Description *</label>
+              <textarea
+                name="description"
+                value={beaconForm.description}
+                onChange={onBeaconChange}
+                className="text-input"
+                rows={3}
+                placeholder="Describe the mission details, urgency, and any special requirements"
+                required
+              />
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label className="input-label">Number of Pilots</label>
+                  <input
+                    name="number_of_pilots"
+                    value={beaconForm.number_of_pilots}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                    type="number"
+                    min="1"
+                    max="20"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Hourly Rate ($)</label>
+                  <input
+                    name="hourly_rate"
+                    value={beaconForm.hourly_rate}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label className="input-label">Scheduled start</label>
+                  <input
+                    name="scheduled_date"
+                    value={beaconForm.scheduled_date}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                    type="datetime-local"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">End date</label>
+                  <input
+                    name="end_date"
+                    value={beaconForm.end_date}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                    type="datetime-local"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label className="input-label">Expires at</label>
+                  <input
+                    name="expires_at"
+                    value={beaconForm.expires_at}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                    type="datetime-local"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Required minimum rank</label>
+                  <select
+                    name="required_minimum_rank"
+                    value={beaconForm.required_minimum_rank}
+                    onChange={onBeaconChange}
+                    className="text-input"
+                  >
+                    {RANK_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  style={{ background: "#e65100" }}
+                  disabled={beaconSubmitting}
+                >
+                  {beaconSubmitting ? "Creating..." : "Create Beacon Booking"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setShowBeaconCreate(false)}
+                  disabled={beaconSubmitting}
                 >
                   Cancel
                 </button>
