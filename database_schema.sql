@@ -1,6 +1,15 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.app_version_tracking (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL UNIQUE,
+  platform text NOT NULL,
+  app_version text NOT NULL,
+  last_seen_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT app_version_tracking_pkey PRIMARY KEY (id),
+  CONSTRAINT app_version_tracking_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.availability_blockouts (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   pilot_id uuid NOT NULL,
@@ -97,6 +106,22 @@ CREATE TABLE public.booking_crew (
   CONSTRAINT booking_crew_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id),
   CONSTRAINT booking_crew_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.booking_disputes (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  booking_id uuid NOT NULL,
+  initiated_by uuid NOT NULL,
+  reason text NOT NULL,
+  description text,
+  status text NOT NULL DEFAULT 'open'::text CHECK (status = ANY (ARRAY['open'::text, 'under_review'::text, 'resolved'::text, 'dismissed'::text])),
+  resolution text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  resolved_at timestamp with time zone,
+  resolved_by uuid,
+  CONSTRAINT booking_disputes_pkey PRIMARY KEY (id),
+  CONSTRAINT booking_disputes_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(id),
+  CONSTRAINT booking_disputes_initiated_by_fkey FOREIGN KEY (initiated_by) REFERENCES public.profiles(id),
+  CONSTRAINT booking_disputes_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.booking_editors (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   booking_id uuid NOT NULL,
@@ -132,7 +157,7 @@ CREATE TABLE public.bookings (
   location_name text NOT NULL,
   description text NOT NULL,
   payment_amount numeric NOT NULL,
-  status text NOT NULL DEFAULT 'available'::text CHECK (status = ANY (ARRAY['available'::text, 'accepted'::text, 'completed'::text, 'cancelled'::text])),
+  status text NOT NULL DEFAULT 'available'::text CHECK (status = ANY (ARRAY['available'::text, 'accepted'::text, 'staffed'::text, 'in_progress'::text, 'completed'::text, 'expired'::text, 'cancelled'::text])),
   estimated_flight_hours double precision,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   scheduled_date timestamp with time zone,
@@ -159,6 +184,8 @@ CREATE TABLE public.bookings (
   government_agency text CHECK (government_agency IS NULL OR (government_agency = ANY (ARRAY['police_department'::text, 'fire_department'::text, 'sheriff_office'::text, 'state_emergency_management'::text]))),
   uses_beacon_program boolean DEFAULT false,
   number_of_pilots integer DEFAULT 1,
+  expires_at timestamp with time zone,
+  expiration_notified boolean DEFAULT false,
   CONSTRAINT bookings_pkey PRIMARY KEY (id),
   CONSTRAINT bookings_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.profiles(id),
   CONSTRAINT bookings_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id)
@@ -342,6 +369,7 @@ CREATE TABLE public.direct_messages (
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   deleted_at timestamp with time zone,
   deleted_by uuid,
+  metadata jsonb,
   CONSTRAINT direct_messages_pkey PRIMARY KEY (id),
   CONSTRAINT direct_messages_from_user_id_fkey FOREIGN KEY (from_user_id) REFERENCES public.profiles(id),
   CONSTRAINT direct_messages_to_user_id_fkey FOREIGN KEY (to_user_id) REFERENCES public.profiles(id),
@@ -604,6 +632,44 @@ CREATE TABLE public.hanger_saved_posts (
   CONSTRAINT hangar_saved_posts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
   CONSTRAINT hangar_saved_posts_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.hanger_posts(id)
 );
+CREATE TABLE public.hanger_space_participants (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  space_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  role text NOT NULL DEFAULT 'listener'::text CHECK (role = ANY (ARRAY['host'::text, 'speaker'::text, 'listener'::text])),
+  joined_at timestamp with time zone NOT NULL DEFAULT now(),
+  left_at timestamp with time zone,
+  CONSTRAINT hanger_space_participants_pkey PRIMARY KEY (id),
+  CONSTRAINT hanger_space_participants_space_id_fkey FOREIGN KEY (space_id) REFERENCES public.hanger_spaces(id),
+  CONSTRAINT hanger_space_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.hanger_space_speaker_requests (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  space_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'declined'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT hanger_space_speaker_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT hanger_space_speaker_requests_space_id_fkey FOREIGN KEY (space_id) REFERENCES public.hanger_spaces(id),
+  CONSTRAINT hanger_space_speaker_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.hanger_spaces (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  host_id uuid NOT NULL,
+  title text NOT NULL,
+  description text,
+  status text NOT NULL DEFAULT 'live'::text CHECK (status = ANY (ARRAY['scheduled'::text, 'live'::text, 'ended'::text])),
+  livekit_room_name text NOT NULL UNIQUE,
+  started_at timestamp with time zone,
+  ended_at timestamp with time zone,
+  scheduled_at timestamp with time zone,
+  listener_count integer NOT NULL DEFAULT 0,
+  speaker_count integer NOT NULL DEFAULT 1,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT hanger_spaces_pkey PRIMARY KEY (id),
+  CONSTRAINT hanger_spaces_host_id_fkey FOREIGN KEY (host_id) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.hanger_talk_bookmarks (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
@@ -721,6 +787,102 @@ CREATE TABLE public.maintenance_logs (
   is_locked boolean DEFAULT true,
   CONSTRAINT maintenance_logs_pkey PRIMARY KEY (id),
   CONSTRAINT maintenance_logs_pilot_id_fkey FOREIGN KEY (pilot_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.marketplace_favorites (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  listing_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_favorites_pkey PRIMARY KEY (id),
+  CONSTRAINT marketplace_favorites_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT marketplace_favorites_listing_id_fkey FOREIGN KEY (listing_id) REFERENCES public.marketplace_listings(id)
+);
+CREATE TABLE public.marketplace_listings (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  seller_id uuid NOT NULL,
+  title text NOT NULL,
+  description text NOT NULL,
+  price numeric NOT NULL CHECK (price > 0::numeric),
+  category text NOT NULL CHECK (category = ANY (ARRAY['drones'::text, 'batteries'::text, 'propellers'::text, 'controllers'::text, 'camera_gimbal'::text, 'fpv_gear'::text, 'cases_bags'::text, 'accessories'::text, 'other'::text])),
+  condition text NOT NULL CHECK (condition = ANY (ARRAY['new'::text, 'like_new'::text, 'good'::text, 'fair'::text, 'parts_only'::text])),
+  transaction_type text NOT NULL CHECK (transaction_type = ANY (ARRAY['ship'::text, 'meetup'::text, 'both'::text])),
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'sold'::text, 'reserved'::text, 'expired'::text, 'removed'::text])),
+  image_urls ARRAY NOT NULL DEFAULT '{}'::text[],
+  location_name text,
+  location_lat double precision,
+  location_lng double precision,
+  brand text,
+  model text,
+  shipping_cost numeric,
+  view_count integer NOT NULL DEFAULT 0,
+  favorite_count integer NOT NULL DEFAULT 0,
+  offer_count integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone DEFAULT (now() + '30 days'::interval),
+  CONSTRAINT marketplace_listings_pkey PRIMARY KEY (id),
+  CONSTRAINT marketplace_listings_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.marketplace_offers (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  listing_id uuid NOT NULL,
+  buyer_id uuid NOT NULL,
+  amount numeric NOT NULL CHECK (amount > 0::numeric),
+  message text,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text, 'withdrawn'::text, 'expired'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_offers_pkey PRIMARY KEY (id),
+  CONSTRAINT marketplace_offers_listing_id_fkey FOREIGN KEY (listing_id) REFERENCES public.marketplace_listings(id),
+  CONSTRAINT marketplace_offers_buyer_id_fkey FOREIGN KEY (buyer_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.marketplace_reviews (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  transaction_id uuid NOT NULL,
+  from_user_id uuid NOT NULL,
+  to_user_id uuid NOT NULL,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_reviews_pkey PRIMARY KEY (id),
+  CONSTRAINT marketplace_reviews_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.marketplace_transactions(id),
+  CONSTRAINT marketplace_reviews_from_user_id_fkey FOREIGN KEY (from_user_id) REFERENCES public.profiles(id),
+  CONSTRAINT marketplace_reviews_to_user_id_fkey FOREIGN KEY (to_user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.marketplace_transactions (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  listing_id uuid NOT NULL,
+  buyer_id uuid NOT NULL,
+  seller_id uuid NOT NULL,
+  offer_id uuid,
+  transaction_type text NOT NULL CHECK (transaction_type = ANY (ARRAY['ship'::text, 'meetup'::text])),
+  status text NOT NULL DEFAULT 'pending_payment'::text CHECK (status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'shipped'::text, 'delivered'::text, 'releasing'::text, 'completed'::text, 'meetup_scheduled'::text, 'meetup_completed'::text, 'disputed'::text, 'refunded'::text, 'cancelled'::text])),
+  amount numeric NOT NULL CHECK (amount > 0::numeric),
+  platform_fee numeric NOT NULL DEFAULT 0,
+  seller_payout numeric NOT NULL DEFAULT 0,
+  payment_intent_id text,
+  charge_id text,
+  transfer_id text,
+  tracking_number text,
+  tracking_carrier text,
+  meetup_location_name text,
+  meetup_location_lat double precision,
+  meetup_location_lng double precision,
+  meetup_scheduled_at timestamp with time zone,
+  buyer_confirmed_at timestamp with time zone,
+  seller_confirmed_at timestamp with time zone,
+  shipped_at timestamp with time zone,
+  delivered_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  cancelled_at timestamp with time zone,
+  cancellation_reason text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT marketplace_transactions_listing_id_fkey FOREIGN KEY (listing_id) REFERENCES public.marketplace_listings(id),
+  CONSTRAINT marketplace_transactions_buyer_id_fkey FOREIGN KEY (buyer_id) REFERENCES public.profiles(id),
+  CONSTRAINT marketplace_transactions_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(id),
+  CONSTRAINT marketplace_transactions_offer_id_fkey FOREIGN KEY (offer_id) REFERENCES public.marketplace_offers(id)
 );
 CREATE TABLE public.messages (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
