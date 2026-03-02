@@ -10,6 +10,11 @@ type UsageLog = {
   created_at: string;
 };
 
+type VersionCount = {
+  app_version: string;
+  user_count: number;
+};
+
 const BAR_COLORS = [
   "#6b8cae",
   "#8eaac9",
@@ -24,6 +29,9 @@ export const AppAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [daysBack, setDaysBack] = useState<number | null>(30);
+  const [versionCounts, setVersionCounts] = useState<VersionCount[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(true);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -52,6 +60,48 @@ export const AppAnalytics = () => {
     };
     load();
   }, [daysBack]);
+
+  /* ── Fetch version distribution ── */
+  useEffect(() => {
+    let cancelled = false;
+    const loadVersions = async () => {
+      setVersionsLoading(true);
+      setVersionsError(null);
+
+      // Fetch all rows (override Supabase default 1000-row limit)
+      const { data, error: fetchError } = await supabaseClient
+        .from("app_version_tracking")
+        .select("app_version")
+        .limit(50000);
+
+      if (cancelled) return;
+
+      if (fetchError) {
+        setVersionsError("Failed to load version data.");
+        console.error(fetchError);
+      } else if (data) {
+        const map = new Map<string, number>();
+        for (const row of data) {
+          map.set(row.app_version, (map.get(row.app_version) || 0) + 1);
+        }
+        const counts = Array.from(map.entries())
+          .map(([app_version, user_count]) => ({ app_version, user_count }))
+          .sort((a, b) => {
+            const aParts = a.app_version.split(".").map(Number);
+            const bParts = b.app_version.split(".").map(Number);
+            for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+              const diff = (bParts[i] || 0) - (aParts[i] || 0);
+              if (diff !== 0) return diff;
+            }
+            return 0;
+          });
+        setVersionCounts(counts);
+      }
+      setVersionsLoading(false);
+    };
+    loadVersions();
+    return () => { cancelled = true; };
+  }, []);
 
   /* ── Component counts ── */
   const componentCounts = useMemo(() => {
@@ -122,6 +172,43 @@ export const AppAnalytics = () => {
         <p>Loading...</p>
       ) : (
         <>
+          {/* ── User location map ── */}
+          <UserLocationMap />
+
+          {/* ── Version Distribution ── */}
+          <div className="chart-card" style={{ marginBottom: 24 }}>
+            <div className="chart-card__header">
+              <h3>Version Distribution</h3>
+            </div>
+            {versionsError && <div className="alert error">{versionsError}</div>}
+            {versionsLoading ? (
+              <p style={{ padding: 16, color: "var(--muted)" }}>
+                Loading version data...
+              </p>
+            ) : versionCounts.length === 0 && !versionsError ? (
+              <p style={{ padding: 16, color: "var(--muted)" }}>
+                No version data available.
+              </p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th style={{ textAlign: "right" }}>Users</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {versionCounts.map((v) => (
+                    <tr key={v.app_version}>
+                      <td>{v.app_version}</td>
+                      <td style={{ textAlign: "right" }}>{v.user_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
           {/* ── Two-column: Components | Sections ── */}
           <div
             style={{
@@ -272,9 +359,6 @@ export const AppAnalytics = () => {
               </div>
             </div>
           </div>
-
-          {/* ── User location map ── */}
-          <UserLocationMap />
 
           {/* ── Component usage bar chart (vertical) ── */}
           <div className="chart-card" style={{ marginBottom: 24 }}>
