@@ -71,6 +71,13 @@ const dashboardCardsWithNewsletter: DashboardCard[] = [
     to: "/admin/app-analytics",
     actionLabel: "View analytics",
   },
+  {
+    key: "pilot-management",
+    title: "Pilot Management",
+    description: "Review pilot applications for express promotions, flight reviewer, and ROC-A examiner roles.",
+    to: "/admin/pilot-management",
+    actionLabel: "Manage pilots",
+  },
 ];
 
 export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
@@ -79,7 +86,7 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
     () =>
       dashboardCardsWithNewsletter.filter((card) => {
         if (card.key === "accounts" && role === "editor") return false;
-        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy" || card.key === "academy-manager" || card.key === "app-analytics") {
+        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy" || card.key === "academy-manager" || card.key === "app-analytics" || card.key === "pilot-management") {
           return role === "admin" || role === "owner";
         }
         return true;
