@@ -17,6 +17,7 @@ import { RecycleBin } from "./RecycleBin";
 import { AppAnalytics } from "./AppAnalytics";
 import { ExpressPromotions } from "./ExpressPromotions";
 import { PilotManagement } from "./PilotManagement";
+import { PilotAccounts } from "./PilotAccounts";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -36,6 +37,7 @@ export const AdminPortal = () => {
         { to: "/admin/academy-courses", label: "Academy Courses" },
         { to: "/admin/academy-manager", label: "Academy Manager" },
         { to: "/admin/pilot-management", label: "Pilot Management" },
+        { to: "/admin/pilot-accounts", label: "Pilot Accounts" },
         { to: "/admin/newsletter", label: "Newsletter" },
         { to: "/admin/app-analytics", label: "App Analytics" },
       ]}
@@ -67,6 +69,7 @@ export const AdminPortal = () => {
         <Route path="academy-enrollment" element={<AcademyEnrollment />} />
         <Route path="academy-test-results" element={<AcademyTestResults />} />
         <Route path="pilot-management" element={<PilotManagement />} />
+        <Route path="pilot-accounts" element={<PilotAccounts />} />
         <Route path="express-promotions" element={<ExpressPromotions />} />
         <Route path="recycle-bin" element={<RecycleBin />} />
         <Route path="newsletter" element={<Newsletter />} />

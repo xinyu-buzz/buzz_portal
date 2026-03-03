@@ -78,6 +78,13 @@ const dashboardCardsWithNewsletter: DashboardCard[] = [
     to: "/admin/pilot-management",
     actionLabel: "Manage pilots",
   },
+  {
+    key: "pilot-accounts",
+    title: "Pilot Accounts",
+    description: "View pilots with special roles including Flight Reviewer, ROC-A Examiner, Dual Citizen, FAA, and TC.",
+    to: "/admin/pilot-accounts",
+    actionLabel: "View pilot accounts",
+  },
 ];
 
 export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
@@ -86,7 +93,7 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
     () =>
       dashboardCardsWithNewsletter.filter((card) => {
         if (card.key === "accounts" && role === "editor") return false;
-        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy" || card.key === "academy-manager" || card.key === "app-analytics" || card.key === "pilot-management") {
+        if (card.key === "admin" || card.key === "newsletter" || card.key === "academy" || card.key === "academy-manager" || card.key === "app-analytics" || card.key === "pilot-management" || card.key === "pilot-accounts") {
           return role === "admin" || role === "owner";
         }
         return true;
