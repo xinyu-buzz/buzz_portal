@@ -34,6 +34,14 @@ const dashboardCards: DashboardCard[] = [
     actionLabel: "Coming soon",
     comingSoon: true,
   },
+  {
+    key: "dual-citizen-pilot",
+    title: "Dual Citizen Pilot Application",
+    description:
+      "Review and approve dual citizen pilot applications.",
+    actionLabel: "Coming soon",
+    comingSoon: true,
+  },
 ];
 
 export const PilotManagement = () => {
