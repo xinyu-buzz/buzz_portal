@@ -118,4 +118,114 @@ describe("PortalLayout", () => {
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith("/login");
   });
+
+  describe("section-based navigation", () => {
+    const sections = [
+      {
+        label: "Operations",
+        links: [
+          { to: "/admin/profiles", label: "New Accounts" },
+          { to: "/admin/bookings", label: "Bookings" },
+        ],
+      },
+      {
+        label: "System",
+        links: [
+          { to: "/admin/admin-center", label: "Admin Center" },
+        ],
+      },
+    ];
+    const dashboardLink = { to: "/admin/dashboard", label: "Dashboard" };
+
+    it("renders section triggers when sections are provided", () => {
+      render(
+        <PortalLayout
+          brand="Admin Portal"
+          links={[{ to: "/admin/dashboard", label: "Dashboard" }]}
+          sections={sections}
+          dashboardLink={dashboardLink}
+        >
+          <div>Content</div>
+        </PortalLayout>
+      );
+
+      expect(screen.getByText("Operations")).toBeInTheDocument();
+      expect(screen.getByText("System")).toBeInTheDocument();
+    });
+
+    it("renders dropdown links within sections", () => {
+      render(
+        <PortalLayout
+          brand="Admin Portal"
+          links={[{ to: "/admin/dashboard", label: "Dashboard" }]}
+          sections={sections}
+          dashboardLink={dashboardLink}
+        >
+          <div>Content</div>
+        </PortalLayout>
+      );
+
+      expect(screen.getByText("New Accounts")).toBeInTheDocument();
+      expect(screen.getByText("Bookings")).toBeInTheDocument();
+      expect(screen.getByText("Admin Center")).toBeInTheDocument();
+    });
+
+    it("renders standalone dashboard link outside sections", () => {
+      render(
+        <PortalLayout
+          brand="Admin Portal"
+          links={[{ to: "/admin/dashboard", label: "Dashboard" }]}
+          sections={sections}
+          dashboardLink={dashboardLink}
+        >
+          <div>Content</div>
+        </PortalLayout>
+      );
+
+      const dashLink = screen.getByText("Dashboard");
+      expect(dashLink.closest("a")).toHaveAttribute("href", "/admin/dashboard");
+    });
+
+    it("uses dashboardLink for brand link when provided", () => {
+      render(
+        <PortalLayout
+          brand="Admin Portal"
+          links={[{ to: "/admin/dashboard", label: "Dashboard" }]}
+          sections={sections}
+          dashboardLink={dashboardLink}
+        >
+          <div>Content</div>
+        </PortalLayout>
+      );
+
+      const brandLink = screen.getByText("Admin Portal");
+      expect(brandLink.closest("a")).toHaveAttribute("href", "/admin/dashboard");
+    });
+
+    it("hides hidden links inside section dropdowns", () => {
+      const sectionsWithHidden = [
+        {
+          label: "Operations",
+          links: [
+            { to: "/admin/profiles", label: "New Accounts" },
+            { to: "/admin/secret", label: "Secret", hidden: true },
+          ],
+        },
+      ];
+
+      render(
+        <PortalLayout
+          brand="Admin Portal"
+          links={[{ to: "/admin/dashboard", label: "Dashboard" }]}
+          sections={sectionsWithHidden}
+          dashboardLink={dashboardLink}
+        >
+          <div>Content</div>
+        </PortalLayout>
+      );
+
+      expect(screen.getByText("New Accounts")).toBeInTheDocument();
+      expect(screen.queryByText("Secret")).not.toBeInTheDocument();
+    });
+  });
 });

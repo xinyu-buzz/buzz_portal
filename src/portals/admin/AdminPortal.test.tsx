@@ -17,15 +17,29 @@ vi.mock("../shared/role", () => ({
 
 // Mock PortalLayout to just render children with brand
 vi.mock("../shared/PortalLayout", () => ({
-  PortalLayout: ({ brand, links, children }: any) => (
+  PortalLayout: ({ brand, links, sections, dashboardLink, children }: any) => (
     <div data-testid="portal-layout">
       <span data-testid="brand">{brand}</span>
       <nav>
-        {links.map((l: any) => (
-          <a key={l.to} href={l.to}>
-            {l.label}
-          </a>
-        ))}
+        {dashboardLink && (
+          <a href={dashboardLink.to}>{dashboardLink.label}</a>
+        )}
+        {sections
+          ? sections.map((s: any) => (
+              <div key={s.label} data-testid={`section-${s.label}`}>
+                <span>{s.label}</span>
+                {s.links.map((l: any) => (
+                  <a key={l.to} href={l.to}>
+                    {l.label}
+                  </a>
+                ))}
+              </div>
+            ))
+          : links.map((l: any) => (
+              <a key={l.to} href={l.to}>
+                {l.label}
+              </a>
+            ))}
       </nav>
       <div>{children}</div>
     </div>
@@ -83,19 +97,31 @@ describe("AdminPortal", () => {
     expect(screen.getByTestId("brand")).toHaveTextContent("Admin Portal");
   });
 
-  it("renders navigation links", () => {
+  it("renders section-based navigation", () => {
     render(<AdminPortal />, { initialEntries: ["/admin"] });
 
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByTestId("section-Operations")).toBeInTheDocument();
+    expect(screen.getByTestId("section-Academy")).toBeInTheDocument();
+    expect(screen.getByTestId("section-Pilots")).toBeInTheDocument();
+    expect(screen.getByTestId("section-Communications")).toBeInTheDocument();
+    expect(screen.getByTestId("section-System")).toBeInTheDocument();
+  });
+
+  it("renders navigation links within sections", () => {
+    render(<AdminPortal />, { initialEntries: ["/admin"] });
+
     expect(screen.getByText("New Accounts")).toBeInTheDocument();
     expect(screen.getByText("Bookings")).toBeInTheDocument();
     expect(screen.getByText("Admin Center")).toBeInTheDocument();
     expect(screen.getByText("Academy Courses")).toBeInTheDocument();
     expect(screen.getByText("Academy Manager")).toBeInTheDocument();
     expect(screen.getByText("Newsletter")).toBeInTheDocument();
+    expect(screen.getByText("App Analytics")).toBeInTheDocument();
+    expect(screen.getByText("Pilot Management")).toBeInTheDocument();
+    expect(screen.getByText("Pilot Accounts")).toBeInTheDocument();
   });
 
-  it("has dashboard link pointing to /admin/dashboard", () => {
+  it("has standalone dashboard link pointing to /admin/dashboard", () => {
     render(<AdminPortal />, { initialEntries: ["/admin"] });
 
     const dashboardLink = screen.getByText("Dashboard");

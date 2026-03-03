@@ -29,17 +29,43 @@ export const AdminPortal = () => {
   return (
     <PortalLayout
       brand={brand}
-      links={[
-        { to: "/admin/dashboard", label: "Dashboard" },
-        { to: "/admin/profiles", label: "New Accounts" },
-        { to: "/admin/bookings", label: "Bookings" },
-        { to: "/admin/admin-center", label: "Admin Center" },
-        { to: "/admin/academy-courses", label: "Academy Courses" },
-        { to: "/admin/academy-manager", label: "Academy Manager" },
-        { to: "/admin/pilot-management", label: "Pilot Management" },
-        { to: "/admin/pilot-accounts", label: "Pilot Accounts" },
-        { to: "/admin/newsletter", label: "Newsletter" },
-        { to: "/admin/app-analytics", label: "App Analytics" },
+      links={[{ to: "/admin/dashboard", label: "Dashboard" }]}
+      dashboardLink={{ to: "/admin/dashboard", label: "Dashboard" }}
+      sections={[
+        {
+          label: "Operations",
+          links: [
+            { to: "/admin/profiles", label: "New Accounts" },
+            { to: "/admin/bookings", label: "Bookings" },
+          ],
+        },
+        {
+          label: "Academy",
+          links: [
+            { to: "/admin/academy-courses", label: "Academy Courses" },
+            { to: "/admin/academy-manager", label: "Academy Manager" },
+          ],
+        },
+        {
+          label: "Pilots",
+          links: [
+            { to: "/admin/pilot-management", label: "Pilot Management" },
+            { to: "/admin/pilot-accounts", label: "Pilot Accounts" },
+          ],
+        },
+        {
+          label: "Communications",
+          links: [
+            { to: "/admin/newsletter", label: "Newsletter" },
+          ],
+        },
+        {
+          label: "System",
+          links: [
+            { to: "/admin/admin-center", label: "Admin Center" },
+            { to: "/admin/app-analytics", label: "App Analytics" },
+          ],
+        },
       ]}
     >
       <Routes>

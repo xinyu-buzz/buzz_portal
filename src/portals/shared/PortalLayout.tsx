@@ -8,13 +8,28 @@ type PortalLink = {
   hidden?: boolean;
 };
 
+type NavSection = {
+  label: string;
+  links: PortalLink[];
+};
+
 type PortalLayoutProps = {
   brand: string;
   links: PortalLink[];
+  sections?: NavSection[];
+  dashboardLink?: PortalLink;
   children: ReactNode;
 };
 
-export const PortalLayout = ({ brand, links, children }: PortalLayoutProps) => {
+export type { PortalLink, NavSection };
+
+export const PortalLayout = ({
+  brand,
+  links,
+  sections,
+  dashboardLink,
+  children,
+}: PortalLayoutProps) => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -26,16 +41,43 @@ export const PortalLayout = ({ brand, links, children }: PortalLayoutProps) => {
     <>
       <nav className="top-nav">
         <div className="top-nav__left">
-          <Link to={links[0]?.to ?? "/"} className="brand">
+          <Link
+            to={dashboardLink?.to ?? links[0]?.to ?? "/"}
+            className="brand"
+          >
             {brand}
           </Link>
-          {links
-            .filter((link) => !link.hidden)
-            .map((link) => (
-              <Link key={link.to} to={link.to}>
-                {link.label}
-              </Link>
-            ))}
+          {sections ? (
+            <>
+              {dashboardLink && (
+                <Link to={dashboardLink.to}>{dashboardLink.label}</Link>
+              )}
+              {sections.map((section) => (
+                <div key={section.label} className="nav-section">
+                  <span className="nav-section__trigger" tabIndex={0}>
+                    {section.label}
+                  </span>
+                  <div className="nav-section__dropdown">
+                    {section.links
+                      .filter((link) => !link.hidden)
+                      .map((link) => (
+                        <Link key={link.to} to={link.to}>
+                          {link.label}
+                        </Link>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            links
+              .filter((link) => !link.hidden)
+              .map((link) => (
+                <Link key={link.to} to={link.to}>
+                  {link.label}
+                </Link>
+              ))
+          )}
         </div>
         <div className="top-nav__right">
           <button className="ghost-btn" onClick={handleLogout}>
