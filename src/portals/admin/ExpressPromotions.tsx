@@ -120,6 +120,13 @@ export const ExpressPromotions = () => {
     setError(null);
   };
 
+  const getAuthUserId = async () => {
+    const { data: userData } = await supabaseClient.auth.getUser();
+    const userId = userData?.user?.id;
+    if (!userId) throw new Error("Not authenticated. Please log in again.");
+    return userId;
+  };
+
   const handleMarkInReview = async () => {
     if (!selectedApp) return;
 
@@ -127,8 +134,7 @@ export const ExpressPromotions = () => {
     setError(null);
 
     try {
-      const { data: userData } = await supabaseClient.auth.getUser();
-      const userId = userData?.user?.id;
+      const userId = await getAuthUserId();
 
       const { error: updateError } = await supabaseClient
         .from("express_promotion_applications")
@@ -137,7 +143,8 @@ export const ExpressPromotions = () => {
           reviewed_at: new Date().toISOString(),
           reviewed_by: userId,
         })
-        .eq("id", selectedApp.id);
+        .eq("id", selectedApp.id)
+        .eq("status", "pending");
 
       if (updateError) throw updateError;
 
@@ -158,31 +165,28 @@ export const ExpressPromotions = () => {
     setError(null);
 
     try {
-      const { data: userData } = await supabaseClient.auth.getUser();
-      const userId = userData?.user?.id;
+      const userId = await getAuthUserId();
 
-      // 1. Update application status to verified
-      const { error: updateError } = await supabaseClient
-        .from("express_promotion_applications")
-        .update({
-          status: "verified",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: userId,
-        })
-        .eq("id", selectedApp.id);
-
-      if (updateError) throw updateError;
-
-      // 2. Promote pilot tier if currently below target
+      // 1. Promote pilot tier first (before marking verified, so partial failure is safe)
       const { data: stats, error: statsError } = await supabaseClient
         .from("pilot_stats")
         .select("tier")
         .eq("pilot_id", selectedApp.pilot_id)
-        .single();
+        .maybeSingle();
 
       if (statsError) throw statsError;
 
-      if (stats && stats.tier < selectedApp.target_tier) {
+      if (!stats) {
+        // No pilot_stats row — create one with the target tier
+        const { error: insertError } = await supabaseClient
+          .from("pilot_stats")
+          .insert({
+            pilot_id: selectedApp.pilot_id,
+            tier: selectedApp.target_tier,
+          });
+
+        if (insertError) throw insertError;
+      } else if (stats.tier < selectedApp.target_tier) {
         const { error: tierError } = await supabaseClient
           .from("pilot_stats")
           .update({ tier: selectedApp.target_tier })
@@ -190,6 +194,20 @@ export const ExpressPromotions = () => {
 
         if (tierError) throw tierError;
       }
+
+      // 2. Mark application as verified (tier is already promoted at this point)
+      const { error: updateError } = await supabaseClient
+        .from("express_promotion_applications")
+        .update({
+          status: "verified",
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: userId,
+          rejection_reason: null,
+        })
+        .eq("id", selectedApp.id)
+        .in("status", ["pending", "in_review"]);
+
+      if (updateError) throw updateError;
 
       closeReviewModal();
       await loadApplications();
@@ -213,8 +231,7 @@ export const ExpressPromotions = () => {
     setError(null);
 
     try {
-      const { data: userData } = await supabaseClient.auth.getUser();
-      const userId = userData?.user?.id;
+      const userId = await getAuthUserId();
 
       const { error: updateError } = await supabaseClient
         .from("express_promotion_applications")
@@ -224,7 +241,8 @@ export const ExpressPromotions = () => {
           reviewed_by: userId,
           rejection_reason: rejectionReason,
         })
-        .eq("id", selectedApp.id);
+        .eq("id", selectedApp.id)
+        .in("status", ["pending", "in_review"]);
 
       if (updateError) throw updateError;
 
@@ -704,22 +722,27 @@ export const ExpressPromotions = () => {
                   {submitting ? "Processing..." : "Mark In Review"}
                 </button>
               )}
-              <button
-                className="primary-btn"
-                onClick={handleVerify}
-                disabled={submitting}
-                style={{ backgroundColor: "#22c55e" }}
-              >
-                {submitting ? "Processing..." : "Verify & Promote"}
-              </button>
-              <button
-                className="primary-btn"
-                onClick={handleReject}
-                disabled={submitting}
-                style={{ backgroundColor: "#ef4444" }}
-              >
-                {submitting ? "Processing..." : "Reject"}
-              </button>
+              {(selectedApp.status === "pending" ||
+                selectedApp.status === "in_review") && (
+                <>
+                  <button
+                    className="primary-btn"
+                    onClick={handleVerify}
+                    disabled={submitting}
+                    style={{ backgroundColor: "#22c55e" }}
+                  >
+                    {submitting ? "Processing..." : "Verify & Promote"}
+                  </button>
+                  <button
+                    className="primary-btn"
+                    onClick={handleReject}
+                    disabled={submitting}
+                    style={{ backgroundColor: "#ef4444" }}
+                  >
+                    {submitting ? "Processing..." : "Reject"}
+                  </button>
+                </>
+              )}
               <button
                 className="ghost-btn"
                 onClick={closeReviewModal}
