@@ -50,6 +50,15 @@ type EditForm = {
   dual_citizen_pilot: boolean;
   faa: boolean;
   tc: boolean;
+  tier: number;
+};
+
+const TIER_LABELS: Record<number, string> = {
+  0: "Ensign",
+  1: "Sub Lieutenant",
+  2: "Lieutenant",
+  3: "Commander",
+  4: "Captain",
 };
 
 const ROLE_KEYS: { key: keyof Pick<EditForm, "flight_reviewer" | "roc_a_examiner" | "dual_citizen_pilot" | "faa" | "tc">; label: string }[] = [
@@ -75,19 +84,28 @@ export const PilotAccounts = () => {
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [tierMap, setTierMap] = useState<Record<string, number>>({});
 
   const loadPilots = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabaseClient
-        .from("pilot_special_roles")
-        .select("*");
+      const [rolesResult, statsResult] = await Promise.all([
+        supabaseClient.from("pilot_special_roles").select("*"),
+        supabaseClient.from("pilot_stats").select("pilot_id, tier"),
+      ]);
 
-      if (fetchError) throw fetchError;
+      if (rolesResult.error) throw rolesResult.error;
+      if (statsResult.error) throw statsResult.error;
 
-      setAllPilots((data || []) as PilotSpecialRole[]);
+      setAllPilots((rolesResult.data || []) as PilotSpecialRole[]);
+
+      const map: Record<string, number> = {};
+      for (const row of statsResult.data || []) {
+        map[row.pilot_id] = row.tier;
+      }
+      setTierMap(map);
     } catch (err: any) {
       console.error("Failed to load pilot accounts", err);
       setError(err.message || "Failed to load pilot accounts");
@@ -192,6 +210,9 @@ export const PilotAccounts = () => {
     // Check if this pilot already has a pilot_special_roles row
     const existing = allPilots.find((p) => p.pilot_id === profile.id);
 
+    // Fetch current tier from pilot_stats
+    const currentTier = tierMap[profile.id] ?? 0;
+
     setEditForm({
       pilot_id: profile.id,
       first_name: profile.first_name || "",
@@ -203,6 +224,7 @@ export const PilotAccounts = () => {
       dual_citizen_pilot: existing?.dual_citizen_pilot ?? false,
       faa: existing?.faa ?? false,
       tc: existing?.tc ?? false,
+      tier: currentTier,
     });
   };
 
@@ -232,6 +254,36 @@ export const PilotAccounts = () => {
         );
 
       if (upsertError) throw upsertError;
+
+      // Update pilot tier in pilot_stats (check existence first to respect RLS)
+      const { data: existingStats, error: statsError } = await supabaseClient
+        .from("pilot_stats")
+        .select("tier")
+        .eq("pilot_id", editForm.pilot_id)
+        .maybeSingle();
+
+      if (statsError) throw statsError;
+
+      if (!existingStats) {
+        const { data: inserted, error: insertError } = await supabaseClient
+          .from("pilot_stats")
+          .insert({ pilot_id: editForm.pilot_id, tier: editForm.tier })
+          .select("tier")
+          .maybeSingle();
+
+        if (insertError) throw insertError;
+        if (!inserted) throw new Error("Failed to create pilot stats record.");
+      } else if (existingStats.tier !== editForm.tier) {
+        const { data: updated, error: updateError } = await supabaseClient
+          .from("pilot_stats")
+          .update({ tier: editForm.tier })
+          .eq("pilot_id", editForm.pilot_id)
+          .select("tier")
+          .maybeSingle();
+
+        if (updateError) throw updateError;
+        if (!updated) throw new Error("Failed to update pilot rank — no row was modified.");
+      }
 
       closeEditModal();
       await loadPilots();
@@ -373,6 +425,7 @@ export const PilotAccounts = () => {
                   <th>Pilot Name</th>
                   <th>Call Sign</th>
                   <th>Region</th>
+                  <th>Rank</th>
                   {(activeRole === "all" || activeRole === "flight_reviewer") && <th>Flight Reviewer</th>}
                   {(activeRole === "all" || activeRole === "roc_a_examiner") && <th>ROC-A Examiner</th>}
                   {(activeRole === "all" || activeRole === "dual_citizen_pilot") && <th>Dual Citizen</th>}
@@ -391,6 +444,7 @@ export const PilotAccounts = () => {
                       <td>{name}</td>
                       <td>{pilot.call_sign || "-"}</td>
                       <td>{pilot.region || "-"}</td>
+                      <td>{TIER_LABELS[tierMap[pilot.pilot_id] ?? 0] ?? "Ensign"}</td>
                       {(activeRole === "all" || activeRole === "flight_reviewer") && <td>{getRoleBadge(pilot.flight_reviewer)}</td>}
                       {(activeRole === "all" || activeRole === "roc_a_examiner") && <td>{getRoleBadge(pilot.roc_a_examiner)}</td>}
                       {(activeRole === "all" || activeRole === "dual_citizen_pilot") && <td>{getRoleBadge(pilot.dual_citizen_pilot)}</td>}
@@ -401,7 +455,7 @@ export const PilotAccounts = () => {
                 })}
                 {filteredPilots.length === 0 && (
                   <tr>
-                    <td colSpan={activeRole === "all" ? 8 : 4} style={{ textAlign: "center" }}>
+                    <td colSpan={activeRole === "all" ? 9 : 5} style={{ textAlign: "center" }}>
                       No pilot accounts found.
                     </td>
                   </tr>
@@ -533,6 +587,41 @@ export const PilotAccounts = () => {
                       <strong>Region:</strong> {editForm.region}
                     </div>
                   )}
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "12px",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Rank
+                  </label>
+                  <select
+                    value={editForm.tier}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, tier: Number(e.target.value) })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "10px 16px",
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      borderRadius: "8px",
+                      color: "white",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {Object.entries(TIER_LABELS).map(([value, label]) => (
+                      <option key={value} value={value} style={{ color: "black" }}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div style={{ marginBottom: "24px" }}>
