@@ -178,21 +178,27 @@ export const ExpressPromotions = () => {
 
       if (!stats) {
         // No pilot_stats row — create one with the target tier
-        const { error: insertError } = await supabaseClient
+        const { data: inserted, error: insertError } = await supabaseClient
           .from("pilot_stats")
           .insert({
             pilot_id: selectedApp.pilot_id,
             tier: selectedApp.target_tier,
-          });
+          })
+          .select("tier")
+          .maybeSingle();
 
         if (insertError) throw insertError;
+        if (!inserted) throw new Error("Failed to create pilot stats record.");
       } else if (stats.tier < selectedApp.target_tier) {
-        const { error: tierError } = await supabaseClient
+        const { data: updated, error: tierError } = await supabaseClient
           .from("pilot_stats")
           .update({ tier: selectedApp.target_tier })
-          .eq("pilot_id", selectedApp.pilot_id);
+          .eq("pilot_id", selectedApp.pilot_id)
+          .select("tier")
+          .maybeSingle();
 
         if (tierError) throw tierError;
+        if (!updated) throw new Error("Failed to update pilot tier — no row was modified.");
       }
 
       // 2. Mark application as verified (tier is already promoted at this point)
