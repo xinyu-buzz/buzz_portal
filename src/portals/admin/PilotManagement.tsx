@@ -23,16 +23,16 @@ const dashboardCards: DashboardCard[] = [
     title: "Flight Reviewer Application",
     description:
       "Review and approve applications from pilots to become flight reviewers.",
-    actionLabel: "Coming soon",
-    comingSoon: true,
+    to: "/admin/flight-reviewer-applications",
+    actionLabel: "Review applications",
   },
   {
     key: "roc-a-examiner",
     title: "ROC-A Examiner Application",
     description:
       "Review and approve applications from pilots to become ROC-A examiners.",
-    actionLabel: "Coming soon",
-    comingSoon: true,
+    to: "/admin/roc-a-examiner-applications",
+    actionLabel: "Review applications",
   },
   {
     key: "dual-citizen-pilot",

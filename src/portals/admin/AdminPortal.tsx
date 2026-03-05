@@ -18,6 +18,7 @@ import { AppAnalytics } from "./AppAnalytics";
 import { ExpressPromotions } from "./ExpressPromotions";
 import { PilotManagement } from "./PilotManagement";
 import { PilotAccounts } from "./PilotAccounts";
+import { LicenseApprovalReview } from "./LicenseApprovalReview";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -97,6 +98,8 @@ export const AdminPortal = () => {
         <Route path="pilot-management" element={<PilotManagement />} />
         <Route path="pilot-accounts" element={<PilotAccounts />} />
         <Route path="express-promotions" element={<ExpressPromotions />} />
+        <Route path="flight-reviewer-applications" element={<LicenseApprovalReview roleType="flight_reviewer" />} />
+        <Route path="roc-a-examiner-applications" element={<LicenseApprovalReview roleType="roc_a_examiner" />} />
         <Route path="recycle-bin" element={<RecycleBin />} />
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="app-analytics" element={<AppAnalytics />} />
