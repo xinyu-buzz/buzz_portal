@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabaseClient } from "../../utility";
+import { extractPCNumber } from "../../utility/extractPCNumber";
 
 type RoleType = "flight_reviewer" | "roc_a_examiner";
 
@@ -42,6 +44,8 @@ const ROLE_CONFIG: Record<RoleType, { title: string; licensePattern: string; rol
 
 export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
   const config = ROLE_CONFIG[roleType];
+  const navigate = useNavigate();
+  const pcExtractionIdRef = useRef(0);
 
   const [allApplications, setAllApplications] = useState<LicenseApprovalRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,6 +55,27 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewerNotes, setReviewerNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // TC Email Modal state
+  const [showTCEmailModal, setShowTCEmailModal] = useState(false);
+  const [tcEmailTo, setTcEmailTo] = useState("");
+  const [tcEmailSubject, setTcEmailSubject] = useState("");
+  const [tcEmailBody, setTcEmailBody] = useState("");
+  const [approvedApp, setApprovedApp] = useState<LicenseApprovalRequest | null>(null);
+
+  // PC number extraction state
+  const [pcExtracting, setPcExtracting] = useState(false);
+  const [extractedPC, setExtractedPC] = useState<string | null>(null);
+  const [showPcWarningModal, setShowPcWarningModal] = useState(false);
+
+  // Edit Status Modal state
+  const [showEditStatusModal, setShowEditStatusModal] = useState(false);
+  const [editStatusApp, setEditStatusApp] = useState<LicenseApprovalRequest | null>(null);
+  const [editStatusValue, setEditStatusValue] = useState<string>("");
+  const [editStatusNotes, setEditStatusNotes] = useState("");
+  const [editStatusSubmitting, setEditStatusSubmitting] = useState(false);
+  const [editStatusError, setEditStatusError] = useState<string | null>(null);
+
   const [filter, setFilter] = useState<Filter>({
     status: "pending",
     searchQuery: "",
@@ -126,6 +151,20 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
     setReviewerNotes(app.reviewer_notes || "");
     setModalError(null);
     setShowReviewModal(true);
+
+    // Start PC number extraction in background
+    setExtractedPC(null);
+    setPcExtracting(true);
+    const extractionId = ++pcExtractionIdRef.current;
+    extractPCNumber(app.file_url)
+      .then((pc) => {
+        if (extractionId !== pcExtractionIdRef.current) return;
+        setExtractedPC(pc);
+      })
+      .finally(() => {
+        if (extractionId !== pcExtractionIdRef.current) return;
+        setPcExtracting(false);
+      });
   };
 
   const closeReviewModal = () => {
@@ -133,6 +172,144 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
     setSelectedApp(null);
     setReviewerNotes("");
     setModalError(null);
+    setExtractedPC(null);
+    setPcExtracting(false);
+    setShowPcWarningModal(false);
+    pcExtractionIdRef.current++; // invalidate any in-flight extraction
+  };
+
+  const generateTCEmailDefaults = (app: LicenseApprovalRequest, pcNumber: string | null) => {
+    const pcDisplay = pcNumber || "____________";
+    if (roleType === "flight_reviewer") {
+      return {
+        to: "apptest@buzzbuzzin.com",
+        subject: "Flight Reviewer Affiliation",
+        body:
+          `Dear Mr. Vanderaegen,\n\n` +
+          `Please add the following flight reviewer to Buzz.\n\n` +
+          `Flight Reviewer: ${app.pilot_name || "_______________"}\n` +
+          `PC: ${pcDisplay}\n\n` +
+          `Much appreciated.\n\n` +
+          `Buzz\n\n` +
+          `cc: April`,
+      };
+    }
+    // ROC-A Examiner
+    return {
+      to: "apptest@buzzbuzzin.com",
+      subject: `ROC-A Examiner Affiliation`,
+      body:
+        `Dear Mr. Vanderaegen,\n\n` +
+        `Please add the following ROC-A examiner to Buzz.\n\n` +
+        `ROC-A Examiner: ${app.pilot_name || "_______________"}\n` +
+        `PC: ${pcDisplay}\n\n` +
+        `Much appreciated.\n\n` +
+        `Buzz\n\n` +
+        `cc: April`,
+    };
+  };
+
+  const handleOpenEmailClient = () => {
+    const body = tcEmailBody.replace(/\r?\n/g, "\r\n");
+    const mailto = `mailto:${encodeURIComponent(tcEmailTo.trim())}?subject=${encodeURIComponent(tcEmailSubject.trim())}&body=${encodeURIComponent(body)}`;
+    window.open(mailto, "_blank");
+  };
+
+  const closeTCEmailModal = () => {
+    setShowTCEmailModal(false);
+    setTcEmailTo("");
+    setTcEmailSubject("");
+    setTcEmailBody("");
+    setApprovedApp(null);
+    setExtractedPC(null);
+    setPcExtracting(false);
+    setShowPcWarningModal(false);
+  };
+
+  const openEditStatusModal = (app: LicenseApprovalRequest) => {
+    setEditStatusApp(app);
+    setEditStatusValue(app.status);
+    setEditStatusNotes(app.reviewer_notes || "");
+    setEditStatusError(null);
+    setShowEditStatusModal(true);
+  };
+
+  const closeEditStatusModal = () => {
+    setShowEditStatusModal(false);
+    setEditStatusApp(null);
+    setEditStatusValue("");
+    setEditStatusNotes("");
+    setEditStatusError(null);
+    setEditStatusSubmitting(false);
+  };
+
+  const handleEditStatusSave = async () => {
+    if (!editStatusApp) return;
+    if (editStatusValue === editStatusApp.status) {
+      closeEditStatusModal();
+      return;
+    }
+
+    setEditStatusSubmitting(true);
+    setEditStatusError(null);
+
+    try {
+      const userId = await getAuthUserId();
+
+      const { error: updateError } = await supabaseClient
+        .from("license_approval_requests")
+        .update({
+          status: editStatusValue,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: userId,
+          reviewer_notes: editStatusNotes.trim() || null,
+        })
+        .eq("id", editStatusApp.id);
+
+      if (updateError) throw updateError;
+
+      // If changing to approved, also grant the role
+      if (editStatusValue === "approved") {
+        const { error: roleError } = await supabaseClient
+          .from("pilot_special_roles")
+          .upsert(
+            { pilot_id: editStatusApp.pilot_id, [config.roleField]: true },
+            { onConflict: "pilot_id" }
+          );
+
+        if (roleError) {
+          throw new Error(
+            `Status updated, but failed to grant ${config.roleField.replace("_", " ")} role. ` +
+            `Please grant it manually via Pilot Accounts. (${roleError.message})`
+          );
+        }
+      }
+
+      // If changing away from approved, revoke the role
+      if (editStatusApp.status === "approved" && editStatusValue !== "approved") {
+        const { error: revokeError } = await supabaseClient
+          .from("pilot_special_roles")
+          .upsert(
+            { pilot_id: editStatusApp.pilot_id, [config.roleField]: false },
+            { onConflict: "pilot_id" }
+          );
+
+        if (revokeError) {
+          throw new Error(
+            `Status updated, but failed to revoke ${config.roleField.replace("_", " ")} role. ` +
+            `Please revoke it manually via Pilot Accounts. (${revokeError.message})`
+          );
+        }
+      }
+
+      closeEditStatusModal();
+      await loadApplications();
+    } catch (err: any) {
+      console.error("Failed to update status", err);
+      setEditStatusError(err.message || "Failed to update status");
+    } finally {
+      setEditStatusSubmitting(false);
+    }
   };
 
   const openDocument = (url: string, inModal = false) => {
@@ -203,8 +380,28 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
         );
       }
 
+      // Preserve app reference and PC state for TC email before closing review modal
+      const appForEmail = { ...selectedApp };
+      const capturedPC = extractedPC;
+      const emailDefaults = generateTCEmailDefaults(appForEmail, capturedPC);
+
       closeReviewModal();
       await loadApplications();
+
+      // Restore PC extraction result for TC email inline indicator
+      setExtractedPC(capturedPC);
+
+      // Open TC email modal after approval
+      setApprovedApp(appForEmail);
+      setTcEmailTo(emailDefaults.to);
+      setTcEmailSubject(emailDefaults.subject);
+      setTcEmailBody(emailDefaults.body);
+      setShowTCEmailModal(true);
+
+      // Show warning popup if PC was not found
+      if (capturedPC === null) {
+        setShowPcWarningModal(true);
+      }
     } catch (err: any) {
       console.error("Failed to approve application", err);
       setModalError(err.message || "Failed to approve application");
@@ -311,6 +508,16 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
 
   return (
     <div className="page-card">
+      <div style={{ marginBottom: 16 }}>
+        <button
+          className="ghost-btn"
+          onClick={() => navigate("/admin/pilot-management")}
+          style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          &larr; Back to Pilot Management
+        </button>
+      </div>
+
       <div className="page-header">
         <h1>{config.title}</h1>
         <button className="primary-btn" onClick={loadApplications}>
@@ -496,6 +703,13 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                         >
                           View Doc
                         </button>
+                        <button
+                          className="ghost-btn"
+                          style={{ padding: "6px 10px", fontSize: 12 }}
+                          onClick={() => openEditStatusModal(app)}
+                        >
+                          Edit Status
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -613,6 +827,194 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Status Modal */}
+      {showEditStatusModal && editStatusApp && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: 500 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>Edit Application Status</h3>
+              <button className="ghost-btn" onClick={closeEditStatusModal} disabled={editStatusSubmitting}>
+                Close
+              </button>
+            </div>
+
+            {editStatusError && (
+              <div className="alert error" style={{ marginBottom: 16 }}>
+                {editStatusError}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 8 }}>
+                <strong>Pilot:</strong> {editStatusApp.pilot_name} ({editStatusApp.pilot_email})
+              </div>
+              <div>
+                <strong>Current Status:</strong> {getStatusBadge(editStatusApp.status)}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label className="input-label">New Status</label>
+              <select
+                value={editStatusValue}
+                onChange={(e) => setEditStatusValue(e.target.value)}
+                className="text-input"
+                disabled={editStatusSubmitting}
+                style={{ padding: "10px 16px" }}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label className="input-label">Notes</label>
+              <textarea
+                value={editStatusNotes}
+                onChange={(e) => setEditStatusNotes(e.target.value)}
+                className="text-input"
+                rows={3}
+                placeholder="Optional notes..."
+                disabled={editStatusSubmitting}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                className="primary-btn"
+                onClick={handleEditStatusSave}
+                disabled={editStatusSubmitting}
+                style={{ backgroundColor: "#6b8cae" }}
+              >
+                {editStatusSubmitting ? "Saving..." : "Save"}
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={closeEditStatusModal}
+                disabled={editStatusSubmitting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TC Email Modal */}
+      {showTCEmailModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1000 }}>
+          <div className="modal-card" style={{ maxWidth: 700 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>Notify Transport Canada</h3>
+              <button className="ghost-btn" onClick={closeTCEmailModal}>
+                Skip
+              </button>
+            </div>
+
+            <p style={{ color: "#9ca3b5", marginBottom: 16, fontSize: 14 }}>
+              Application approved for <strong>{approvedApp?.pilot_name}</strong>. Review the email below, then click
+              "Open in Email Client" to send via your default email app.
+            </p>
+
+            <div style={{ marginBottom: 16 }}>
+              <label className="input-label">To</label>
+              <input
+                type="email"
+                value={tcEmailTo}
+                onChange={(e) => setTcEmailTo(e.target.value)}
+                className="text-input"
+                placeholder="Transport Canada email address..."
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label className="input-label">Subject</label>
+              <input
+                type="text"
+                value={tcEmailSubject}
+                onChange={(e) => setTcEmailSubject(e.target.value)}
+                className="text-input"
+              />
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label className="input-label">Body</label>
+              <textarea
+                value={tcEmailBody}
+                onChange={(e) => setTcEmailBody(e.target.value)}
+                className="text-input"
+                rows={12}
+                style={{ fontFamily: "monospace", fontSize: 13 }}
+              />
+              {pcExtracting && (
+                <p style={{ color: "#fbbf24", fontSize: 12, marginTop: 6 }}>
+                  Extracting PC number from document...
+                </p>
+              )}
+              {!pcExtracting && extractedPC === null && (
+                <p style={{ color: "#f59e0b", fontSize: 12, marginTop: 6 }}>
+                  PC number could not be auto-extracted. Please enter it manually.
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                className="primary-btn"
+                onClick={handleOpenEmailClient}
+                style={{ backgroundColor: "#6b8cae" }}
+              >
+                Open in Email Client
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={closeTCEmailModal}
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PC Number Warning Modal */}
+      {showPcWarningModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+          <div className="modal-card" style={{ maxWidth: 420, textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>&#9888;</div>
+            <h3 style={{ marginBottom: 8 }}>PC Number Not Found</h3>
+            <p style={{ color: "#9ca3b5", fontSize: 14, marginBottom: 24 }}>
+              Could not auto-extract the PC number from the uploaded document.
+              Please enter the PC number manually in the email body before sending.
+            </p>
+            <button
+              className="primary-btn"
+              onClick={() => setShowPcWarningModal(false)}
+              style={{ backgroundColor: "#f59e0b", color: "#000", minWidth: 160 }}
+            >
+              Acknowledged
+            </button>
           </div>
         </div>
       )}
