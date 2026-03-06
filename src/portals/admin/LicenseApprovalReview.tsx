@@ -8,10 +8,10 @@ type RoleType = "flight_reviewer" | "roc_a_examiner";
 type LicenseApprovalRequest = {
   id: string;
   pilot_id: string;
-  license_id: string;
+  license_id: string | null;
   license_type: string;
   file_url: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "document_deleted";
   submitted_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -27,7 +27,7 @@ type Filter = {
   searchQuery: string;
 };
 
-const STATUSES = ["pending", "approved", "rejected"];
+const STATUSES = ["pending", "approved", "rejected", "document_deleted"];
 
 const ROLE_CONFIG: Record<RoleType, { title: string; licensePattern: string; roleField: string }> = {
   flight_reviewer: {
@@ -452,10 +452,11 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
   };
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, { bg: string; text: string }> = {
-      pending: { bg: "rgba(251, 191, 36, 0.2)", text: "#fbbf24" },
-      approved: { bg: "rgba(34, 197, 94, 0.2)", text: "#22c55e" },
-      rejected: { bg: "rgba(239, 68, 68, 0.2)", text: "#ef4444" },
+    const styles: Record<string, { bg: string; text: string; label: string }> = {
+      pending: { bg: "rgba(251, 191, 36, 0.2)", text: "#fbbf24", label: "Pending" },
+      approved: { bg: "rgba(34, 197, 94, 0.2)", text: "#22c55e", label: "Approved" },
+      rejected: { bg: "rgba(239, 68, 68, 0.2)", text: "#ef4444", label: "Rejected" },
+      document_deleted: { bg: "rgba(107, 114, 128, 0.2)", text: "#9ca3b5", label: "Document Deleted" },
     };
 
     const style = styles[status] || styles.pending;
@@ -469,10 +470,9 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
           fontWeight: 600,
           backgroundColor: style.bg,
           color: style.text,
-          textTransform: "capitalize",
         }}
       >
-        {status}
+        {style.label}
       </span>
     );
   };
@@ -633,10 +633,9 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                   cursor: "pointer",
                   fontSize: "14px",
                   transition: "all 0.2s",
-                  textTransform: "capitalize",
                 }}
               >
-                {status}
+                {status === "document_deleted" ? "Document Deleted" : status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
           </div>
@@ -696,20 +695,24 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                             Review
                           </button>
                         )}
-                        <button
-                          className="ghost-btn"
-                          style={{ padding: "6px 10px", fontSize: 12 }}
-                          onClick={() => openDocument(app.file_url)}
-                        >
-                          View Doc
-                        </button>
-                        <button
-                          className="ghost-btn"
-                          style={{ padding: "6px 10px", fontSize: 12 }}
-                          onClick={() => openEditStatusModal(app)}
-                        >
-                          Edit Status
-                        </button>
+                        {app.status !== "document_deleted" && (
+                          <button
+                            className="ghost-btn"
+                            style={{ padding: "6px 10px", fontSize: 12 }}
+                            onClick={() => openDocument(app.file_url)}
+                          >
+                            View Doc
+                          </button>
+                        )}
+                        {app.status !== "document_deleted" && (
+                          <button
+                            className="ghost-btn"
+                            style={{ padding: "6px 10px", fontSize: 12 }}
+                            onClick={() => openEditStatusModal(app)}
+                          >
+                            Edit Status
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -873,7 +876,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                 disabled={editStatusSubmitting}
                 style={{ padding: "10px 16px" }}
               >
-                {STATUSES.map((s) => (
+                {STATUSES.filter((s) => s !== "document_deleted").map((s) => (
                   <option key={s} value={s}>
                     {s.charAt(0).toUpperCase() + s.slice(1)}
                   </option>
