@@ -19,6 +19,7 @@ import { ExpressPromotions } from "./ExpressPromotions";
 import { PilotManagement } from "./PilotManagement";
 import { PilotAccounts } from "./PilotAccounts";
 import { LicenseApprovalReview } from "./LicenseApprovalReview";
+import { TicketManagement } from "./TicketManagement";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -58,6 +59,12 @@ export const AdminPortal = () => {
           label: "Communications",
           links: [
             { to: "/admin/newsletter", label: "Newsletter" },
+          ],
+        },
+        {
+          label: "Support",
+          links: [
+            { to: "/admin/tickets", label: "Bug Reports" },
           ],
         },
         {
@@ -103,6 +110,7 @@ export const AdminPortal = () => {
         <Route path="recycle-bin" element={<RecycleBin />} />
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="app-analytics" element={<AppAnalytics />} />
+        <Route path="tickets" element={<TicketManagement />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </PortalLayout>
