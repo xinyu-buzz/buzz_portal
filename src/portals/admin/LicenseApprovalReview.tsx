@@ -283,6 +283,16 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
             `Please grant it manually via Pilot Accounts. (${roleError.message})`
           );
         }
+
+        // Auto-complete tests for the role
+        const { error: autoCompleteError } = await supabaseClient
+          .rpc('auto_complete_tests_for_role', {
+            p_pilot_id: editStatusApp.pilot_id,
+            p_role_type: roleType,
+          });
+        if (autoCompleteError) {
+          console.warn('Auto-complete tests warning:', autoCompleteError.message);
+        }
       }
 
       // If changing away from approved, revoke the role
@@ -299,6 +309,16 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
             `Status updated, but failed to revoke ${config.roleField.replace("_", " ")} role. ` +
             `Please revoke it manually via Pilot Accounts. (${revokeError.message})`
           );
+        }
+
+        // Revoke auto-completed tests (leaves real passes untouched)
+        const { error: revokeAutoError } = await supabaseClient
+          .rpc('revoke_auto_completed_tests_for_role', {
+            p_pilot_id: editStatusApp.pilot_id,
+            p_role_type: roleType,
+          });
+        if (revokeAutoError) {
+          console.warn('Revoke auto-completed tests warning:', revokeAutoError.message);
         }
       }
 
@@ -378,6 +398,16 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
           `Application approved, but failed to grant ${config.roleField.replace("_", " ")} role. ` +
           `Please grant it manually via Pilot Accounts. (${roleError.message})`
         );
+      }
+
+      // 3. Auto-complete tests for the role
+      const { error: autoCompleteError } = await supabaseClient
+        .rpc('auto_complete_tests_for_role', {
+          p_pilot_id: selectedApp.pilot_id,
+          p_role_type: roleType,
+        });
+      if (autoCompleteError) {
+        console.warn('Auto-complete tests warning:', autoCompleteError.message);
       }
 
       // Preserve app reference and PC state for TC email before closing review modal

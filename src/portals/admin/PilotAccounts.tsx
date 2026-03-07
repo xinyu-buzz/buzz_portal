@@ -275,6 +275,54 @@ export const PilotAccounts = () => {
 
       if (upsertError) throw upsertError;
 
+      // Auto-complete tests for newly enabled special roles
+      const existingPilot = allPilots.find(p => p.pilot_id === editForm.pilot_id);
+      const wasFlightReviewer = existingPilot?.flight_reviewer ?? false;
+      const wasRocAExaminer = existingPilot?.roc_a_examiner ?? false;
+
+      if (editForm.flight_reviewer && !wasFlightReviewer) {
+        const { error: autoCompleteError } = await supabaseClient
+          .rpc('auto_complete_tests_for_role', {
+            p_pilot_id: editForm.pilot_id,
+            p_role_type: 'flight_reviewer',
+          });
+        if (autoCompleteError) {
+          console.warn('Auto-complete tests warning (flight_reviewer):', autoCompleteError.message);
+        }
+      }
+      if (editForm.roc_a_examiner && !wasRocAExaminer) {
+        const { error: autoCompleteError } = await supabaseClient
+          .rpc('auto_complete_tests_for_role', {
+            p_pilot_id: editForm.pilot_id,
+            p_role_type: 'roc_a_examiner',
+          });
+        if (autoCompleteError) {
+          console.warn('Auto-complete tests warning (roc_a_examiner):', autoCompleteError.message);
+        }
+      }
+
+      // Revoke auto-completed tests for roles that were turned OFF
+      if (!editForm.flight_reviewer && wasFlightReviewer) {
+        const { error: revokeError } = await supabaseClient
+          .rpc('revoke_auto_completed_tests_for_role', {
+            p_pilot_id: editForm.pilot_id,
+            p_role_type: 'flight_reviewer',
+          });
+        if (revokeError) {
+          console.warn('Revoke auto-completed tests warning (flight_reviewer):', revokeError.message);
+        }
+      }
+      if (!editForm.roc_a_examiner && wasRocAExaminer) {
+        const { error: revokeError } = await supabaseClient
+          .rpc('revoke_auto_completed_tests_for_role', {
+            p_pilot_id: editForm.pilot_id,
+            p_role_type: 'roc_a_examiner',
+          });
+        if (revokeError) {
+          console.warn('Revoke auto-completed tests warning (roc_a_examiner):', revokeError.message);
+        }
+      }
+
       // Update pilot tier in pilot_stats (check existence first to respect RLS)
       const { data: existingStats, error: statsError } = await supabaseClient
         .from("pilot_stats")
