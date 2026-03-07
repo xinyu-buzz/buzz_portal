@@ -182,13 +182,13 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
     const pcDisplay = pcNumber || "____________";
     if (roleType === "flight_reviewer") {
       return {
-        to: "apptest@buzzbuzzin.com",
+        to: "marc.vanderaegen@tc.gc.ca",
         subject: "Flight Reviewer Affiliation",
         body:
           `Dear Mr. Vanderaegen,\n\n` +
           `Please add the following flight reviewer to Buzz.\n\n` +
           `Flight Reviewer: ${app.pilot_name || "_______________"}\n` +
-          `PC: ${pcDisplay}\n\n` +
+          `PC${pcDisplay}\n\n` +
           `Much appreciated.\n\n` +
           `Buzz\n\n` +
           `cc: April`,
@@ -196,13 +196,13 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
     }
     // ROC-A Examiner
     return {
-      to: "apptest@buzzbuzzin.com",
+      to: "marc.vanderaegen@tc.gc.ca",
       subject: `ROC-A Examiner Affiliation`,
       body:
         `Dear Mr. Vanderaegen,\n\n` +
         `Please add the following ROC-A examiner to Buzz.\n\n` +
         `ROC-A Examiner: ${app.pilot_name || "_______________"}\n` +
-        `PC: ${pcDisplay}\n\n` +
+        `PC${pcDisplay}\n\n` +
         `Much appreciated.\n\n` +
         `Buzz\n\n` +
         `cc: April`,
@@ -211,7 +211,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
 
   const handleOpenEmailClient = () => {
     const body = tcEmailBody.replace(/\r?\n/g, "\r\n");
-    const mailto = `mailto:${encodeURIComponent(tcEmailTo.trim())}?subject=${encodeURIComponent(tcEmailSubject.trim())}&body=${encodeURIComponent(body)}`;
+    const mailto = `mailto:${encodeURIComponent(tcEmailTo.trim())}?subject=${encodeURIComponent(tcEmailSubject.trim())}&body=${encodeURIComponent(body)}&cc=${encodeURIComponent("iam@buzzbuzzin.com")}&from=${encodeURIComponent("hello@buzzacademy.world")}`;
     window.open(mailto, "_blank");
   };
 
