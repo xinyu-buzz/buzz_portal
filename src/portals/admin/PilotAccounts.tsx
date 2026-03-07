@@ -228,6 +228,26 @@ export const PilotAccounts = () => {
     });
   };
 
+  const openEditForPilot = (pilot: PilotSpecialRole) => {
+    setShowEditModal(true);
+    setEditSearch("");
+    setSearchResults([]);
+    setEditError(null);
+    setEditForm({
+      pilot_id: pilot.pilot_id,
+      first_name: pilot.first_name || "",
+      last_name: pilot.last_name || "",
+      call_sign: pilot.call_sign || "",
+      region: pilot.region || "",
+      flight_reviewer: pilot.flight_reviewer,
+      roc_a_examiner: pilot.roc_a_examiner,
+      dual_citizen_pilot: pilot.dual_citizen_pilot,
+      faa: pilot.faa,
+      tc: pilot.tc,
+      tier: tierMap[pilot.pilot_id] ?? 0,
+    });
+  };
+
   const handleSaveRoles = async () => {
     if (!editForm) return;
 
@@ -440,7 +460,7 @@ export const PilotAccounts = () => {
                     .join(" ") || "Unknown";
 
                   return (
-                    <tr key={pilot.pilot_id}>
+                    <tr key={pilot.pilot_id} onClick={() => openEditForPilot(pilot)} style={{ cursor: "pointer" }}>
                       <td>{name}</td>
                       <td>{pilot.call_sign || "-"}</td>
                       <td>{pilot.region || "-"}</td>
