@@ -12,6 +12,7 @@ type TicketRow = {
   description: string;
   status: TicketStatus;
   admin_response: string | null;
+  image_urls: string[] | null;
   created_at: string;
   updated_at: string;
   profiles: {
@@ -294,6 +295,35 @@ export const TicketManagement: FC = () => {
                             {row.description}
                           </p>
                         </div>
+                        {row.image_urls && row.image_urls.length > 0 && (
+                          <div>
+                            <strong>Screenshots ({row.image_urls.length})</strong>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 8,
+                                marginTop: 8,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              {row.image_urls.map((url, i) => (
+                                <img
+                                  key={i}
+                                  src={url}
+                                  alt={`Screenshot ${i + 1}`}
+                                  style={{
+                                    width: 200,
+                                    height: 200,
+                                    objectFit: "cover",
+                                    borderRadius: 8,
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() => window.open(url, "_blank")}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div>
                           <strong>Admin Response</strong>
                           <textarea
