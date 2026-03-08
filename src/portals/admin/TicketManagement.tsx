@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseClient } from "../../utility";
 
 type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
@@ -7,7 +7,7 @@ type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
 type TicketRow = {
   id: string;
   user_id: string;
-  type: string;
+  type: "bug" | "safety";
   title: string;
   description: string;
   status: TicketStatus;
@@ -55,7 +55,16 @@ const getUserDisplay = (row: TicketRow) => {
   return p.email;
 };
 
-export const TicketManagement: FC = () => {
+type TicketManagementProps = {
+  ticketType: "bug" | "safety";
+};
+
+const PAGE_META: Record<TicketManagementProps["ticketType"], { title: string; description: string }> = {
+  bug: { title: "Bug Reports", description: "View and manage user-submitted bug reports." },
+  safety: { title: "Safety Reports", description: "View and manage user-submitted safety reports." },
+};
+
+export const TicketManagement: FC<TicketManagementProps> = ({ ticketType }) => {
   const [rows, setRows] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +73,7 @@ export const TicketManagement: FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [adminResponse, setAdminResponse] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const fetchGenRef = useRef(0);
 
   const filteredRows = useMemo(() => {
     let result = rows;
@@ -82,66 +92,86 @@ export const TicketManagement: FC = () => {
   }, [rows, filter, statusFilter]);
 
   const loadTickets = async () => {
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     setError(null);
-    const { data, error } = await supabaseClient
-      .from("ticket_reports")
-      .select(
-        "*, profiles!ticket_reports_user_id_fkey(email, first_name, last_name, call_sign)"
-      )
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabaseClient
+        .from("ticket_reports")
+        .select(
+          "*, profiles!ticket_reports_user_id_fkey(email, first_name, last_name, call_sign)"
+        )
+        .eq("type", ticketType)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Failed to load tickets", error);
-      setError("Could not load tickets. Please try again.");
-    } else {
-      setRows((data || []) as TicketRow[]);
+      if (gen !== fetchGenRef.current) return;
+
+      if (error) {
+        console.error("Failed to load tickets", error);
+        setError("Could not load tickets. Please try again.");
+      } else {
+        setRows((data || []) as TicketRow[]);
+      }
+    } finally {
+      if (gen === fetchGenRef.current) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
 
   useEffect(() => {
+    setRows([]);
+    setExpandedId(null);
+    setAdminResponse("");
+    setFilter("");
+    setStatusFilter("all");
     loadTickets();
-  }, []);
+  }, [ticketType]);
 
   const updateStatus = async (id: string, status: TicketStatus) => {
     setSavingId(id);
     setError(null);
-    const { error } = await supabaseClient
-      .from("ticket_reports")
-      .update({ status })
-      .eq("id", id);
+    try {
+      const { error } = await supabaseClient
+        .from("ticket_reports")
+        .update({ status })
+        .eq("id", id);
 
-    if (error) {
-      console.error("Failed to update status", error);
-      setError("Unable to update status. Please try again.");
-    } else {
-      setRows((prev) =>
-        prev.map((row) => (row.id === id ? { ...row, status } : row))
-      );
+      if (error) {
+        console.error("Failed to update status", error);
+        setError("Unable to update status. Please try again.");
+      } else {
+        setRows((prev) =>
+          prev.map((row) => (row.id === id ? { ...row, status } : row))
+        );
+      }
+    } finally {
+      setSavingId(null);
     }
-    setSavingId(null);
   };
 
   const saveAdminResponse = async (id: string) => {
     setSavingId(id);
     setError(null);
-    const { error } = await supabaseClient
-      .from("ticket_reports")
-      .update({ admin_response: adminResponse })
-      .eq("id", id);
+    try {
+      const { error } = await supabaseClient
+        .from("ticket_reports")
+        .update({ admin_response: adminResponse })
+        .eq("id", id);
 
-    if (error) {
-      console.error("Failed to save response", error);
-      setError("Unable to save response. Please try again.");
-    } else {
-      setRows((prev) =>
-        prev.map((row) =>
-          row.id === id ? { ...row, admin_response: adminResponse } : row
-        )
-      );
+      if (error) {
+        console.error("Failed to save response", error);
+        setError("Unable to save response. Please try again.");
+      } else {
+        setRows((prev) =>
+          prev.map((row) =>
+            row.id === id ? { ...row, admin_response: adminResponse } : row
+          )
+        );
+      }
+    } finally {
+      setSavingId(null);
     }
-    setSavingId(null);
   };
 
   const toggleExpand = (row: TicketRow) => {
@@ -157,9 +187,9 @@ export const TicketManagement: FC = () => {
     <div className="page-card">
       <div className="page-header">
         <div>
-          <h1>Bug Reports</h1>
+          <h1>{PAGE_META[ticketType].title}</h1>
           <p className="muted-text">
-            View and manage user-submitted bug reports.
+            {PAGE_META[ticketType].description}
           </p>
         </div>
         <button className="ghost-btn" onClick={loadTickets} disabled={loading}>
@@ -318,7 +348,7 @@ export const TicketManagement: FC = () => {
                                     borderRadius: 8,
                                     cursor: "pointer",
                                   }}
-                                  onClick={() => window.open(url, "_blank")}
+                                  onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
                                 />
                               ))}
                             </div>

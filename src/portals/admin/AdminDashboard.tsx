@@ -102,6 +102,13 @@ const dashboardSections: DashboardSection[] = [
         to: "/admin/tickets",
         actionLabel: "View bug reports",
       },
+      {
+        key: "safety-reports",
+        title: "Safety Reports",
+        description: "View and manage user-submitted safety reports.",
+        to: "/admin/safety-reports",
+        actionLabel: "View safety reports",
+      },
     ],
   },
   {
@@ -138,7 +145,8 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
         card.key === "app-analytics" ||
         card.key === "pilot-management" ||
         card.key === "pilot-accounts" ||
-        card.key === "tickets"
+        card.key === "tickets" ||
+        card.key === "safety-reports"
       ) {
         return role === "admin" || role === "owner";
       }

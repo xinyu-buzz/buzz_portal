@@ -65,6 +65,7 @@ export const AdminPortal = () => {
           label: "Support",
           links: [
             { to: "/admin/tickets", label: "Bug Reports" },
+            { to: "/admin/safety-reports", label: "Safety Reports" },
           ],
         },
         {
@@ -110,7 +111,8 @@ export const AdminPortal = () => {
         <Route path="recycle-bin" element={<RecycleBin />} />
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="app-analytics" element={<AppAnalytics />} />
-        <Route path="tickets" element={<TicketManagement />} />
+        <Route path="tickets" element={<TicketManagement ticketType="bug" />} />
+        <Route path="safety-reports" element={<TicketManagement ticketType="safety" />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </PortalLayout>
