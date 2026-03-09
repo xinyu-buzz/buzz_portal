@@ -11,7 +11,7 @@ type LicenseApprovalRequest = {
   license_id: string | null;
   license_type: string;
   file_url: string;
-  status: "pending" | "approved" | "rejected" | "document_deleted";
+  status: "pending" | "pre_approved" | "approved" | "rejected" | "document_deleted";
   submitted_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -27,7 +27,7 @@ type Filter = {
   searchQuery: string;
 };
 
-const STATUSES = ["pending", "approved", "rejected", "document_deleted"];
+const STATUSES = ["pending", "pre_approved", "approved", "rejected", "document_deleted"];
 
 const ROLE_CONFIG: Record<RoleType, { title: string; licensePattern: string; roleField: string }> = {
   flight_reviewer: {
@@ -250,6 +250,12 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
       return;
     }
 
+    // Prevent bypassing pre_approved step via Edit Status
+    if (editStatusValue === "approved" && editStatusApp.status !== "pre_approved" && editStatusApp.status !== "approved") {
+      setEditStatusError("Cannot approve directly. The application must be pre-approved first so that Transport Canada is notified.");
+      return;
+    }
+
     setEditStatusSubmitting(true);
     setEditStatusError(null);
 
@@ -357,7 +363,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
     return userId;
   };
 
-  const handleApprove = async () => {
+  const handlePreApprove = async () => {
     if (!selectedApp) return;
 
     setSubmitting(true);
@@ -366,11 +372,11 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
     try {
       const userId = await getAuthUserId();
 
-      // 1. Mark application as approved first (safer order — role grant is idempotent)
+      // Mark application as pre_approved (no role grant, no tests — TC confirmation pending)
       const { data: updateData, error: updateError } = await supabaseClient
         .from("license_approval_requests")
         .update({
-          status: "approved",
+          status: "pre_approved",
           reviewed_at: new Date().toISOString(),
           reviewed_by: userId,
           reviewer_notes: reviewerNotes.trim() || null,
@@ -384,6 +390,63 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
         throw new Error("This application has already been reviewed. Please refresh and try again.");
       }
 
+      // Preserve app reference and PC state for TC email before closing review modal
+      const appForEmail = { ...selectedApp };
+      const capturedPC = extractedPC;
+      const emailDefaults = generateTCEmailDefaults(appForEmail, capturedPC);
+
+      closeReviewModal();
+      await loadApplications();
+
+      // Restore PC extraction result for TC email inline indicator
+      setExtractedPC(capturedPC);
+
+      // Open TC email modal after pre-approval
+      setApprovedApp(appForEmail);
+      setTcEmailTo(emailDefaults.to);
+      setTcEmailSubject(emailDefaults.subject);
+      setTcEmailBody(emailDefaults.body);
+      setShowTCEmailModal(true);
+
+      // Show warning popup if PC was not found
+      if (capturedPC === null) {
+        setShowPcWarningModal(true);
+      }
+    } catch (err: any) {
+      console.error("Failed to pre-approve application", err);
+      setModalError(err.message || "Failed to pre-approve application");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedApp) return;
+
+    setSubmitting(true);
+    setModalError(null);
+
+    try {
+      const userId = await getAuthUserId();
+
+      // 1. Mark application as approved (from pre_approved)
+      const { data: updateData, error: updateError } = await supabaseClient
+        .from("license_approval_requests")
+        .update({
+          status: "approved",
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: userId,
+          reviewer_notes: reviewerNotes.trim() || null,
+        })
+        .eq("id", selectedApp.id)
+        .eq("status", "pre_approved")
+        .select();
+
+      if (updateError) throw updateError;
+      if (!updateData || updateData.length === 0) {
+        throw new Error("This application is not in pre-approved status. Please refresh and try again.");
+      }
+
       // 2. Grant the special role (idempotent upsert, safe to retry)
       const { error: roleError } = await supabaseClient
         .from("pilot_special_roles")
@@ -393,7 +456,6 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
         );
 
       if (roleError) {
-        // Application is already approved but role grant failed — give actionable message
         throw new Error(
           `Application approved, but failed to grant ${config.roleField.replace("_", " ")} role. ` +
           `Please grant it manually via Pilot Accounts. (${roleError.message})`
@@ -410,28 +472,8 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
         console.warn('Auto-complete tests warning:', autoCompleteError.message);
       }
 
-      // Preserve app reference and PC state for TC email before closing review modal
-      const appForEmail = { ...selectedApp };
-      const capturedPC = extractedPC;
-      const emailDefaults = generateTCEmailDefaults(appForEmail, capturedPC);
-
       closeReviewModal();
       await loadApplications();
-
-      // Restore PC extraction result for TC email inline indicator
-      setExtractedPC(capturedPC);
-
-      // Open TC email modal after approval
-      setApprovedApp(appForEmail);
-      setTcEmailTo(emailDefaults.to);
-      setTcEmailSubject(emailDefaults.subject);
-      setTcEmailBody(emailDefaults.body);
-      setShowTCEmailModal(true);
-
-      // Show warning popup if PC was not found
-      if (capturedPC === null) {
-        setShowPcWarningModal(true);
-      }
     } catch (err: any) {
       console.error("Failed to approve application", err);
       setModalError(err.message || "Failed to approve application");
@@ -463,7 +505,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
           reviewer_notes: reviewerNotes,
         })
         .eq("id", selectedApp.id)
-        .eq("status", "pending")
+        .in("status", ["pending", "pre_approved"])
         .select();
 
       if (updateError) throw updateError;
@@ -484,6 +526,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, { bg: string; text: string; label: string }> = {
       pending: { bg: "rgba(251, 191, 36, 0.2)", text: "#fbbf24", label: "Pending" },
+      pre_approved: { bg: "rgba(59, 130, 246, 0.2)", text: "#3b82f6", label: "Pre-approved" },
       approved: { bg: "rgba(34, 197, 94, 0.2)", text: "#22c55e", label: "Approved" },
       rejected: { bg: "rgba(239, 68, 68, 0.2)", text: "#ef4444", label: "Rejected" },
       document_deleted: { bg: "rgba(107, 114, 128, 0.2)", text: "#9ca3b5", label: "Document Deleted" },
@@ -665,7 +708,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                   transition: "all 0.2s",
                 }}
               >
-                {status === "document_deleted" ? "Document Deleted" : status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === "document_deleted" ? "Document Deleted" : status === "pre_approved" ? "Pre-approved" : status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
           </div>
@@ -712,7 +755,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {app.status === "pending" && (
+                        {(app.status === "pending" || app.status === "pre_approved") && (
                           <button
                             className="primary-btn"
                             style={{
@@ -722,7 +765,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                             }}
                             onClick={() => openReviewModal(app)}
                           >
-                            Review
+                            {app.status === "pre_approved" ? "Final Review" : "Review"}
                           </button>
                         )}
                         {app.status !== "document_deleted" && (
@@ -836,6 +879,26 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
                 <>
                   <button
                     className="primary-btn"
+                    onClick={handlePreApprove}
+                    disabled={submitting}
+                    style={{ backgroundColor: "#3b82f6" }}
+                  >
+                    {submitting ? "Processing..." : "Pre-Approve"}
+                  </button>
+                  <button
+                    className="primary-btn"
+                    onClick={handleReject}
+                    disabled={submitting}
+                    style={{ backgroundColor: "#ef4444" }}
+                  >
+                    {submitting ? "Processing..." : "Reject"}
+                  </button>
+                </>
+              )}
+              {selectedApp.status === "pre_approved" && (
+                <>
+                  <button
+                    className="primary-btn"
                     onClick={handleApprove}
                     disabled={submitting}
                     style={{ backgroundColor: "#22c55e" }}
@@ -908,7 +971,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
               >
                 {STATUSES.filter((s) => s !== "document_deleted").map((s) => (
                   <option key={s} value={s}>
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                    {s === "pre_approved" ? "Pre-approved" : s.charAt(0).toUpperCase() + s.slice(1)}
                   </option>
                 ))}
               </select>
@@ -966,7 +1029,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
             </div>
 
             <p style={{ color: "#9ca3b5", marginBottom: 16, fontSize: 14 }}>
-              Application approved for <strong>{approvedApp?.pilot_name}</strong>. Review the email below, then click
+              Application pre-approved for <strong>{approvedApp?.pilot_name}</strong>. Review the email below, then click
               "Open in Email Client" to send via your default email app.
             </p>
 
