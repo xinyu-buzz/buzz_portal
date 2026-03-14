@@ -258,6 +258,7 @@ export const AdminInbox = () => {
                 >
                   <div className="nav-inbox__meta">
                     <span>{SOURCE_LABELS[notification.source_type] || "Admin Item"}</span>
+                    <span aria-hidden="true">&middot;</span>
                     <span>{formatTimestamp(notification.created_at)}</span>
                   </div>
 
