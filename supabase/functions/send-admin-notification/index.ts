@@ -71,7 +71,7 @@ serve(async (req) => {
         : null;
 
       return {
-        from: "Buzz <updates@buzzbuzzin.com>",
+        from: "Buzz Admin <noreply@updates.buzzbuzzin.com>",
         to: notification.recipient_email,
         subject: `New admin item: ${sourceLabel}`,
         html: renderEmailHtml(notification, fullLink, sourceLabel),
