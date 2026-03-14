@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabaseClient } from "../../utility";
 import { useNavigate } from "react-router-dom";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 type TrainingCourse = {
   id: string;
@@ -65,6 +66,19 @@ export const AcademyCourses = () => {
     external_url: "",
     region: "Global",
     active: false,
+  });
+
+  useEscapeKey(() => {
+    if (showDeleteModal) {
+      setShowDeleteModal(false);
+      setDeletingCourse(null);
+      setDeleteConfirmation("");
+    } else if (showCreate || showEdit) {
+      setShowCreate(false);
+      setShowEdit(false);
+      setEditingCourse(null);
+      setError(null);
+    }
   });
 
   const load = async () => {
@@ -1193,7 +1207,7 @@ export const AcademyCourses = () => {
 
       {(showCreate || showEdit || showDeleteModal) && (
         <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: 700 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 700 }}>
             <div
               style={{
                 display: "flex",
@@ -1520,7 +1534,7 @@ export const AcademyCourses = () => {
 
       {showDeleteModal && deletingCourse && (
         <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: 500 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 500 }}>
             <div
               style={{
                 display: "flex",

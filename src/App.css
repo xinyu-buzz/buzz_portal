@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;800&display=swap");
+/* Lexend font loaded via <link rel="preload"> in index.html */
 
 :root {
   --primary: #6c7694;
@@ -8,6 +8,21 @@
   --text: #f2f3f7;
   --muted: #9ca3b5;
   --border: #444a58;
+
+  /* Semantic status colors */
+  --status-success: #22c55e;
+  --status-warning: #f97316;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+
+  /* Z-index scale */
+  --z-nav: 10;
+  --z-dropdown: 20;
+  --z-modal: 100;
+  --z-toast: 200;
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
 * {
@@ -32,6 +47,29 @@ body {
 
 a {
   color: inherit;
+}
+
+/* Global focus indicators for keyboard navigation */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Inputs already have their own focus style */
+.text-input:focus-visible,
+.claims-filter__search:focus-visible {
+  box-shadow: 0 0 0 3px rgba(110, 120, 145, 0.25);
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .page-shell {
@@ -245,7 +283,7 @@ a {
   justify-content: center;
   gap: 8px;
   background: var(--primary);
-  color: #fff;
+  color: var(--text);
   padding: 10px 14px;
   border-radius: 8px;
   font-size: 14px;
@@ -267,6 +305,12 @@ a {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
+.button-like:active,
+.primary-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
 .button-like.danger-btn {
   background: #c65c5c;
 }
@@ -283,6 +327,16 @@ a {
   cursor: pointer;
   font-weight: 600;
   color: var(--text);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.ghost-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--primary);
+}
+
+.ghost-btn:active {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .top-nav {
@@ -294,7 +348,7 @@ a {
   background: #323744;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: var(--z-nav);
 }
 
 .top-nav__left {
@@ -341,8 +395,8 @@ a {
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  background: #f97316;
-  color: white;
+  background: var(--status-warning);
+  color: var(--text);
   font-size: 11px;
   font-weight: 800;
   display: inline-flex;
@@ -360,7 +414,7 @@ a {
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
-  z-index: 100;
+  z-index: var(--z-modal);
   width: min(420px, calc(100vw - 24px));
   max-height: min(72vh, 640px);
   overflow: hidden;
@@ -532,7 +586,7 @@ a {
   border-radius: 10px;
   padding: 6px 0;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-  z-index: 20;
+  z-index: var(--z-dropdown);
   opacity: 0;
   transform: translateY(4px);
   pointer-events: none;
@@ -614,7 +668,7 @@ a {
 /* Auth */
 .auth-page {
   min-height: 100vh;
-  background: #2c3039;
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -702,6 +756,10 @@ h1 {
   box-shadow: 0 0 0 3px rgba(110, 120, 145, 0.25);
 }
 
+.text-input:focus-visible {
+  outline: none;
+}
+
 .role-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -764,7 +822,7 @@ h1 {
   display: grid;
   place-items: center;
   padding: 16px;
-  z-index: 1000;
+  z-index: var(--z-modal);
 }
 
 .modal-card {
@@ -840,7 +898,7 @@ h1 {
   background-color: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  color: white;
+  color: var(--text);
   font-size: 14px;
   font-family: inherit;
 }
@@ -871,12 +929,12 @@ h1 {
   cursor: pointer;
   font-size: 14px;
   font-family: inherit;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .claims-filter__status-btn--active {
   background-color: #6b8cae;
-  color: white;
+  color: var(--text);
 }
 
 .claims-empty {
@@ -885,3 +943,76 @@ h1 {
   color: var(--muted);
   font-size: 15px;
 }
+
+/* Minimum touch targets for all buttons */
+button,
+[role="button"] {
+  min-height: 44px;
+}
+
+/* Screen-reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Responsive: collapse grids and filter sections on mobile */
+@media (max-width: 480px) {
+  .page-shell {
+    padding: 12px;
+  }
+
+  .page-card {
+    padding: 16px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+  }
+
+  .modal-card {
+    max-height: 90vh;
+    padding: 16px;
+  }
+
+  .claims-filter {
+    padding: 12px;
+  }
+
+  .claims-filter__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .claims-filter__search {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .data-table th,
+  .data-table td {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .auth-card {
+    padding: 24px 16px;
+  }
+}
+

@@ -330,7 +330,7 @@ export const FlightHourClaimsReview = () => {
       </div>
 
       {pageError && (
-        <div className="alert error" style={{ marginBottom: 16 }}>
+        <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
           {pageError}
         </div>
       )}
@@ -385,7 +385,7 @@ export const FlightHourClaimsReview = () => {
         <div className="claims-empty">No claims found.</div>
       ) : (
         <>
-          <p className="muted-text" style={{ marginBottom: 16 }}>
+          <p className="muted-text" style={{ marginBottom: 16 }} aria-live="polite">
             Showing {claims.length} claim
             {claims.length !== 1 ? "s" : ""}
           </p>
@@ -457,8 +457,8 @@ export const FlightHourClaimsReview = () => {
 
       {/* Review Modal */}
       {showReviewModal && selectedClaim && (
-        <div className="modal-backdrop" onClick={() => { if (!submitting) closeReviewModal(); }}>
-          <div className="modal-card" style={{ maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => { if (!submitting) closeReviewModal(); }} onKeyDown={(e) => { if (e.key === "Escape" && !submitting) closeReviewModal(); }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
             <div
               style={{
                 display: "flex",
@@ -474,7 +474,7 @@ export const FlightHourClaimsReview = () => {
             </div>
 
             {modalError && (
-              <div className="alert error" style={{ marginBottom: 16 }}>
+              <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
                 {modalError}
               </div>
             )}

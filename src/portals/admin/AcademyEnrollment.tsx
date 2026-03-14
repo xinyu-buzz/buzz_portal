@@ -203,13 +203,13 @@ export const AcademyEnrollment = () => {
     <div className="page-card">
       <div className="page-header">
         <h1>Academy Enrollment</h1>
-        <button className="primary-btn" onClick={loadEnrollments}>
+        <button className="primary-btn" onClick={loadEnrollments} aria-label="Refresh enrollment data">
           🔄 Refresh
         </button>
       </div>
 
       {error && (
-        <div className="alert error" style={{ marginBottom: 16 }}>
+        <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -387,7 +387,7 @@ export const AcademyEnrollment = () => {
         <p>Loading enrollments...</p>
       ) : (
         <>
-          <p style={{ marginBottom: "16px", color: "#9ca3b5" }}>
+          <p style={{ marginBottom: "16px", color: "#9ca3b5" }} aria-live="polite">
             Showing {enrollments.length} enrollment{enrollments.length !== 1 ? "s" : ""}
           </p>
 

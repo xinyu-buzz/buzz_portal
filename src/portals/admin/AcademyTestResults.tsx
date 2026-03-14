@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseClient } from "../../utility";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 type TestResult = {
   id: string;
@@ -46,6 +47,10 @@ export const AcademyTestResults = () => {
     uploadStatus: "pending",
     testType: null,
     searchQuery: "",
+  });
+
+  useEscapeKey(() => {
+    if (showReviewModal) closeReviewModal();
   });
 
   const loadTestResults = async () => {
@@ -353,13 +358,13 @@ export const AcademyTestResults = () => {
     <div className="page-card">
       <div className="page-header">
         <h1>Academy Test Results</h1>
-        <button className="primary-btn" onClick={loadTestResults}>
+        <button className="primary-btn" onClick={loadTestResults} aria-label="Refresh test results">
           🔄 Refresh
         </button>
       </div>
 
       {error && !showReviewModal && (
-        <div className="alert error" style={{ marginBottom: 16 }}>
+        <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -541,7 +546,7 @@ export const AcademyTestResults = () => {
         <p>Loading test results...</p>
       ) : (
         <>
-          <p style={{ marginBottom: "16px", color: "#9ca3b5" }}>
+          <p style={{ marginBottom: "16px", color: "#9ca3b5" }} aria-live="polite">
             Showing {testResults.length} test result{testResults.length !== 1 ? "s" : ""}
           </p>
 
@@ -662,7 +667,7 @@ export const AcademyTestResults = () => {
       {/* Review Modal */}
       {showReviewModal && selectedResult && (
         <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: 700 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 700 }}>
             <div
               style={{
                 display: "flex",
@@ -677,7 +682,7 @@ export const AcademyTestResults = () => {
               </button>
             </div>
 
-            {error && <div className="alert error" style={{ marginBottom: 16 }}>{error}</div>}
+            {error && <div className="alert error" role="alert" style={{ marginBottom: 16 }}>{error}</div>}
 
             <div style={{ marginBottom: "24px" }}>
               <div style={{ marginBottom: "12px" }}>

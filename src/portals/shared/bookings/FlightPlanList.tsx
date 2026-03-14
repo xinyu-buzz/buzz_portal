@@ -258,9 +258,11 @@ export const FlightPlanList = () => {
       )}
 
       {selectedPlan && (
-        <div className="modal-backdrop" onClick={() => setSelectedPlan(null)}>
+        <div className="modal-backdrop" onClick={() => setSelectedPlan(null)} onKeyDown={(e) => { if (e.key === "Escape") setSelectedPlan(null); }}>
           <div
             className="modal-card"
+            role="dialog"
+            aria-modal="true"
             style={{ maxWidth: 800, maxHeight: "90vh", overflow: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >

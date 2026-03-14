@@ -56,7 +56,18 @@ export const PortalLayout = ({
               )}
               {sections.map((section) => (
                 <div key={section.label} className="nav-section">
-                  <span className="nav-section__trigger" tabIndex={0}>
+                  <span
+                    className="nav-section__trigger"
+                    tabIndex={0}
+                    role="button"
+                    aria-haspopup="true"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLElement).click();
+                      }
+                    }}
+                  >
                     {section.label}
                   </span>
                   <div className="nav-section__dropdown">
@@ -88,11 +99,7 @@ export const PortalLayout = ({
           </button>
         </div>
       </nav>
-      <div className="page-shell">{children}</div>
+      <main className="page-shell">{children}</main>
     </>
   );
 };
-
-
-
-

@@ -190,8 +190,8 @@ export const Newsletter: FC = () => {
       </div>
 
       {showSubscribersModal && (
-        <div className="modal-backdrop" onClick={() => setShowSubscribersModal(false)}>
-          <div className="modal-card subscribers-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => setShowSubscribersModal(false)} onKeyDown={(e) => { if (e.key === "Escape") setShowSubscribersModal(false); }}>
+          <div className="modal-card subscribers-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Newsletter Subscribers</h2>
               <button

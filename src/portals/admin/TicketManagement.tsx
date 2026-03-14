@@ -218,12 +218,12 @@ export const TicketManagement: FC<TicketManagementProps> = ({ ticketType }) => {
             </option>
           ))}
         </select>
-        <span className="muted-text">
+        <span className="muted-text" aria-live="polite">
           Showing {filteredRows.length} of {rows.length}
         </span>
       </div>
 
-      {error && <div className="alert error">{error}</div>}
+      {error && <div className="alert error" role="alert">{error}</div>}
 
       {loading ? (
         <p>Loading tickets...</p>

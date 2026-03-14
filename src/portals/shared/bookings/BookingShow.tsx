@@ -7,6 +7,7 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabaseClient } from "../../../utility";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { BookingMediaManager } from "../../../components/BookingMediaManager";
 import type { PortalRole } from "../role";
 
@@ -102,6 +103,12 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
   const isAdminPortal = basePath?.startsWith("/admin");
   const showAdminActions = isAdminLike && isAdminPortal;
 
+  useEscapeKey(() => {
+    if (showEdit) setShowEdit(false);
+    else if (showEditorPicker) setShowEditorPicker(false);
+    else if (showPilotPicker) setShowPilotPicker(false);
+  });
+
   useEffect(() => {
     if (!bookingId) return;
 
@@ -140,7 +147,6 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
         console.error(bookingError);
         setError("Could not load booking.");
       } else {
-        console.log("📋 Loaded booking:", bookingData);
         setBooking(bookingData as Booking);
         setSelectedPilot(bookingData?.pilot_id || "");
       }
@@ -199,7 +205,6 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           "id,pilot_id,role,profiles:pilot_id(first_name,last_name,email,call_sign)"
         )
         .eq("booking_id", bookingId);
-      console.log("🔍 Raw crew data from Supabase:", data, "Error:", error);
       if (error) {
         console.error(error);
         return;
@@ -217,7 +222,6 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
             row.profiles?.email ||
             "Unknown pilot",
         })) || [];
-      console.log("🔍 Loaded crew members:", members);
       setCrew(members);
       if (members.some((m) => m.role === "lead")) {
         setSelectedPilot(
@@ -496,14 +500,6 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
   };
 
   const displayedPilots = useMemo(() => {
-    console.log("🎯 Computing displayedPilots:", {
-      specialization: booking?.specialization,
-      crewLength: crew.length,
-      crew,
-      selectedPilot,
-      bookingPilotId: booking?.pilot_id,
-    });
-
     if (booking?.specialization === "automotive") {
       const hasLeadInCrew = crew.some((m) => m.role === "lead");
       const leadFromBooking =
@@ -523,7 +519,6 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           return a.role === "lead" ? -1 : 1;
         }
       );
-      console.log("🎯 Automotive displayedPilots result:", result);
       return result;
     }
 
@@ -764,7 +759,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
         </div>
         {showAdminActions && showPilotPicker && (
           <div className="modal-backdrop">
-            <div className="modal-card">
+            <div className="modal-card" role="dialog" aria-modal="true">
               <div
                 style={{
                   display: "flex",
@@ -880,7 +875,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           {removeEditorsError && <p style={{ color: "red" }}>{removeEditorsError}</p>}
           {showAdminActions && showEditorPicker && (
             <div className="modal-backdrop">
-              <div className="modal-card">
+              <div className="modal-card" role="dialog" aria-modal="true">
                 <div
                   style={{
                     display: "flex",
@@ -950,7 +945,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
 
       {showEdit && (
         <div className="modal-backdrop">
-          <div className="modal-card">
+          <div className="modal-card" role="dialog" aria-modal="true">
             <div
               style={{
                 display: "flex",

@@ -113,6 +113,9 @@ export const IncidentLogList = () => {
           {logs.map((log) => (
             <div
               key={log.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`View incident report by ${log.pilot_call_sign || log.pilot_email || "Unknown"}`}
               style={{
                 border: "1px solid #555a66",
                 borderRadius: 10,
@@ -122,6 +125,7 @@ export const IncidentLogList = () => {
                 cursor: "pointer",
               }}
               onClick={() => setSelectedLog(log)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedLog(log); } }}
             >
               <div
                 style={{
@@ -186,9 +190,11 @@ export const IncidentLogList = () => {
       )}
 
       {selectedLog && (
-        <div className="modal-backdrop" onClick={() => setSelectedLog(null)}>
+        <div className="modal-backdrop" onClick={() => setSelectedLog(null)} onKeyDown={(e) => { if (e.key === "Escape") setSelectedLog(null); }}>
           <div
             className="modal-card"
+            role="dialog"
+            aria-modal="true"
             style={{ maxWidth: 800, maxHeight: "90vh", overflow: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -314,7 +320,7 @@ export const IncidentLogList = () => {
                       border: "1px solid #555a66",
                       borderRadius: 8,
                       padding: 8,
-                      background: "#fff",
+                      background: "#f2f3f7",
                     }}
                   >
                     <img

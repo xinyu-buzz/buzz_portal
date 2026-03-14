@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabaseClient } from "../../utility";
 import { extractPCNumber } from "../../utility/extractPCNumber";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 type RoleType = "flight_reviewer" | "roc_a_examiner";
 
@@ -79,6 +80,13 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
   const [filter, setFilter] = useState<Filter>({
     status: "pending",
     searchQuery: "",
+  });
+
+  useEscapeKey(() => {
+    if (showPcWarningModal) setShowPcWarningModal(false);
+    else if (showTCEmailModal) closeTCEmailModal();
+    else if (showEditStatusModal) closeEditStatusModal();
+    else if (showReviewModal) closeReviewModal();
   });
 
   const loadApplications = async () => {
@@ -599,7 +607,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
       </div>
 
       {pageError && (
-        <div className="alert error" style={{ marginBottom: 16 }}>
+        <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
           {pageError}
         </div>
       )}
@@ -719,7 +727,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
         <p>Loading applications...</p>
       ) : (
         <>
-          <p style={{ marginBottom: "16px", color: "#9ca3b5" }}>
+          <p style={{ marginBottom: "16px", color: "#9ca3b5" }} aria-live="polite">
             Showing {applications.length} application
             {applications.length !== 1 ? "s" : ""}
           </p>
@@ -806,7 +814,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
       {/* Review Modal */}
       {showReviewModal && selectedApp && (
         <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: 700 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 700 }}>
             <div
               style={{
                 display: "flex",
@@ -822,7 +830,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
             </div>
 
             {modalError && (
-              <div className="alert error" style={{ marginBottom: 16 }}>
+              <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
                 {modalError}
               </div>
             )}
@@ -930,7 +938,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
       {/* Edit Status Modal */}
       {showEditStatusModal && editStatusApp && (
         <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: 500 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 500 }}>
             <div
               style={{
                 display: "flex",
@@ -946,7 +954,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
             </div>
 
             {editStatusError && (
-              <div className="alert error" style={{ marginBottom: 16 }}>
+              <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
                 {editStatusError}
               </div>
             )}
@@ -1013,7 +1021,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
       {/* TC Email Modal */}
       {showTCEmailModal && (
         <div className="modal-backdrop" style={{ zIndex: 1000 }}>
-          <div className="modal-card" style={{ maxWidth: 700 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 700 }}>
             <div
               style={{
                 display: "flex",
@@ -1097,7 +1105,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
       {/* PC Number Warning Modal */}
       {showPcWarningModal && (
         <div className="modal-backdrop" style={{ zIndex: 1100 }}>
-          <div className="modal-card" style={{ maxWidth: 420, textAlign: "center" }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 420, textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>&#9888;</div>
             <h3 style={{ marginBottom: 8 }}>PC Number Not Found</h3>
             <p style={{ color: "#9ca3b5", fontSize: 14, marginBottom: 24 }}>
@@ -1107,7 +1115,7 @@ export const LicenseApprovalReview = ({ roleType }: { roleType: RoleType }) => {
             <button
               className="primary-btn"
               onClick={() => setShowPcWarningModal(false)}
-              style={{ backgroundColor: "#f59e0b", color: "#000", minWidth: 160 }}
+              style={{ backgroundColor: "#f59e0b", color: "#1a1c20", minWidth: 160 }}
             >
               Acknowledged
             </button>

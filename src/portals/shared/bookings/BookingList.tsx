@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabaseClient } from "../../../utility";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import type { PortalRole } from "../role";
 
 type BookingRow = {
@@ -106,6 +107,11 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
 
   const isPilot = role === "pilot";
   const isAdminLike = role === "admin" || role === "owner";
+
+  useEscapeKey(() => {
+    if (showBeaconCreate) setShowBeaconCreate(false);
+    else if (showCreate) setShowCreate(false);
+  });
 
   const loadPilotBookings = async (pilotId: string) => {
     const [{ data: direct, error: directError }, { data: crewData, error: crewError }] =
@@ -632,7 +638,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
 
       {showCreate && (
         <div className="modal-backdrop">
-          <div className="modal-card">
+          <div className="modal-card" role="dialog" aria-modal="true">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0 }}>Create Booking</h3>
               <button className="ghost-btn" onClick={() => setShowCreate(false)}>
@@ -831,7 +837,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
 
       {showBeaconCreate && (
         <div className="modal-backdrop">
-          <div className="modal-card">
+          <div className="modal-card" role="dialog" aria-modal="true">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0, color: "#e65100" }}>Create Beacon Booking</h3>
               <button className="ghost-btn" onClick={() => setShowBeaconCreate(false)}>

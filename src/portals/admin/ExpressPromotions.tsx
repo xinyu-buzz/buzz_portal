@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseClient } from "../../utility";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 type ExpressPromotionApp = {
   id: string;
@@ -40,6 +41,10 @@ export const ExpressPromotions = () => {
     status: "pending",
     promotionType: null,
     searchQuery: "",
+  });
+
+  useEscapeKey(() => {
+    if (showReviewModal) closeReviewModal();
   });
 
   const loadApplications = async () => {
@@ -366,7 +371,7 @@ export const ExpressPromotions = () => {
       </div>
 
       {error && !showReviewModal && (
-        <div className="alert error" style={{ marginBottom: 16 }}>
+        <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -545,7 +550,7 @@ export const ExpressPromotions = () => {
         <p>Loading applications...</p>
       ) : (
         <>
-          <p style={{ marginBottom: "16px", color: "#9ca3b5" }}>
+          <p style={{ marginBottom: "16px", color: "#9ca3b5" }} aria-live="polite">
             Showing {applications.length} application
             {applications.length !== 1 ? "s" : ""}
           </p>
@@ -630,7 +635,7 @@ export const ExpressPromotions = () => {
       {/* Review Modal */}
       {showReviewModal && selectedApp && (
         <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: 700 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 700 }}>
             <div
               style={{
                 display: "flex",
@@ -646,7 +651,7 @@ export const ExpressPromotions = () => {
             </div>
 
             {error && (
-              <div className="alert error" style={{ marginBottom: 16 }}>
+              <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
                 {error}
               </div>
             )}

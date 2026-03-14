@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseClient } from "../../utility";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 type PilotSpecialRole = {
   pilot_id: string;
@@ -85,6 +86,10 @@ export const PilotAccounts = () => {
   const [submitting, setSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [tierMap, setTierMap] = useState<Record<string, number>>({});
+
+  useEscapeKey(() => {
+    if (showEditModal) closeEditModal();
+  });
 
   const loadPilots = async () => {
     setLoading(true);
@@ -399,7 +404,7 @@ export const PilotAccounts = () => {
       </div>
 
       {error && (
-        <div className="alert error" style={{ marginBottom: 16 }}>
+        <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -481,7 +486,7 @@ export const PilotAccounts = () => {
         <p>Loading pilot accounts...</p>
       ) : (
         <>
-          <p style={{ marginBottom: "16px", color: "#9ca3b5" }}>
+          <p style={{ marginBottom: "16px", color: "#9ca3b5" }} aria-live="polite">
             Showing {filteredPilots.length} pilot
             {filteredPilots.length !== 1 ? "s" : ""}
           </p>
@@ -536,7 +541,7 @@ export const PilotAccounts = () => {
       {/* Edit Modal */}
       {showEditModal && (
         <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: 700 }}>
+          <div className="modal-card" role="dialog" aria-modal="true" style={{ maxWidth: 700 }}>
             <div
               style={{
                 display: "flex",
@@ -552,7 +557,7 @@ export const PilotAccounts = () => {
             </div>
 
             {editError && (
-              <div className="alert error" style={{ marginBottom: 16 }}>
+              <div className="alert error" role="alert" style={{ marginBottom: 16 }}>
                 {editError}
               </div>
             )}
