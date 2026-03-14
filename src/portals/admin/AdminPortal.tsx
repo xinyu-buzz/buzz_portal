@@ -21,6 +21,7 @@ import { PilotAccounts } from "./PilotAccounts";
 import { LicenseApprovalReview } from "./LicenseApprovalReview";
 import { TicketManagement } from "./TicketManagement";
 import { FlightHourClaimsReview } from "./FlightHourClaimsReview";
+import { DisputeManagement } from "./DisputeManagement";
 import { AdminInbox } from "./AdminInbox";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
@@ -69,6 +70,7 @@ export const AdminPortal = () => {
           links: [
             { to: "/admin/tickets", label: "Bug Reports" },
             { to: "/admin/safety-reports", label: "Safety Reports" },
+            { to: "/admin/disputes", label: "Dispute Reports" },
           ],
         },
         {
@@ -117,6 +119,7 @@ export const AdminPortal = () => {
         <Route path="app-analytics" element={<AppAnalytics />} />
         <Route path="tickets" element={<TicketManagement ticketType="bug" />} />
         <Route path="safety-reports" element={<TicketManagement ticketType="safety" />} />
+        <Route path="disputes" element={<DisputeManagement />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </PortalLayout>
