@@ -35,6 +35,14 @@ const dashboardCards: DashboardCard[] = [
     actionLabel: "Review applications",
   },
   {
+    key: "flight-hour-claims",
+    title: "Flight Hour Claims",
+    description:
+      "Review and approve pilot flight hour history submissions.",
+    to: "/admin/flight-hour-claims",
+    actionLabel: "Review claims",
+  },
+  {
     key: "dual-citizen-pilot",
     title: "Dual Citizen Pilot Application",
     description:

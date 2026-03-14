@@ -20,6 +20,8 @@ import { PilotManagement } from "./PilotManagement";
 import { PilotAccounts } from "./PilotAccounts";
 import { LicenseApprovalReview } from "./LicenseApprovalReview";
 import { TicketManagement } from "./TicketManagement";
+import { FlightHourClaimsReview } from "./FlightHourClaimsReview";
+import { AdminInbox } from "./AdminInbox";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -33,6 +35,7 @@ export const AdminPortal = () => {
       brand={brand}
       links={[{ to: "/admin/dashboard", label: "Dashboard" }]}
       dashboardLink={{ to: "/admin/dashboard", label: "Dashboard" }}
+      rightSlot={<AdminInbox />}
       sections={[
         {
           label: "Operations",
@@ -108,6 +111,7 @@ export const AdminPortal = () => {
         <Route path="express-promotions" element={<ExpressPromotions />} />
         <Route path="flight-reviewer-applications" element={<LicenseApprovalReview roleType="flight_reviewer" />} />
         <Route path="roc-a-examiner-applications" element={<LicenseApprovalReview roleType="roc_a_examiner" />} />
+        <Route path="flight-hour-claims" element={<FlightHourClaimsReview />} />
         <Route path="recycle-bin" element={<RecycleBin />} />
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="app-analytics" element={<AppAnalytics />} />
@@ -118,7 +122,5 @@ export const AdminPortal = () => {
     </PortalLayout>
   );
 };
-
-
 
 

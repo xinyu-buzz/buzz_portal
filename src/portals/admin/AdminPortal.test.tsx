@@ -17,7 +17,7 @@ vi.mock("../shared/role", () => ({
 
 // Mock PortalLayout to just render children with brand
 vi.mock("../shared/PortalLayout", () => ({
-  PortalLayout: ({ brand, links, sections, dashboardLink, children }: any) => (
+  PortalLayout: ({ brand, links, sections, dashboardLink, rightSlot, children }: any) => (
     <div data-testid="portal-layout">
       <span data-testid="brand">{brand}</span>
       <nav>
@@ -40,6 +40,7 @@ vi.mock("../shared/PortalLayout", () => ({
                 {l.label}
               </a>
             ))}
+        {rightSlot}
       </nav>
       <div>{children}</div>
     </div>
@@ -77,6 +78,9 @@ vi.mock("./CourseUnitsManager", () => ({
 vi.mock("./RecycleBin", () => ({
   RecycleBin: () => <div>Recycle Bin</div>,
 }));
+vi.mock("./AdminInbox", () => ({
+  AdminInbox: () => <div>Admin Inbox</div>,
+}));
 vi.mock("../shared/bookings/BookingList", () => ({
   BookingList: () => <div>Booking List</div>,
 }));
@@ -112,6 +116,7 @@ describe("AdminPortal", () => {
 
     expect(screen.getByText("New Accounts")).toBeInTheDocument();
     expect(screen.getByText("Bookings")).toBeInTheDocument();
+    expect(screen.getByText("Admin Inbox")).toBeInTheDocument();
     expect(screen.getByText("Admin Center")).toBeInTheDocument();
     expect(screen.getByText("Academy Courses")).toBeInTheDocument();
     expect(screen.getByText("Academy Manager")).toBeInTheDocument();

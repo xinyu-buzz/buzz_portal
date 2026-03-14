@@ -32,6 +32,9 @@ function createStorageBucket() {
 
 export const mockSupabaseClient = {
   from: vi.fn().mockReturnValue(createQueryBuilder()),
+  functions: {
+    invoke: vi.fn().mockResolvedValue({ data: null, error: null }),
+  },
   auth: {
     getSession: vi.fn().mockResolvedValue({
       data: { session: null },

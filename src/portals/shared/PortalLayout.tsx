@@ -18,6 +18,7 @@ type PortalLayoutProps = {
   links: PortalLink[];
   sections?: NavSection[];
   dashboardLink?: PortalLink;
+  rightSlot?: ReactNode;
   children: ReactNode;
 };
 
@@ -28,6 +29,7 @@ export const PortalLayout = ({
   links,
   sections,
   dashboardLink,
+  rightSlot,
   children,
 }: PortalLayoutProps) => {
   const navigate = useNavigate();
@@ -80,6 +82,7 @@ export const PortalLayout = ({
           )}
         </div>
         <div className="top-nav__right">
+          {rightSlot}
           <button className="ghost-btn" onClick={handleLogout}>
             Logout
           </button>
@@ -89,7 +92,6 @@ export const PortalLayout = ({
     </>
   );
 };
-
 
 
 
