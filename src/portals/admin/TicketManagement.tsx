@@ -373,7 +373,7 @@ export const TicketManagement: FC<TicketManagementProps> = ({ ticketType }) => {
                             disabled={savingId === row.id}
                             onClick={() => saveAdminResponse(row.id)}
                           >
-                            {savingId === row.id ? "Saving..." : "Save Response"}
+                            {savingId === row.id ? "Submitting..." : "Submit Response"}
                           </button>
                         </div>
                       </div>

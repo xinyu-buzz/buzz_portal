@@ -69,16 +69,7 @@ export const AdminInbox = () => {
         return;
       }
 
-      setNotifications(
-        [...((rows || []) as AdminInboxNotification[])].sort((left, right) => {
-          if (left.is_read !== right.is_read) {
-            return left.is_read ? 1 : -1;
-          }
-          return (
-            new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-          );
-        })
-      );
+      setNotifications((rows || []) as AdminInboxNotification[]);
     } catch (error) {
       console.error("Failed to resolve inbox recipient", error);
       setError("Unable to load inbox items. Please try again.");
@@ -135,12 +126,12 @@ export const AdminInbox = () => {
     };
   }, [open]);
 
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.is_read).length,
+  const unreadNotifications = useMemo(
+    () => notifications.filter((notification) => !notification.is_read),
     [notifications]
   );
 
-  const recentNotifications = useMemo(() => notifications.slice(0, 8), [notifications]);
+  const unreadCount = unreadNotifications.length;
 
   const markAsRead = async (ids: string[]) => {
     if (ids.length === 0 || !recipientEmail) return;
@@ -178,9 +169,7 @@ export const AdminInbox = () => {
 
   const handleMarkAllVisibleRead = async () => {
     await markAsRead(
-      recentNotifications
-        .filter((notification) => !notification.is_read)
-        .map((notification) => notification.id)
+      unreadNotifications.map((notification) => notification.id)
     );
   };
 
@@ -233,28 +222,38 @@ export const AdminInbox = () => {
               <h2>Inbox</h2>
               <p>{unreadCount} unread</p>
             </div>
-            <button
-              className="ghost-btn"
-              onClick={() => void refreshNotifications()}
-              disabled={loading}
-              type="button"
-            >
-              Refresh
-            </button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                className="ghost-btn"
+                onClick={() => void handleMarkAllVisibleRead()}
+                disabled={saving || unreadCount === 0}
+                type="button"
+              >
+                Mark All Read
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => void refreshNotifications()}
+                disabled={loading}
+                type="button"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
 
           {error && <div className="alert error">{error}</div>}
 
           {loading ? (
             <p className="muted-text">Loading inbox...</p>
-          ) : recentNotifications.length === 0 ? (
-            <p className="muted-text">No inbox items yet.</p>
+          ) : unreadNotifications.length === 0 ? (
+            <p className="muted-text">No unread messages.</p>
           ) : (
             <div className="nav-inbox__list">
-              {recentNotifications.map((notification) => (
+              {unreadNotifications.map((notification) => (
                 <section
                   key={notification.id}
-                  className={`nav-inbox__item${notification.is_read ? "" : " nav-inbox__item--new"}`}
+                  className="nav-inbox__item nav-inbox__item--new"
                 >
                   <div className="nav-inbox__meta">
                     <span>{SOURCE_LABELS[notification.source_type] || "Admin Item"}</span>
@@ -264,7 +263,7 @@ export const AdminInbox = () => {
 
                   <div className="nav-inbox__item-header">
                     <h3>{notification.title}</h3>
-                    {!notification.is_read && <span className="nav-inbox__pill">New</span>}
+                    <span className="nav-inbox__pill">New</span>
                   </div>
 
                   <p>{notification.body}</p>
@@ -277,36 +276,20 @@ export const AdminInbox = () => {
                     >
                       Open
                     </button>
-                    {!notification.is_read && (
-                      <button
-                        className="ghost-btn"
-                        onClick={() => void markAsRead([notification.id])}
-                        disabled={saving}
-                        type="button"
-                      >
-                        Mark Read
-                      </button>
-                    )}
+                    <button
+                      className="ghost-btn"
+                      onClick={() => void markAsRead([notification.id])}
+                      disabled={saving}
+                      type="button"
+                    >
+                      Mark Read
+                    </button>
                   </div>
                 </section>
               ))}
             </div>
           )}
 
-          <div className="nav-inbox__footer">
-            <span className="muted-text">Showing the 8 most recent items</span>
-            <button
-              className="ghost-btn"
-              onClick={() => void handleMarkAllVisibleRead()}
-              disabled={
-                saving ||
-                recentNotifications.filter((notification) => !notification.is_read).length === 0
-              }
-              type="button"
-            >
-              Mark All Read
-            </button>
-          </div>
         </div>
       )}
     </div>
