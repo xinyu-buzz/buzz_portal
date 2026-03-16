@@ -42,25 +42,16 @@ const authProvider: AuthProvider = {
       }
 
       if (data?.user) {
-        if (!isBuzzEmail(data.user.email)) {
-          await supabaseClient.auth.signOut();
-          return {
-            success: false,
-            error: {
-              message: "Login restricted to @buzzbuzzin.com accounts.",
-              name: "Invalid email domain",
-            },
-          };
-        }
-
         // Fetch employee role to persist locally (used by UI routing/labels)
-        const { data: emp } = await supabaseClient
-          .from("employee_profiles")
-          .select("role")
-          .eq("email", data.user.email?.toLowerCase() || "")
-          .maybeSingle();
-        if (emp?.role) {
-          localStorage.setItem("buzz_portal_role", emp.role);
+        if (isBuzzEmail(data.user.email)) {
+          const { data: emp } = await supabaseClient
+            .from("employee_profiles")
+            .select("role")
+            .eq("email", data.user.email?.toLowerCase() || "")
+            .maybeSingle();
+          if (emp?.role) {
+            localStorage.setItem("buzz_portal_role", emp.role);
+          }
         }
 
         return {
@@ -234,17 +225,24 @@ const authProvider: AuthProvider = {
       }
 
       const userEmail = session.user.email;
+
+      // Non-buzzbuzzin emails are allowed if the user has a valid portal role
+      // (e.g. pilots or clients using personal email addresses).
+      // The buzzbuzzin.com restriction only applies to users with no portal role.
       if (!isBuzzEmail(userEmail)) {
-        await supabaseClient.auth.signOut();
-        return {
-          authenticated: false,
-          error: {
-            message: "Access restricted to @buzzbuzzin.com accounts.",
-            name: "Invalid email domain",
-          },
-          logout: true,
-          redirectTo: "/login",
-        };
+        const storedRole = localStorage.getItem("buzz_portal_role");
+        if (!storedRole || !["admin", "owner", "pilot", "editor", "client"].includes(storedRole)) {
+          await supabaseClient.auth.signOut();
+          return {
+            authenticated: false,
+            error: {
+              message: "Access restricted. Please sign in with the correct portal role.",
+              name: "Invalid email domain",
+            },
+            logout: true,
+            redirectTo: "/login",
+          };
+        }
       }
     } catch (error: any) {
       return {

@@ -89,21 +89,20 @@ describe("authProvider", () => {
       expect(localStorage.getItem("buzz_portal_role")).toBe("admin");
     });
 
-    it("rejects non-buzz email on password login", async () => {
+    it("allows non-buzz email on password login (pilots/clients)", async () => {
       mockSignInWithPassword.mockResolvedValue({
         data: { user: { email: "user@gmail.com" } },
         error: null,
       });
-      mockSignOut.mockResolvedValue({ error: null });
 
       const result = await authProvider.login({
         email: "user@gmail.com",
         password: "password",
       });
 
-      expect(result.success).toBe(false);
-      expect(result.error?.name).toBe("Invalid email domain");
-      expect(mockSignOut).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.redirectTo).toBe("/");
+      expect(mockSignOut).not.toHaveBeenCalled();
     });
 
     it("returns error on signInWithPassword failure", async () => {
@@ -214,7 +213,23 @@ describe("authProvider", () => {
       expect(result.redirectTo).toBe("/login");
     });
 
-    it("rejects non-buzz email in session", async () => {
+    it("allows non-buzz email with valid stored portal role", async () => {
+      localStorage.setItem("buzz_portal_role", "pilot");
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: {
+            user: { email: "user@gmail.com" },
+          },
+        },
+      });
+
+      const result = await authProvider.check();
+
+      expect(result.authenticated).toBe(true);
+      expect(mockSignOut).not.toHaveBeenCalled();
+    });
+
+    it("rejects non-buzz email without stored portal role", async () => {
       mockGetSession.mockResolvedValue({
         data: {
           session: {
