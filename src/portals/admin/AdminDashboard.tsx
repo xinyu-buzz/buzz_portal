@@ -128,6 +128,20 @@ const dashboardSections: DashboardSection[] = [
         to: "/admin/app-analytics",
         actionLabel: "View analytics",
       },
+      {
+        key: "web-traffic",
+        title: "Web Traffic",
+        description: "Monitor Buzz website visitor traffic, popular pages, referral sources, and device breakdown.",
+        to: "/admin/web-traffic",
+        actionLabel: "View web traffic",
+      },
+      {
+        key: "academy-traffic",
+        title: "Academy Traffic",
+        description: "Monitor Buzz Academy visitor traffic, page popularity, referral sources, and device breakdown.",
+        to: "/admin/academy-traffic",
+        actionLabel: "View academy traffic",
+      },
     ],
   },
 ];
@@ -143,6 +157,8 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
         card.key === "academy" ||
         card.key === "academy-manager" ||
         card.key === "app-analytics" ||
+        card.key === "web-traffic" ||
+        card.key === "academy-traffic" ||
         card.key === "pilot-management" ||
         card.key === "pilot-accounts" ||
         card.key === "tickets" ||
