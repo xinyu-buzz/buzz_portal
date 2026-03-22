@@ -126,7 +126,7 @@ describe("BookingList", () => {
     render(<BookingList basePath="/admin" role="admin" />);
 
     await waitFor(() => {
-      expect(screen.getByText("No bookings yet.")).toBeInTheDocument();
+      expect(screen.getAllByText("No bookings yet.").length).toBeGreaterThan(0);
     });
   });
 
@@ -157,11 +157,11 @@ describe("BookingList", () => {
     render(<BookingList basePath="/admin" role="admin" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Downtown Rooftop")).toBeInTheDocument();
+      expect(screen.getAllByText("Downtown Rooftop").length).toBeGreaterThan(0);
     });
-    expect(screen.getByText("City Park")).toBeInTheDocument();
-    expect(screen.getByText("available")).toBeInTheDocument();
-    expect(screen.getByText("accepted")).toBeInTheDocument();
+    expect(screen.getAllByText("City Park").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("available").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("accepted").length).toBeGreaterThan(0);
   });
 
   it("shows dash for null scheduled_date", async () => {
@@ -183,7 +183,7 @@ describe("BookingList", () => {
     render(<BookingList basePath="/admin" role="admin" />);
 
     await waitFor(() => {
-      expect(screen.getByText("\u2014")).toBeInTheDocument();
+      expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     });
   });
 
@@ -243,7 +243,7 @@ describe("BookingList", () => {
     render(<BookingList basePath="/pilot" role="pilot" />);
 
     await waitFor(() => {
-      expect(screen.getByText("Pilot Mission Site")).toBeInTheDocument();
+      expect(screen.getAllByText("Pilot Mission Site").length).toBeGreaterThan(0);
     });
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabaseClient } from "../../../utility";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../../hooks/useFocusTrap";
 import type { PortalRole } from "../role";
 
 type BookingRow = {
@@ -112,6 +113,9 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
     if (showBeaconCreate) setShowBeaconCreate(false);
     else if (showCreate) setShowCreate(false);
   });
+
+  const createDialogRef = useFocusTrap(showCreate);
+  const beaconDialogRef = useFocusTrap(showBeaconCreate);
 
   const loadPilotBookings = async (pilotId: string) => {
     const [{ data: direct, error: directError }, { data: crewData, error: crewError }] =
@@ -593,15 +597,17 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
         )}
       </div>
       {loading ? (
-        <p>Loading...</p>
+        <p aria-live="polite">Loading...</p>
       ) : (
+        <>
+        <div className="table-responsive booking-table-desktop">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Scheduled</th>
-              <th>Created</th>
+              <th scope="col">Location</th>
+              <th scope="col">Status</th>
+              <th scope="col">Scheduled</th>
+              <th scope="col">Created</th>
               <th />
             </tr>
           </thead>
@@ -634,11 +640,52 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
             )}
           </tbody>
         </table>
+        </div>
+        <div className="booking-cards-mobile">
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="booking-card-item"
+              onClick={() => navigate(`${basePath}/bookings/${row.id}`)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`${basePath}/bookings/${row.id}`);
+                }
+              }}
+            >
+              <div className="booking-card-item__header">
+                <span className="booking-card-item__location">
+                  {row.location_name}
+                </span>
+                <span className="booking-card-item__status">{row.status}</span>
+              </div>
+              <div className="booking-card-item__meta">
+                <span>
+                  <strong>Scheduled: </strong>
+                  {row.scheduled_date
+                    ? new Date(row.scheduled_date).toLocaleDateString()
+                    : "—"}
+                </span>
+                <span>
+                  <strong>Created: </strong>
+                  {new Date(row.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          ))}
+          {!rows.length && (
+            <div className="booking-cards-empty">No bookings yet.</div>
+          )}
+        </div>
+        </>
       )}
 
       {showCreate && (
         <div className="modal-backdrop">
-          <div className="modal-card" role="dialog" aria-modal="true">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-label="Create Booking" ref={createDialogRef}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0 }}>Create Booking</h3>
               <button className="ghost-btn" onClick={() => setShowCreate(false)}>
@@ -646,7 +693,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
               </button>
             </div>
             <form className="modal-form" onSubmit={handleCreate}>
-              {createError && <div className="alert error">{createError}</div>}
+              {createError && <div className="alert error" role="alert">{createError}</div>}
               <label className="input-label">Customer ID * (default to UUID of admin@buzzbuzzin.com)</label>
               <input
                 name="customer_id"
@@ -666,7 +713,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
                 placeholder="Pilot UUID"
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-grid-2">
                 <div>
                   <label className="input-label">Specialization *</label>
                   <select
@@ -837,7 +884,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
 
       {showBeaconCreate && (
         <div className="modal-backdrop">
-          <div className="modal-card" role="dialog" aria-modal="true">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-label="Create Beacon Booking" ref={beaconDialogRef}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0, color: "#e65100" }}>Create Beacon Booking</h3>
               <button className="ghost-btn" onClick={() => setShowBeaconCreate(false)}>
@@ -848,7 +895,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
               Beacon bookings are voluntary search &amp; rescue missions. Payment is set to $0 and the booking is flagged as a Beacon program mission.
             </p>
             <form className="modal-form" onSubmit={handleBeaconCreate}>
-              {beaconError && <div className="alert error">{beaconError}</div>}
+              {beaconError && <div className="alert error" role="alert">{beaconError}</div>}
 
               <label className="input-label">Customer ID * (requesting agency/person)</label>
               <input
@@ -860,7 +907,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
                 required
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-grid-2">
                 <div>
                   <label className="input-label">Assignment Type *</label>
                   <select
@@ -957,7 +1004,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
                 required
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-grid-2">
                 <div>
                   <label className="input-label">Number of Pilots</label>
                   <input
@@ -984,7 +1031,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-grid-2">
                 <div>
                   <label className="input-label">Scheduled start</label>
                   <input
@@ -1007,7 +1054,7 @@ export const BookingList = ({ basePath, role }: BookingListProps) => {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-grid-2">
                 <div>
                   <label className="input-label">Expires at</label>
                   <input

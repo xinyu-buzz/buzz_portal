@@ -230,12 +230,13 @@ export const BookingMediaManager = ({
 
   return (
     <div className="media-card">
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <div className="media-header">
         <h3 style={{ margin: 0 }}>Media</h3>
         <select
           value={kind}
           onChange={(e) => setKind(e.target.value)}
           style={{ height: 32 }}
+          aria-label="Media kind"
         >
           <option value="raw">Raw</option>
           <option value="proxy">Proxy</option>
@@ -262,19 +263,20 @@ export const BookingMediaManager = ({
           />
         </label>
       </div>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p style={{ color: "red" }} role="alert">{error}</p>}
       {loading ? (
-        <p>Loading media...</p>
+        <p aria-live="polite">Loading media...</p>
       ) : (
+        <div className="table-responsive">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Kind</th>
-              <th>Role</th>
-              <th>Uploaded By</th>
-              <th>Name</th>
-              <th>Size</th>
-              <th>Uploaded</th>
+              <th scope="col">Kind</th>
+              <th scope="col">Role</th>
+              <th scope="col">Uploaded By</th>
+              <th scope="col">Name</th>
+              <th scope="col">Size</th>
+              <th scope="col">Uploaded</th>
               <th />
             </tr>
           </thead>
@@ -317,6 +319,7 @@ export const BookingMediaManager = ({
             )}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

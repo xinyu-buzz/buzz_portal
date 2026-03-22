@@ -8,6 +8,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { supabaseClient } from "../../../utility";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../../hooks/useFocusTrap";
 import { BookingMediaManager } from "../../../components/BookingMediaManager";
 import type { PortalRole } from "../role";
 
@@ -108,6 +109,10 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
     else if (showEditorPicker) setShowEditorPicker(false);
     else if (showPilotPicker) setShowPilotPicker(false);
   });
+
+  const pilotDialogRef = useFocusTrap(showPilotPicker);
+  const editorDialogRef = useFocusTrap(showEditorPicker);
+  const editDialogRef = useFocusTrap(showEdit);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -625,7 +630,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
   }
 
   if (loading || !booking) {
-    return <p>Loading booking...</p>;
+    return <p aria-live="polite">Loading booking...</p>;
   }
 
   return (
@@ -664,7 +669,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
           </div>
         )}
       </div>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p style={{ color: "red" }} role="alert">{error}</p>}
       <section style={{ marginBottom: 24 }}>
         <p>
           <strong>Status:</strong> {booking.status}
@@ -698,7 +703,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
       <section style={{ marginBottom: 24 }}>
         <div className="media-card">
           <h3 style={{ marginTop: 0 }}>Pilots</h3>
-          {pilotError && <p style={{ color: "red" }}>{pilotError}</p>}
+          {pilotError && <p style={{ color: "red" }} role="alert">{pilotError}</p>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             {displayedPilots.map((member) => (
               <div
@@ -725,7 +730,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                   onClick={() => setShowPilotPicker(true)}
                   disabled={pilotSaving}
                 >
-                  ➕ Add pilot
+                  <span aria-hidden="true">➕</span> Add pilot
                 </button>
                 <button
                   className="ghost-btn"
@@ -733,7 +738,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                   onClick={removePilot}
                   disabled={pilotSaving || (!selectedPilot && !displayedPilots.length)}
                 >
-                  ✖ Remove pilot
+                  <span aria-hidden="true">✖</span> Remove pilot
                 </button>
               </>
             )}
@@ -759,7 +764,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
         </div>
         {showAdminActions && showPilotPicker && (
           <div className="modal-backdrop">
-            <div className="modal-card" role="dialog" aria-modal="true">
+            <div className="modal-card" role="dialog" aria-modal="true" aria-label="Assign Pilot" ref={pilotDialogRef}>
               <div
                 style={{
                   display: "flex",
@@ -859,7 +864,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                   onClick={() => setShowEditorPicker(true)}
                   disabled={saving}
                 >
-                  ➕ Add editors
+                  <span aria-hidden="true">➕</span> Add editors
                 </button>
                 <button
                   className="ghost-btn"
@@ -867,15 +872,15 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                   onClick={removeEditors}
                   disabled={saving || !selectedEditors.length}
                 >
-                  ✖ Remove editors
+                  <span aria-hidden="true">✖</span> Remove editors
                 </button>
               </>
             )}
           </div>
-          {removeEditorsError && <p style={{ color: "red" }}>{removeEditorsError}</p>}
+          {removeEditorsError && <p style={{ color: "red" }} role="alert">{removeEditorsError}</p>}
           {showAdminActions && showEditorPicker && (
             <div className="modal-backdrop">
-              <div className="modal-card" role="dialog" aria-modal="true">
+              <div className="modal-card" role="dialog" aria-modal="true" aria-label="Assign Editors" ref={editorDialogRef}>
                 <div
                   style={{
                     display: "flex",
@@ -945,7 +950,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
 
       {showEdit && (
         <div className="modal-backdrop">
-          <div className="modal-card" role="dialog" aria-modal="true">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-label="Edit Booking" ref={editDialogRef}>
             <div
               style={{
                 display: "flex",
@@ -959,7 +964,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
               </button>
             </div>
             <form className="modal-form" onSubmit={handleUpdate}>
-              {editError && <div className="alert error">{editError}</div>}
+              {editError && <div className="alert error" role="alert">{editError}</div>}
 
               <label className="input-label">
                 Customer ID * (default to UUID of admin@buzzbuzzin.com)
@@ -982,7 +987,7 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
                 placeholder="Pilot UUID"
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="form-grid-2">
                 <div>
                   <label className="input-label">Specialization *</label>
                   <select

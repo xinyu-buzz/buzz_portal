@@ -15,6 +15,8 @@ import { AcademyManager } from "./AcademyManager";
 import { CourseUnitsManager } from "./CourseUnitsManager";
 import { RecycleBin } from "./RecycleBin";
 import { AppAnalytics } from "./AppAnalytics";
+import { WebTraffic } from "./WebTraffic";
+import { AcademyTraffic } from "./AcademyTraffic";
 import { ExpressPromotions } from "./ExpressPromotions";
 import { PilotManagement } from "./PilotManagement";
 import { PilotAccounts } from "./PilotAccounts";
@@ -78,6 +80,8 @@ export const AdminPortal = () => {
           links: [
             { to: "/admin/admin-center", label: "Admin Center" },
             { to: "/admin/app-analytics", label: "App Analytics" },
+            { to: "/admin/web-traffic", label: "Web Traffic" },
+            { to: "/admin/academy-traffic", label: "Academy Traffic" },
           ],
         },
       ]}
@@ -117,6 +121,8 @@ export const AdminPortal = () => {
         <Route path="recycle-bin" element={<RecycleBin />} />
         <Route path="newsletter" element={<Newsletter />} />
         <Route path="app-analytics" element={<AppAnalytics />} />
+        <Route path="web-traffic" element={<WebTraffic />} />
+        <Route path="academy-traffic" element={<AcademyTraffic />} />
         <Route path="tickets" element={<TicketManagement ticketType="bug" />} />
         <Route path="safety-reports" element={<TicketManagement ticketType="safety" />} />
         <Route path="disputes" element={<DisputeManagement />} />

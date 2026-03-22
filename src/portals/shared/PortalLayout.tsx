@@ -41,6 +41,9 @@ export const PortalLayout = ({
 
   return (
     <>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <nav className="top-nav">
         <div className="top-nav__left">
           <Link
@@ -99,7 +102,7 @@ export const PortalLayout = ({
           </button>
         </div>
       </nav>
-      <main className="page-shell">{children}</main>
+      <main id="main-content" className="page-shell">{children}</main>
     </>
   );
 };
