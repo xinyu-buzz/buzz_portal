@@ -1558,6 +1558,7 @@ export const CourseUnitsManager = () => {
   const [managingTest, setManagingTest] = useState<CourseTest | null>(null);
   const [editingSection, setEditingSection] = useState<CourseSection | null>(null);
   const [editingUnit, setEditingUnit] = useState<CourseUnit | null>(null);
+  const [draftUnitId, setDraftUnitId] = useState<string | null>(null);
   const [editingTest, setEditingTest] = useState<CourseTest | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<Array<{file: File, name: string, type: 'pdf' | 'image' | 'video', targetPart?: number}>>([]);
@@ -1662,6 +1663,15 @@ export const CourseUnitsManager = () => {
     duration: 60,
     price_of_schedule: null as number | null,
   });
+
+  const getMaterialOwnerId = useCallback(() => {
+    if (editingUnit?.id) return editingUnit.id;
+    if (draftUnitId) return draftUnitId;
+
+    const nextDraftId = crypto.randomUUID();
+    setDraftUnitId(nextDraftId);
+    return nextDraftId;
+  }, [draftUnitId, editingUnit?.id]);
 
   useEffect(() => {
     if (courseId) {
@@ -1860,6 +1870,12 @@ export const CourseUnitsManager = () => {
     try {
       const { data: session } = await supabaseClient.auth.getSession();
       const userId = session?.session?.user?.id;
+
+      if (!userId) {
+        setError("User not authenticated");
+        return;
+      }
+
       const now = new Date().toISOString();
 
       const { error: deleteError } = await supabaseClient
@@ -1879,6 +1895,7 @@ export const CourseUnitsManager = () => {
   const openUnitForm = (unit?: CourseUnit) => {
     if (unit) {
       setEditingUnit(unit);
+      setDraftUnitId(null);
       const unitFormData = {
         title: unit.title,
         description: unit.description || "",
@@ -1937,6 +1954,7 @@ export const CourseUnitsManager = () => {
       });
     } else {
       setEditingUnit(null);
+      setDraftUnitId(crypto.randomUUID());
       const unitFormData = {
         title: "",
         description: "",
@@ -2010,6 +2028,7 @@ export const CourseUnitsManager = () => {
   const performCloseUnitForm = () => {
     setShowUnitForm(false);
     setEditingUnit(null);
+    setDraftUnitId(null);
     setUnitForm({
       title: "",
       description: "",
@@ -2050,13 +2069,18 @@ export const CourseUnitsManager = () => {
   };
 
   const closeMaterialUploadModal = () => {
+    // Revoke any Object URLs to prevent memory leaks
+    uploadingFiles.forEach(file => {
+      if (file.previewUrl) {
+        URL.revokeObjectURL(file.previewUrl);
+      }
+    });
     setShowMaterialUploadModal(false);
     setMaterialUploadType(null);
     setTargetPartIndex(null);
     setIsDragging(false);
     setUploadingFiles([]);
     setUploadPhase('uploading');
-    // Don't clear files here - they might be in pending state
   };
 
   // Handle reordering of preview items
@@ -2160,7 +2184,8 @@ export const CourseUnitsManager = () => {
     
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `unit-${unitForm.order_index}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const materialOwnerId = getMaterialOwnerId();
+      const fileName = `unit-${materialOwnerId}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
 
       const { error: uploadError } = await supabaseClient.storage
         .from('course-materials')
@@ -2200,7 +2225,7 @@ export const CourseUnitsManager = () => {
       setInsertAfterIndex(null);
       e.target.value = '';
     }
-  }, [insertAfterIndex, previewPartIndex, unitForm.order_index]);
+  }, [getMaterialOwnerId, insertAfterIndex, previewPartIndex]);
 
   // Save the reordered preview materials back to the main arrays
   const savePreviewOrder = useCallback(() => {
@@ -2314,23 +2339,29 @@ export const CourseUnitsManager = () => {
 
   // Handle confirming the upload order and adding to materials
   const handleConfirmUploadOrder = () => {
-    // Add materials in the order they appear in uploadingFiles
+    // Collect all completed uploads first, then batch-update state once
+    const newUrls: string[] = [];
+    const newNames: string[] = [];
+    const newTypes: string[] = [];
+    const newParts: string[] = [];
+
     uploadingFiles.forEach(uploadedFile => {
       if (uploadedFile.status === 'completed' && uploadedFile.uploadedUrl) {
         const materialName = uploadedFile.name.replace(/\.(pdf|jpe?g|png|gif|webp|bmp|svg|mp4|mov|avi|mkv|webm)$/i, '');
-        
-        setMaterialUrls(prev => [...prev, uploadedFile.uploadedUrl!]);
-        setMaterialNames(prev => [...prev, materialName]);
-        setMaterialTypes(prev => [...prev, uploadedFile.type]);
-        
-        // Assign to target part if specified
-        if (targetPartIndex !== null) {
-          setMaterialParts(prev => [...prev, (targetPartIndex + 1).toString()]);
-        } else {
-          setMaterialParts(prev => [...prev, '']);
-        }
+        newUrls.push(uploadedFile.uploadedUrl);
+        newNames.push(materialName);
+        newTypes.push(uploadedFile.type);
+        newParts.push(targetPartIndex !== null ? (targetPartIndex + 1).toString() : '');
       }
     });
+
+    // Batch-update all arrays in one pass to avoid stale-state race conditions
+    if (newUrls.length > 0) {
+      setMaterialUrls(prev => [...prev, ...newUrls]);
+      setMaterialNames(prev => [...prev, ...newNames]);
+      setMaterialTypes(prev => [...prev, ...newTypes]);
+      setMaterialParts(prev => [...prev, ...newParts]);
+    }
 
     // Clean up preview URLs
     uploadingFiles.forEach(file => {
@@ -2398,22 +2429,43 @@ export const CourseUnitsManager = () => {
         }
       }
 
-      // Remove part from current unit
+      // Remove part and its materials from the current unit's arrays
       const updatedPartNames = materialPartNames.filter((_, i) => i !== partToMove);
-      const updatedParts = materialParts.map(part => {
-        const currentPartNum = parseInt(part);
-        if (currentPartNum === parseInt(partNumber)) {
-          return ''; // Unassign materials from this part
-        } else if (currentPartNum > parseInt(partNumber)) {
-          return (currentPartNum - 1).toString(); // Shift down part numbers
-        }
-        return part;
-      });
+      const movedIndices = new Set(materialsToMove.map(m => m.index));
+      const updatedUrls: string[] = [];
+      const updatedNames: string[] = [];
+      const updatedTypes: string[] = [];
+      const updatedParts: string[] = [];
 
-      // Update current unit
+      for (let i = 0; i < materialUrls.length; i++) {
+        if (movedIndices.has(i)) continue; // Skip materials being moved
+        updatedUrls.push(materialUrls[i]);
+        updatedNames.push(materialNames[i]);
+        updatedTypes.push(materialTypes[i]);
+        // Shift down part numbers for higher-numbered parts
+        const currentPartNum = parseInt(materialParts[i]);
+        if (!isNaN(currentPartNum) && currentPartNum > parseInt(partNumber)) {
+          updatedParts.push((currentPartNum - 1).toString());
+        } else {
+          updatedParts.push(materialParts[i]);
+        }
+      }
+
+      const originalCurrentUnitPayload = {
+        material_part_names: materialPartNames.length > 0 ? materialPartNames : [],
+        material_urls: materialUrls,
+        material_names: materialNames,
+        material_types: materialTypes,
+        material_parts: materialParts,
+      };
+
+      // Update current unit in DB with materials removed
       const currentUnitPayload = {
         material_part_names: updatedPartNames.length > 0 ? updatedPartNames : [],
-        material_parts: updatedParts.length > 0 ? updatedParts : [],
+        material_urls: updatedUrls,
+        material_names: updatedNames,
+        material_types: updatedTypes,
+        material_parts: updatedParts,
         updated_at: new Date().toISOString(),
       };
 
@@ -2464,10 +2516,27 @@ export const CourseUnitsManager = () => {
         .update(targetUnitPayload)
         .eq("id", targetUnit.id);
 
-      if (targetUpdateError) throw targetUpdateError;
+      if (targetUpdateError) {
+        const { error: rollbackError } = await supabaseClient
+          .from("course_units")
+          .update({
+            ...originalCurrentUnitPayload,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingUnit.id);
 
-      // Update local state
+        if (rollbackError) {
+          throw new Error(`Failed to move part: ${targetUpdateError.message}. Rollback failed: ${rollbackError.message}`);
+        }
+
+        throw targetUpdateError;
+      }
+
+      // Update local state to match what we saved to DB
       setMaterialPartNames(updatedPartNames);
+      setMaterialUrls(updatedUrls);
+      setMaterialNames(updatedNames);
+      setMaterialTypes(updatedTypes);
       setMaterialParts(updatedParts);
 
       // Close modal and reload data
@@ -2539,86 +2608,99 @@ export const CourseUnitsManager = () => {
   };
 
   const handleFileUpload = async (file: File, fileIndex?: number) => {
-    if (materialUploadType === 'pdf') {
-      // Validate file type (accept PDFs and common image formats)
-      const allowedTypes = [
-        'application/pdf',
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'image/bmp',
-        'image/svg+xml'
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        if (fileIndex !== undefined) {
-          setUploadingFiles(prev => {
-            const updated = [...prev];
-            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'Invalid file type' };
-            return updated;
-          });
-        }
-        setError('Please select a valid PDF or image file (JPEG, PNG, GIF, WebP, BMP, SVG)');
-        return;
-      }
-      
-      // Validate file size (10MB max)
-      if (file.size > 10 * 1024 * 1024) {
-        if (fileIndex !== undefined) {
-          setUploadingFiles(prev => {
-            const updated = [...prev];
-            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'File too large (max 10MB)' };
-            return updated;
-          });
-        }
-        setError('File size must be less than 10MB');
-        return;
-      }
+    // Detect the actual file type from MIME type rather than relying solely on
+    // materialUploadType, so drag-and-dropped files are validated correctly
+    const pdfImageTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/bmp',
+      'image/svg+xml'
+    ];
+    const videoTypes = [
+      'video/mp4',
+      'video/quicktime',
+      'video/x-msvideo',
+      'video/x-matroska',
+      'video/webm'
+    ];
 
-      // Determine type
-      const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
-      
-      // Upload immediately
-      await uploadFileImmediately(file, fileType, fileIndex);
-      
-    } else if (materialUploadType === 'video') {
-      // Validate file type (accept common video formats)
-      const allowedTypes = [
-        'video/mp4',
-        'video/quicktime',
-        'video/x-msvideo',
-        'video/x-matroska',
-        'video/webm'
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        if (fileIndex !== undefined) {
-          setUploadingFiles(prev => {
-            const updated = [...prev];
-            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'Invalid file type' };
-            return updated;
-          });
-        }
-        setError('Please select a valid video file (MP4, MOV, AVI, MKV, WebM)');
-        return;
-      }
-      
-      // Validate file size (100MB max for videos)
-      if (file.size > 100 * 1024 * 1024) {
-        if (fileIndex !== undefined) {
-          setUploadingFiles(prev => {
-            const updated = [...prev];
-            updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'File too large (max 100MB)' };
-            return updated;
-          });
-        }
-        setError('Video file size must be less than 100MB');
-        return;
-      }
+    const isPdfOrImage = pdfImageTypes.includes(file.type);
+    const isVideo = videoTypes.includes(file.type);
 
-      // Upload immediately
-      await uploadFileImmediately(file, 'video', fileIndex);
+    // When the modal is set to a specific type, only accept that type
+    // When called from drag-and-drop (materialUploadType is set), accept
+    // files that match the modal type
+    if (materialUploadType === 'pdf' && !isPdfOrImage) {
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'Invalid file type' };
+          return updated;
+        });
+      }
+      setError('Please select a valid PDF or image file (JPEG, PNG, GIF, WebP, BMP, SVG)');
+      return;
     }
+
+    if (materialUploadType === 'video' && !isVideo) {
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'Invalid file type' };
+          return updated;
+        });
+      }
+      setError('Please select a valid video file (MP4, MOV, AVI, MKV, WebM)');
+      return;
+    }
+
+    // Reject completely unrecognized file types
+    if (!isPdfOrImage && !isVideo) {
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'Unsupported file type' };
+          return updated;
+        });
+      }
+      setError('Unsupported file type. Please select a PDF, image, or video file.');
+      return;
+    }
+
+    // Validate file size based on actual file type
+    if (isPdfOrImage && file.size > 10 * 1024 * 1024) {
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'File too large (max 10MB)' };
+          return updated;
+        });
+      }
+      setError('File size must be less than 10MB');
+      return;
+    }
+
+    if (isVideo && file.size > 100 * 1024 * 1024) {
+      if (fileIndex !== undefined) {
+        setUploadingFiles(prev => {
+          const updated = [...prev];
+          updated[fileIndex] = { ...updated[fileIndex], status: 'error', error: 'File too large (max 100MB)' };
+          return updated;
+        });
+      }
+      setError('Video file size must be less than 100MB');
+      return;
+    }
+
+    // Determine type from actual file content
+    const fileType: 'pdf' | 'image' | 'video' = file.type === 'application/pdf' ? 'pdf' :
+      file.type.startsWith('image/') ? 'image' : 'video';
+
+    await uploadFileImmediately(file, fileType, fileIndex);
   };
 
   const uploadFileImmediately = async (file: File, fileType: 'pdf' | 'image' | 'video', fileIndex?: number) => {
@@ -2635,7 +2717,8 @@ export const CourseUnitsManager = () => {
     
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `unit-${unitForm.order_index}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const materialOwnerId = getMaterialOwnerId();
+      const fileName = `unit-${materialOwnerId}-${fileType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       const filePath = `${fileName}`;
 
       // Simulate progress during upload
@@ -2787,10 +2870,13 @@ export const CourseUnitsManager = () => {
     const partNumber = (partIndex + 1).toString();
     // Remove the part name
     setMaterialPartNames(prev => prev.filter((_, i) => i !== partIndex));
-    // Update part indices for materials that come after the removed part
+    // Unassign materials from the removed part and shift down higher part numbers
     setMaterialParts(prev => prev.map(part => {
       const currentPartNum = parseInt(part);
-      if (currentPartNum > parseInt(partNumber)) {
+      if (isNaN(currentPartNum) || part === '' || part === '0') return part;
+      if (currentPartNum === parseInt(partNumber)) {
+        return ''; // Unassign materials that belonged to the removed part
+      } else if (currentPartNum > parseInt(partNumber)) {
         return (currentPartNum - 1).toString();
       }
       return part;
@@ -2959,30 +3045,19 @@ export const CourseUnitsManager = () => {
   };
 
   const moveMaterial = useCallback((dragIndex: number, hoverIndex: number) => {
-    // Perform all array operations atomically to prevent race conditions
-    // Calculate new arrays first, then update all states together
-    const newUrls = [...materialUrls];
-    const [draggedUrl] = newUrls.splice(dragIndex, 1);
-    newUrls.splice(hoverIndex, 0, draggedUrl);
+    // Use functional updates to avoid stale closure issues during rapid drag operations
+    const reorder = <T,>(arr: T[]): T[] => {
+      const newArr = [...arr];
+      const [dragged] = newArr.splice(dragIndex, 1);
+      newArr.splice(hoverIndex, 0, dragged);
+      return newArr;
+    };
 
-    const newNames = [...materialNames];
-    const [draggedName] = newNames.splice(dragIndex, 1);
-    newNames.splice(hoverIndex, 0, draggedName);
-
-    const newTypes = [...materialTypes];
-    const [draggedType] = newTypes.splice(dragIndex, 1);
-    newTypes.splice(hoverIndex, 0, draggedType);
-
-    const newParts = [...materialParts];
-    const [draggedPart] = newParts.splice(dragIndex, 1);
-    newParts.splice(hoverIndex, 0, draggedPart);
-
-    // Update all states together - React 18+ batches these automatically
-    setMaterialUrls(newUrls);
-    setMaterialNames(newNames);
-    setMaterialTypes(newTypes);
-    setMaterialParts(newParts);
-  }, [materialUrls, materialNames, materialTypes, materialParts]);
+    setMaterialUrls(prev => reorder(prev));
+    setMaterialNames(prev => reorder(prev));
+    setMaterialTypes(prev => reorder(prev));
+    setMaterialParts(prev => reorder(prev));
+  }, []);
 
   const moveSelectedMaterialsToPart = useCallback((targetPartIndex: number) => {
     const selectedIndices = Array.from(selectedMaterials).sort((a, b) => b - a); // Sort in descending order
@@ -3130,17 +3205,30 @@ export const CourseUnitsManager = () => {
       return;
     }
     
-    // Validate that all options are filled
-    const filledOptions = questionForm.options.filter(opt => opt.trim());
-    if (filledOptions.length < 2) {
+    const normalizedOptions = questionForm.options
+      .map((option, index) => ({ index, text: option.trim() }))
+      .filter((option) => option.text);
+
+    if (normalizedOptions.length < 2) {
       setError("At least 2 options are required");
+      return;
+    }
+
+    const correctAnswerOption = normalizedOptions.find(
+      (option) => option.index === questionForm.correct_answer_index
+    );
+
+    if (!correctAnswerOption) {
+      setError("Select a non-empty correct answer");
       return;
     }
 
     const newQuestion: ReviewQuestion = {
       question_text: questionForm.question_text.trim(),
-      options: questionForm.options.filter(opt => opt.trim()),
-      correct_answer_index: questionForm.correct_answer_index,
+      options: normalizedOptions.map((option) => option.text),
+      correct_answer_index: normalizedOptions.findIndex(
+        (option) => option.index === questionForm.correct_answer_index
+      ),
       explanation: questionForm.explanation.trim() || null,
     };
 
@@ -3364,6 +3452,7 @@ export const CourseUnitsManager = () => {
       } else {
         // Create
         payload.course_id = courseId;
+        payload.id = getMaterialOwnerId();
         const { error: insertError } = await supabaseClient
           .from("course_units")
           .insert(payload);
@@ -3419,18 +3508,19 @@ export const CourseUnitsManager = () => {
 
   const reorderUnitsAfterChange = async () => {
     if (!courseId) return;
-    
-    // Fetch all units again to get the latest data
+
+    // Fetch only non-deleted units to get the latest data
     const { data: allUnits, error } = await supabaseClient
       .from("course_units")
       .select("id, unit_number")
-      .eq("course_id", courseId);
-    
+      .eq("course_id", courseId)
+      .is("deleted_at", null);
+
     if (error || !allUnits) return;
-    
-    // Sort by unit_number and assign correct order_index
-    const sortedUnits = [...allUnits].sort((a, b) => a.unit_number - b.unit_number);
-    
+
+    // Sort by unit_number (treat null/undefined as Infinity so they go last)
+    const sortedUnits = [...allUnits].sort((a, b) => (a.unit_number ?? Infinity) - (b.unit_number ?? Infinity));
+
     // Update all units with correct order_index
     await Promise.all(
       sortedUnits.map((unit, index) =>
@@ -3454,7 +3544,8 @@ export const CourseUnitsManager = () => {
       const { data: currentUnits, error: fetchError } = await supabaseClient
         .from("course_units")
         .select("order_index")
-        .eq("course_id", unit.course_id);
+        .eq("course_id", unit.course_id)
+        .is("deleted_at", null);
 
       if (fetchError) throw fetchError;
 
@@ -3698,7 +3789,8 @@ export const CourseUnitsManager = () => {
       const { data: currentTests, error: fetchError } = await supabaseClient
         .from("course_tests")
         .select("order_index")
-        .eq("course_id", test.course_id);
+        .eq("course_id", test.course_id)
+        .is("deleted_at", null);
 
       if (fetchError) throw fetchError;
 

@@ -294,7 +294,13 @@ export const AcademyCourses = () => {
       try {
         // Delete old cover image if exists
         if (editingCourse.cover_image_url) {
-          const oldFilePath = editingCourse.cover_image_url.split('/').pop();
+          // Extract the storage path by finding the portion after the bucket name,
+          // and strip any query parameters (e.g. cache-busting ?t=...)
+          const bucketSegment = '/course-covers/';
+          const bucketIdx = editingCourse.cover_image_url.indexOf(bucketSegment);
+          const oldFilePath = bucketIdx !== -1
+            ? editingCourse.cover_image_url.slice(bucketIdx + bucketSegment.length).split('?')[0]
+            : null;
           if (oldFilePath) {
             await supabaseClient.storage
               .from('course-covers')
