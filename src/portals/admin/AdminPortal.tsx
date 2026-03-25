@@ -30,6 +30,7 @@ import { OutreachImport } from "./OutreachImport";
 import { OutreachPilotDetail } from "./OutreachPilotDetail";
 import { OutreachMessageReview } from "./OutreachMessageReview";
 import { OutreachTemplates } from "./OutreachTemplates";
+import { OutreachPilotTable } from "./OutreachPilotTable";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -86,6 +87,7 @@ export const AdminPortal = () => {
             { to: "/admin/outreach", label: "Outreach Dashboard" },
             { to: "/admin/outreach/import", label: "Import FAA Data" },
             { to: "/admin/outreach/messages", label: "Message Review" },
+            { to: "/admin/outreach/pilots", label: "Pilot Records" },
             { to: "/admin/outreach/templates", label: "Templates" },
           ],
         },
@@ -142,6 +144,7 @@ export const AdminPortal = () => {
         <Route path="disputes" element={<DisputeManagement />} />
         <Route path="outreach" element={<OutreachDashboard />} />
         <Route path="outreach/import" element={<OutreachImport />} />
+        <Route path="outreach/pilots" element={<OutreachPilotTable />} />
         <Route path="outreach/pilots/:id" element={<OutreachPilotDetail />} />
         <Route path="outreach/messages" element={<OutreachMessageReview />} />
         <Route path="outreach/templates" element={<OutreachTemplates />} />

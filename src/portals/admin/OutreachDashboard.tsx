@@ -184,6 +184,9 @@ export const OutreachDashboard: FC = () => {
             >
               {enrichLoading ? "Processing..." : "Start Enrichment"}
             </button>
+            <Link className="ghost-btn" to="/admin/outreach/pilots">
+              View All Records
+            </Link>
             <Link className="ghost-btn" to="/admin/outreach/messages">
               Review Messages
             </Link>
