@@ -59,50 +59,19 @@ export const OutreachDashboard: FC = () => {
         setEmailsFound(emailRes.count ?? 0);
         setMessagesSent(sentRes.count ?? 0);
 
-        // Enrichment pipeline breakdown
-        const { data: allPilots } = await supabaseClient
-          .from("outreach_faa_pilots")
-          .select("enrichment_status, outreach_status");
+        // Pipeline breakdown (server-side aggregation via RPC)
+        const { data: pipelineData } = await supabaseClient.rpc("outreach_pipeline_counts");
 
-        if (allPilots) {
-          const enrichMap: Record<string, number> = {};
-          const outreachMap: Record<string, number> = {};
-          for (const p of allPilots) {
-            const es = p.enrichment_status || "pending";
-            enrichMap[es] = (enrichMap[es] || 0) + 1;
-            const os = p.outreach_status || "none";
-            outreachMap[os] = (outreachMap[os] || 0) + 1;
-          }
-          setEnrichmentPipeline(
-            Object.entries(enrichMap).map(([status, count]) => ({ status, count }))
-          );
-          setOutreachPipeline(
-            Object.entries(outreachMap).map(([status, count]) => ({ status, count }))
-          );
-
-          // Top states
-          const stateMap: Record<string, number> = {};
-          for (const p of allPilots as Array<{ enrichment_status: string; outreach_status: string; state?: string }>) {
-            // We need state data - refetch with state column
-          }
+        if (pipelineData) {
+          setEnrichmentPipeline(pipelineData.enrichment ?? []);
+          setOutreachPipeline(pipelineData.outreach ?? []);
         }
 
-        // Top states (separate query with state)
-        const { data: stateData } = await supabaseClient
-          .from("outreach_faa_pilots")
-          .select("state");
+        // Top states (server-side aggregation via RPC)
+        const { data: statesData } = await supabaseClient.rpc("outreach_top_states", { lim: 10 });
 
-        if (stateData) {
-          const stateMap: Record<string, number> = {};
-          for (const row of stateData) {
-            const s = row.state || "Unknown";
-            stateMap[s] = (stateMap[s] || 0) + 1;
-          }
-          const sorted = Object.entries(stateMap)
-            .map(([state, count]) => ({ state, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 10);
-          setTopStates(sorted);
+        if (statesData) {
+          setTopStates(statesData);
         }
 
         // Recent events
