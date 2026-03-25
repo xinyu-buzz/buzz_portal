@@ -112,6 +112,18 @@ const dashboardSections: DashboardSection[] = [
     ],
   },
   {
+    label: "Growth",
+    cards: [
+      {
+        key: "outreach",
+        title: "Pilot Outreach",
+        description: "Manage the FAA pilot outreach pipeline — import data, enrich contacts, generate messages, and track conversions.",
+        to: "/admin/outreach",
+        actionLabel: "Open outreach",
+      },
+    ],
+  },
+  {
     label: "System",
     cards: [
       {
@@ -162,7 +174,8 @@ export const AdminDashboard: FC<AdminDashboardProps> = ({ role }) => {
         card.key === "pilot-management" ||
         card.key === "pilot-accounts" ||
         card.key === "tickets" ||
-        card.key === "safety-reports"
+        card.key === "safety-reports" ||
+        card.key === "outreach"
       ) {
         return role === "admin" || role === "owner";
       }

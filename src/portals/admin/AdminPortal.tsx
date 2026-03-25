@@ -25,6 +25,11 @@ import { TicketManagement } from "./TicketManagement";
 import { FlightHourClaimsReview } from "./FlightHourClaimsReview";
 import { DisputeManagement } from "./DisputeManagement";
 import { AdminInbox } from "./AdminInbox";
+import { OutreachDashboard } from "./OutreachDashboard";
+import { OutreachImport } from "./OutreachImport";
+import { OutreachPilotDetail } from "./OutreachPilotDetail";
+import { OutreachMessageReview } from "./OutreachMessageReview";
+import { OutreachTemplates } from "./OutreachTemplates";
 import { getPortalLabel, useResolvedRole } from "../shared/role";
 import type { PortalRole } from "../shared/role";
 
@@ -73,6 +78,15 @@ export const AdminPortal = () => {
             { to: "/admin/tickets", label: "Bug Reports" },
             { to: "/admin/safety-reports", label: "Safety Reports" },
             { to: "/admin/disputes", label: "Dispute Reports" },
+          ],
+        },
+        {
+          label: "Growth",
+          links: [
+            { to: "/admin/outreach", label: "Outreach Dashboard" },
+            { to: "/admin/outreach/import", label: "Import FAA Data" },
+            { to: "/admin/outreach/messages", label: "Message Review" },
+            { to: "/admin/outreach/templates", label: "Templates" },
           ],
         },
         {
@@ -126,6 +140,11 @@ export const AdminPortal = () => {
         <Route path="tickets" element={<TicketManagement ticketType="bug" />} />
         <Route path="safety-reports" element={<TicketManagement ticketType="safety" />} />
         <Route path="disputes" element={<DisputeManagement />} />
+        <Route path="outreach" element={<OutreachDashboard />} />
+        <Route path="outreach/import" element={<OutreachImport />} />
+        <Route path="outreach/pilots/:id" element={<OutreachPilotDetail />} />
+        <Route path="outreach/messages" element={<OutreachMessageReview />} />
+        <Route path="outreach/templates" element={<OutreachTemplates />} />
         <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </PortalLayout>
