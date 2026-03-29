@@ -23,7 +23,8 @@ type AnalyticsEvent = {
 export const OutreachDashboard: FC = () => {
   const [totalRecords, setTotalRecords] = useState<number | null>(null);
   const [enrichedCount, setEnrichedCount] = useState<number | null>(null);
-  const [emailsFound, setEmailsFound] = useState<number | null>(null);
+  const [emailReadyCount, setEmailReadyCount] = useState<number | null>(null);
+  const [reachableCount, setReachableCount] = useState<number | null>(null);
   const [messagesSent, setMessagesSent] = useState<number | null>(null);
   const [enrichmentPipeline, setEnrichmentPipeline] = useState<PipelineRow[]>([]);
   const [outreachPipeline, setOutreachPipeline] = useState<PipelineRow[]>([]);
@@ -36,7 +37,7 @@ export const OutreachDashboard: FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [totalRes, enrichedRes, emailRes, sentRes] = await Promise.all([
+        const [totalRes, enrichedRes, emailReadyRes, reachableRes, sentRes] = await Promise.all([
           supabaseClient
             .from("outreach_faa_pilots")
             .select("*", { count: "exact", head: true }),
@@ -47,7 +48,15 @@ export const OutreachDashboard: FC = () => {
           supabaseClient
             .from("outreach_faa_pilots")
             .select("*", { count: "exact", head: true })
+            .eq("email_source_type", "public_web_verified")
+            .eq("email_confidence", "high")
+            .eq("deliverability_status", "unverified")
+            .is("suppression_reason", null)
             .not("email", "is", null),
+          supabaseClient
+            .from("outreach_faa_pilots")
+            .select("*", { count: "exact", head: true })
+            .eq("has_public_contact_path", true),
           supabaseClient
             .from("outreach_faa_pilots")
             .select("*", { count: "exact", head: true })
@@ -56,7 +65,8 @@ export const OutreachDashboard: FC = () => {
 
         setTotalRecords(totalRes.count ?? 0);
         setEnrichedCount(enrichedRes.count ?? 0);
-        setEmailsFound(emailRes.count ?? 0);
+        setEmailReadyCount(emailReadyRes.count ?? 0);
+        setReachableCount(reachableRes.count ?? 0);
         setMessagesSent(sentRes.count ?? 0);
 
         // Pipeline breakdown (server-side aggregation via RPC)
@@ -162,11 +172,12 @@ export const OutreachDashboard: FC = () => {
         {/* Stats cards */}
         <div
           className="card-grid"
-          style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: "24px" }}
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginTop: "24px" }}
         >
           {statCard(totalRecords, "Total FAA Records")}
           {statCard(enrichedCount, "Enriched")}
-          {statCard(emailsFound, "Emails Found")}
+          {statCard(emailReadyCount, "Email Ready")}
+          {statCard(reachableCount, "Any Reachable Path")}
           {statCard(messagesSent, "Messages Sent")}
         </div>
 

@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { supabaseClient } from "../../utility";
+import { getPreferredOutreachLabel, isPilotEmailSendable, supabaseClient } from "../../utility";
 
 type Pilot = {
   id: string;
@@ -18,8 +18,15 @@ type Pilot = {
   import_batch_id: string | null;
   email: string | null;
   email_confidence: "high" | "medium" | "low" | null;
+  email_source_type: string | null;
+  email_source_url: string | null;
+  email_verified_at: string | null;
+  deliverability_status: string | null;
+  consent_status: string | null;
+  suppression_reason: string | null;
   phone: string | null;
   website: string | null;
+  contact_form_url: string | null;
   linkedin_url: string | null;
   instagram_url: string | null;
   youtube_url: string | null;
@@ -28,6 +35,8 @@ type Pilot = {
   specializations: string[] | null;
   estimated_experience_level: string | null;
   enrichment_summary: string | null;
+  preferred_outreach_channel: string | null;
+  has_public_contact_path: boolean;
   created_at: string;
 };
 
@@ -239,6 +248,8 @@ export const OutreachPilotDetail: FC = () => {
     );
   };
 
+  const emailSendable = isPilotEmailSendable(pilot);
+
   if (loading) {
     return (
       <div className="page-shell">
@@ -326,6 +337,12 @@ export const OutreachPilotDetail: FC = () => {
             <span className="detail-label">Outreach Status</span>
             <span>{statusBadge(pilot.outreach_status)}</span>
           </div>
+            <div className="detail-item">
+              <span className="detail-label">Preferred Channel</span>
+              <span style={{ textTransform: "capitalize" }}>
+                {getPreferredOutreachLabel(pilot)}
+              </span>
+            </div>
           <div className="detail-item">
             <span className="detail-label">Import Batch</span>
             <span className="muted-text" style={{ fontSize: "12px" }}>
@@ -351,6 +368,28 @@ export const OutreachPilotDetail: FC = () => {
             <div className="detail-item">
               <span className="detail-label">Phone</span>
               <span>{pilot.phone || "—"}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Deliverability</span>
+              <span style={{ textTransform: "capitalize" }}>
+                {pilot.deliverability_status?.replace(/_/g, " ") || "—"}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Consent Status</span>
+              <span style={{ textTransform: "capitalize" }}>
+                {pilot.consent_status?.replace(/_/g, " ") || "—"}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Email Source Type</span>
+              <span style={{ textTransform: "capitalize" }}>
+                {pilot.email_source_type?.replace(/_/g, " ") || "—"}
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Contact Form</span>
+              <span>{linkOrDash(pilot.contact_form_url, "Open Form")}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Website</span>
@@ -382,7 +421,42 @@ export const OutreachPilotDetail: FC = () => {
                 {pilot.estimated_experience_level?.replace(/_/g, " ") || "—"}
               </span>
             </div>
+            <div className="detail-item">
+              <span className="detail-label">Email Sendability</span>
+              <span style={{ color: emailSendable ? "#22c55e" : "var(--muted)" }}>
+                {emailSendable ? "Ready for compliant send" : "Fallback channel required"}
+              </span>
+            </div>
           </div>
+
+          {(pilot.email_source_url || pilot.email_verified_at || pilot.suppression_reason || pilot.has_public_contact_path) && (
+            <div style={{ marginTop: "12px" }}>
+              <span className="detail-label" style={{ display: "block", marginBottom: "6px" }}>
+                Contact Provenance
+              </span>
+              <div
+                style={{
+                  display: "grid",
+                  gap: "8px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                }}
+              >
+                <div>
+                  <strong>Source URL:</strong>{" "}
+                  {pilot.email_source_url ? linkOrDash(pilot.email_source_url, "View Source") : "—"}
+                </div>
+                <div>
+                  <strong>Verified At:</strong> {formatDate(pilot.email_verified_at)}
+                </div>
+                <div>
+                  <strong>Suppression Reason:</strong> {pilot.suppression_reason || "—"}
+                </div>
+                <div>
+                  <strong>Reachable Path:</strong> {pilot.has_public_contact_path ? "Yes" : "No"}
+                </div>
+              </div>
+            </div>
+          )}
 
           {pilot.specializations && pilot.specializations.length > 0 && (
             <div style={{ marginTop: "12px" }}>
@@ -455,13 +529,20 @@ export const OutreachPilotDetail: FC = () => {
             </button>
             {showChannelSelect && (
               <div className="channel-dropdown">
-                {["email", "instagram_dm", "linkedin_dm", "facebook_dm"].map((ch) => (
+                {[
+                  { id: "email", enabled: emailSendable },
+                  { id: "instagram_dm", enabled: !!pilot.instagram_url },
+                  { id: "linkedin_dm", enabled: !!pilot.linkedin_url },
+                  { id: "facebook_dm", enabled: !!pilot.facebook_url },
+                ].map((channel) => (
                   <button
-                    key={ch}
+                    key={channel.id}
                     className="channel-option"
-                    onClick={() => handleGenerateMessage(ch)}
+                    onClick={() => handleGenerateMessage(channel.id)}
+                    disabled={!channel.enabled}
+                    style={!channel.enabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                   >
-                    {ch.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    {channel.id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                   </button>
                 ))}
               </div>

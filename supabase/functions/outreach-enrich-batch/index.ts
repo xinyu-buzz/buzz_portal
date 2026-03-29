@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  canSendEmail,
+  classifyEmailSource,
+  hasReachablePublicContactPath,
+  inferPreferredOutreachChannel,
+  isValidEmailSyntax,
+  normalizeNullableString,
+} from "../_shared/outreach.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -315,7 +323,9 @@ Please respond in JSON format with these fields:
   "email": "found email or null",
   "email_confidence": "high/medium/low based on how certain you are",
   "email_source": "where you found it (website, linkedin, etc)",
+  "email_source_url": "URL of the page where the email appears, if known",
   "website": "their website URL or null",
+  "contact_form_url": "URL of a public contact form if found, otherwise null",
   "linkedin_url": "their LinkedIn URL or null",
   "instagram_url": "their Instagram URL or null",
   "youtube_url": "their YouTube URL or null",
@@ -328,7 +338,7 @@ Please respond in JSON format with these fields:
   "summary": "Brief 1-2 sentence summary of what you found about this pilot"
 }
 
-Only include information you actually found in the search results. Do not make up or guess information.`,
+Only include information you actually found in the search results. Only return an email if it is explicitly public in the result set. Do not make up or guess information.`,
                 },
               ],
             }),
@@ -359,30 +369,88 @@ Only include information you actually found in the search results. Do not make u
           );
         }
 
+        const email = normalizeNullableString(enrichedData.email);
+        const emailSource = normalizeNullableString(enrichedData.email_source);
+        const normalizedPilot = {
+          ...pilot,
+          email,
+          email_confidence: normalizeNullableString(enrichedData.email_confidence),
+          email_source_type: null,
+          deliverability_status: "unverified",
+          consent_status: "unknown",
+          website: normalizeNullableString(enrichedData.website),
+          contact_form_url: normalizeNullableString(enrichedData.contact_form_url),
+          linkedin_url: normalizeNullableString(enrichedData.linkedin_url),
+          instagram_url: normalizeNullableString(enrichedData.instagram_url),
+          facebook_url: normalizeNullableString(enrichedData.facebook_url),
+        };
+        const sourceClassification = classifyEmailSource(emailSource);
+        const hasValidEmail = Boolean(email && isValidEmailSyntax(email));
+        const emailSourceType =
+          hasValidEmail
+            ? sourceClassification.emailSourceType
+            : null;
+        const consentStatus =
+          emailSourceType !== null ? sourceClassification.consentStatus : "unknown";
+        const deliverabilityStatus =
+          !email ? "unverified" : hasValidEmail ? "unverified" : "risky";
+        const preferredOutreachChannel = inferPreferredOutreachChannel({
+          ...normalizedPilot,
+          email_source_type: emailSourceType,
+          deliverability_status: deliverabilityStatus,
+          consent_status: consentStatus,
+        });
+        const hasPublicContactPath = hasReachablePublicContactPath({
+          ...normalizedPilot,
+          email_source_type: emailSourceType,
+          deliverability_status: deliverabilityStatus,
+          consent_status: consentStatus,
+        });
+        const nextOutreachStatus =
+          hasPublicContactPath &&
+          pilot.outreach_status !== "opted_out" &&
+          pilot.outreach_status !== "do_not_contact"
+            ? "ready"
+            : pilot.outreach_status;
+
         // Step 6: Update pilot with enriched data
         const { error: updatePilotError } = await supabase
           .from("outreach_faa_pilots")
           .update({
-            email: enrichedData.email || null,
-            email_confidence: enrichedData.email_confidence || null,
-            email_source: enrichedData.email_source || null,
-            website: enrichedData.website || null,
-            linkedin_url: enrichedData.linkedin_url || null,
-            instagram_url: enrichedData.instagram_url || null,
-            youtube_url: enrichedData.youtube_url || null,
-            facebook_url: enrichedData.facebook_url || null,
-            phone: enrichedData.phone || null,
-            business_name: enrichedData.business_name || null,
-            specializations: enrichedData.specializations || [],
+            email,
+            email_confidence: normalizedPilot.email_confidence,
+            email_source: emailSource,
+            email_source_type: emailSourceType,
+            email_source_url: normalizeNullableString(enrichedData.email_source_url),
+            email_verified_at: null,
+            deliverability_status: deliverabilityStatus,
+            consent_status: consentStatus,
+            suppression_reason: null,
+            website: normalizedPilot.website,
+            contact_form_url: normalizedPilot.contact_form_url,
+            linkedin_url: normalizedPilot.linkedin_url,
+            instagram_url: normalizedPilot.instagram_url,
+            youtube_url: normalizeNullableString(enrichedData.youtube_url),
+            facebook_url: normalizedPilot.facebook_url,
+            phone: normalizeNullableString(enrichedData.phone),
+            business_name: normalizeNullableString(enrichedData.business_name),
+            specializations: Array.isArray(enrichedData.specializations)
+              ? enrichedData.specializations.filter(
+                  (value): value is string => typeof value === "string" && value.trim().length > 0
+                )
+              : [],
             has_own_website: enrichedData.has_own_website || false,
             estimated_experience_level:
-              enrichedData.estimated_experience_level || null,
-            enrichment_summary: enrichedData.summary || null,
+              normalizeNullableString(enrichedData.estimated_experience_level),
+            enrichment_summary: normalizeNullableString(enrichedData.summary),
             enrichment_raw_json: enrichedData,
             enrichment_status: "completed",
             enrichment_attempts: (queueItem.attempts || 0) + 1,
             enrichment_error: null,
             last_enrichment_at: new Date().toISOString(),
+            preferred_outreach_channel: preferredOutreachChannel,
+            has_public_contact_path: hasPublicContactPath,
+            outreach_status: nextOutreachStatus,
           })
           .eq("id", queueItem.faa_pilot_id);
 
@@ -409,15 +477,24 @@ Only include information you actually found in the search results. Do not make u
           event_type: "enrichment_complete",
           faa_pilot_id: queueItem.faa_pilot_id,
           metadata: {
-            email_found: !!enrichedData.email,
-            email_confidence: enrichedData.email_confidence || null,
+            email_found: !!email,
+            email_sendable: canSendEmail({
+              ...normalizedPilot,
+              email_source_type: emailSourceType,
+              deliverability_status: deliverabilityStatus,
+              consent_status: consentStatus,
+            }),
+            email_confidence: normalizedPilot.email_confidence,
+            email_source_type: emailSourceType,
             social_profiles_found: [
-              enrichedData.linkedin_url,
-              enrichedData.instagram_url,
-              enrichedData.youtube_url,
-              enrichedData.facebook_url,
+              normalizedPilot.linkedin_url,
+              normalizedPilot.instagram_url,
+              normalizeNullableString(enrichedData.youtube_url),
+              normalizedPilot.facebook_url,
             ].filter(Boolean).length,
-            business_name_found: !!enrichedData.business_name,
+            preferred_outreach_channel: preferredOutreachChannel,
+            has_public_contact_path: hasPublicContactPath,
+            business_name_found: !!normalizeNullableString(enrichedData.business_name),
             worker_id: workerId,
           },
         });

@@ -17,4 +17,10 @@ describe("utility/index", () => {
     expect(mod.permanentlyDeleteStorageFiles).toBeTypeOf("function");
     expect(mod.getStorageFileCount).toBeTypeOf("function");
   });
+
+  it("re-exports outreach contact helpers", async () => {
+    const mod = await import("./index");
+    expect(mod.isPilotEmailSendable).toBeTypeOf("function");
+    expect(mod.getPreferredOutreachLabel).toBeTypeOf("function");
+  });
 });

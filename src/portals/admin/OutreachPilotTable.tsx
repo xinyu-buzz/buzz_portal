@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { supabaseClient } from "../../utility";
+import { getPreferredOutreachLabel, isPilotEmailSendable, supabaseClient } from "../../utility";
 
 type FaaPilot = {
   id: string;
@@ -14,6 +14,10 @@ type FaaPilot = {
   outreach_status: string | null;
   email: string | null;
   email_confidence: string | null;
+  email_source_type: string | null;
+  deliverability_status: string | null;
+  preferred_outreach_channel: string | null;
+  has_public_contact_path: boolean;
   estimated_experience_level: string | null;
   created_at: string | null;
 };
@@ -37,7 +41,7 @@ export const OutreachPilotTable: FC = () => {
       let query = supabaseClient
         .from("outreach_faa_pilots")
         .select(
-          "id, first_name, last_name, city, state, certificate_type, enrichment_status, outreach_status, email, email_confidence, estimated_experience_level, created_at",
+          "id, first_name, last_name, city, state, certificate_type, enrichment_status, outreach_status, email, email_confidence, email_source_type, deliverability_status, preferred_outreach_channel, has_public_contact_path, estimated_experience_level, created_at",
           { count: "exact" }
         )
         .order("created_at", { ascending: false })
@@ -128,6 +132,34 @@ export const OutreachPilotTable: FC = () => {
         }}
       >
         {status.replace(/_/g, " ")}
+      </span>
+    );
+  };
+
+  const contactBadge = (pilot: FaaPilot) => {
+    const label = getPreferredOutreachLabel(pilot);
+    const canEmail = isPilotEmailSendable(pilot);
+
+    const color = canEmail
+      ? "#22c55e"
+      : pilot.has_public_contact_path
+      ? "#3b82f6"
+      : "#6b7280";
+
+    return (
+      <span
+        style={{
+          display: "inline-block",
+          padding: "2px 8px",
+          borderRadius: "6px",
+          fontSize: "12px",
+          fontWeight: 600,
+          background: `${color}20`,
+          color,
+          textTransform: "capitalize",
+        }}
+      >
+        {label}
       </span>
     );
   };
@@ -249,6 +281,7 @@ export const OutreachPilotTable: FC = () => {
                 <th>Name</th>
                 <th>Location</th>
                 <th>Certificate</th>
+                <th>Contact</th>
                 <th>Email</th>
                 <th>Experience</th>
                 <th>Enrichment</th>
@@ -259,13 +292,13 @@ export const OutreachPilotTable: FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "32px 0", color: "var(--muted)" }}>
+                  <td colSpan={9} style={{ textAlign: "center", padding: "32px 0", color: "var(--muted)" }}>
                     Loading...
                   </td>
                 </tr>
               ) : pilots.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "32px 0", color: "var(--muted)" }}>
+                  <td colSpan={9} style={{ textAlign: "center", padding: "32px 0", color: "var(--muted)" }}>
                     No records found
                   </td>
                 </tr>
@@ -280,6 +313,9 @@ export const OutreachPilotTable: FC = () => {
                     </td>
                     <td style={{ textTransform: "capitalize" }}>
                       {p.certificate_type?.replace(/_/g, " ") ?? "—"}
+                    </td>
+                    <td>
+                      {contactBadge(p)}
                     </td>
                     <td>
                       {p.email ? (
@@ -303,7 +339,9 @@ export const OutreachPilotTable: FC = () => {
                           )}
                         </span>
                       ) : (
-                        <span className="muted-text">—</span>
+                        <span className="muted-text">
+                          {p.has_public_contact_path ? "fallback only" : "—"}
+                        </span>
                       )}
                     </td>
                     <td style={{ textTransform: "capitalize" }}>

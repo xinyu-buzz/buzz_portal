@@ -95,6 +95,8 @@ serve(async (req) => {
       .update({
         outreach_status: "opted_out",
         unsubscribed_at: new Date().toISOString(),
+        consent_status: "opted_out",
+        suppression_reason: "user_unsubscribed",
       })
       .eq("id", message.faa_pilot_id);
 

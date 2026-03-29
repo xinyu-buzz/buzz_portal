@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { canSendEmail } from "../_shared/outreach.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,6 +42,17 @@ serve(async (req) => {
     if (!channel) {
       return new Response(
         JSON.stringify({ error: "channel is required (e.g., 'email', 'instagram', 'linkedin')" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const supportedChannels = ["email", "instagram_dm", "linkedin_dm", "facebook_dm"];
+    if (!supportedChannels.includes(channel)) {
+      return new Response(
+        JSON.stringify({ error: `Unsupported channel: ${channel}` }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -96,6 +108,34 @@ serve(async (req) => {
     // Step 3: Generate personalized messages for each pilot
     for (const pilot of pilots) {
       try {
+        if (channel === "email" && !canSendEmail(pilot)) {
+          errors.push(
+            `Pilot ${pilot.id} (${pilot.first_name} ${pilot.last_name}): no compliant sendable email is available`
+          );
+          continue;
+        }
+
+        if (channel === "linkedin_dm" && !pilot.linkedin_url) {
+          errors.push(
+            `Pilot ${pilot.id} (${pilot.first_name} ${pilot.last_name}): no LinkedIn profile is available`
+          );
+          continue;
+        }
+
+        if (channel === "instagram_dm" && !pilot.instagram_url) {
+          errors.push(
+            `Pilot ${pilot.id} (${pilot.first_name} ${pilot.last_name}): no Instagram profile is available`
+          );
+          continue;
+        }
+
+        if (channel === "facebook_dm" && !pilot.facebook_url) {
+          errors.push(
+            `Pilot ${pilot.id} (${pilot.first_name} ${pilot.last_name}): no Facebook profile is available`
+          );
+          continue;
+        }
+
         const firstName = pilot.first_name || "";
         const lastName = pilot.last_name || "";
         const city = pilot.city || "";
@@ -103,6 +143,14 @@ serve(async (req) => {
         const businessName = pilot.business_name || null;
         const specializations = pilot.specializations || [];
         const experienceLevel = pilot.estimated_experience_level || null;
+        const contactPath =
+          channel === "email"
+            ? `Public email: ${pilot.email}`
+            : channel === "linkedin_dm"
+            ? `LinkedIn: ${pilot.linkedin_url}`
+            : channel === "instagram_dm"
+            ? `Instagram: ${pilot.instagram_url}`
+            : `Facebook: ${pilot.facebook_url}`;
 
         const templateSection = template
           ? `Use this template as a guide (personalize it):\nSubject: ${template.subject_template}\nBody: ${template.body_template}`
@@ -131,6 +179,7 @@ Pilot Information:
 - Business: ${businessName || "Independent pilot"}
 - Specializations: ${specializations.length > 0 ? specializations.join(", ") : "General"}
 - Experience Level: ${experienceLevel || "Unknown"}
+- Contact Path: ${contactPath}
 
 ${templateSection}
 
@@ -146,6 +195,7 @@ Guidelines:
 - For social DMs: keep it under 300 characters, casual and direct
 - Don't be pushy or salesy
 - Include a clear call-to-action (download the app)
+- Do not mention the FAA, scraping, or how Buzz found them
 
 Respond in JSON format:
 {

@@ -96,7 +96,11 @@ serve(async (req) => {
 
         await supabase
           .from("outreach_faa_pilots")
-          .update({ outreach_status: "bounced" })
+          .update({
+            outreach_status: "bounced",
+            deliverability_status: "bounced",
+            suppression_reason: "bounce",
+          })
           .eq("id", message.faa_pilot_id);
 
         eventType = "email_bounced";
@@ -111,7 +115,12 @@ serve(async (req) => {
 
         await supabase
           .from("outreach_faa_pilots")
-          .update({ outreach_status: "do_not_contact" })
+          .update({
+            outreach_status: "do_not_contact",
+            deliverability_status: "complained",
+            consent_status: "suppressed",
+            suppression_reason: "spam_complaint",
+          })
           .eq("id", message.faa_pilot_id);
 
         eventType = "spam_complaint";

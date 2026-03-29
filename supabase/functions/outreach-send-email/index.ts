@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { canSendEmail } from "../_shared/outreach.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +68,9 @@ serve(async (req) => {
     const pilotIds = [...new Set(messages.map((m) => m.faa_pilot_id))];
     const { data: pilots, error: pilotError } = await supabase
       .from("outreach_faa_pilots")
-      .select("id, email, outreach_status")
+      .select(
+        "id, email, email_confidence, email_source_type, deliverability_status, consent_status, suppression_reason, outreach_status"
+      )
       .in("id", pilotIds);
 
     if (pilotError) {
@@ -116,7 +119,22 @@ serve(async (req) => {
 
       // Cross-reference newsletter unsubscribes
       if (unsubscribedEmails.has(pilot.email)) {
+        await supabase
+          .from("outreach_faa_pilots")
+          .update({
+            consent_status: "opted_out",
+            suppression_reason: "newsletter_unsubscribed",
+            outreach_status: "opted_out",
+            unsubscribed_at: new Date().toISOString(),
+          })
+          .eq("id", pilot.id);
         skipped++;
+        continue;
+      }
+
+      if (!canSendEmail(pilot)) {
+        skipped++;
+        errors.push(`Message ${message.id}: pilot email is not eligible for compliant sending`);
         continue;
       }
 
@@ -201,7 +219,10 @@ serve(async (req) => {
           // 8. Update pilot: outreach_status = 'email_sent'
           await supabase
             .from("outreach_faa_pilots")
-            .update({ outreach_status: "email_sent" })
+            .update({
+              outreach_status: "email_sent",
+              outreach_channel: "email",
+            })
             .eq("id", pilot.id);
 
           // 9. Log analytics event

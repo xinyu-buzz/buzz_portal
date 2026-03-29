@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { supabaseClient } from "../../utility";
+import { getPreferredOutreachLabel, isPilotEmailSendable, supabaseClient } from "../../utility";
 
 type PilotInfo = {
   first_name: string | null;
@@ -8,6 +8,12 @@ type PilotInfo = {
   city: string | null;
   state: string | null;
   email: string | null;
+  email_confidence: string | null;
+  email_source_type: string | null;
+  deliverability_status: string | null;
+  consent_status: string | null;
+  suppression_reason: string | null;
+  preferred_outreach_channel: string | null;
   enrichment_summary: string | null;
 };
 
@@ -47,7 +53,7 @@ export const OutreachMessageReview: FC = () => {
     let query = supabaseClient
       .from("outreach_messages")
       .select(
-        "*, outreach_faa_pilots(first_name, last_name, city, state, email, enrichment_summary)"
+        "*, outreach_faa_pilots(first_name, last_name, city, state, email, email_confidence, email_source_type, deliverability_status, consent_status, suppression_reason, preferred_outreach_channel, enrichment_summary)"
       )
       .order("created_at", { ascending: false });
 
@@ -271,6 +277,8 @@ export const OutreachMessageReview: FC = () => {
     return `${pilot.first_name || ""} ${pilot.last_name || ""}`.trim() || "Unknown";
   };
 
+  const emailReady = (pilot: PilotInfo | null) => isPilotEmailSendable(pilot);
+
   return (
     <div className="page-shell">
       <div className="page-card">
@@ -478,6 +486,26 @@ export const OutreachMessageReview: FC = () => {
                     <p style={{ fontSize: "14px", color: "var(--muted)" }}>
                       {pilot.enrichment_summary}
                     </p>
+                  </div>
+                )}
+
+                {m.channel === "email" && (
+                  <div
+                    style={{
+                      marginBottom: "16px",
+                      padding: "12px 14px",
+                      borderRadius: "8px",
+                      background: emailReady(pilot)
+                        ? "rgba(34, 197, 94, 0.1)"
+                        : "rgba(234, 179, 8, 0.1)",
+                      color: emailReady(pilot) ? "#22c55e" : "#f59e0b",
+                    }}
+                  >
+                    {emailReady(pilot)
+                      ? "Pilot has a sendable public-web email."
+                      : `Pilot email is fallback-only or suppressed. Preferred channel: ${
+                          getPreferredOutreachLabel(pilot)
+                        }.`}
                   </div>
                 )}
 
