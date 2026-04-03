@@ -37,7 +37,14 @@ export const OutreachDashboard: FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [totalRes, enrichedRes, emailReadyRes, reachableRes, sentRes] = await Promise.all([
+        const [
+          totalRes,
+          enrichedRes,
+          verifiedEmailRes,
+          publicWebEmailRes,
+          reachableRes,
+          sentRes,
+        ] = await Promise.all([
           supabaseClient
             .from("outreach_faa_pilots")
             .select("*", { count: "exact", head: true }),
@@ -48,9 +55,23 @@ export const OutreachDashboard: FC = () => {
           supabaseClient
             .from("outreach_faa_pilots")
             .select("*", { count: "exact", head: true })
+            .eq("deliverability_status", "verified")
+            .neq("consent_status", "opted_out")
+            .neq("consent_status", "suppressed")
+            .neq("outreach_status", "opted_out")
+            .neq("outreach_status", "do_not_contact")
+            .is("suppression_reason", null)
+            .not("email", "is", null),
+          supabaseClient
+            .from("outreach_faa_pilots")
+            .select("*", { count: "exact", head: true })
             .eq("email_source_type", "public_web_verified")
             .eq("email_confidence", "high")
             .eq("deliverability_status", "unverified")
+            .neq("consent_status", "opted_out")
+            .neq("consent_status", "suppressed")
+            .neq("outreach_status", "opted_out")
+            .neq("outreach_status", "do_not_contact")
             .is("suppression_reason", null)
             .not("email", "is", null),
           supabaseClient
@@ -65,7 +86,7 @@ export const OutreachDashboard: FC = () => {
 
         setTotalRecords(totalRes.count ?? 0);
         setEnrichedCount(enrichedRes.count ?? 0);
-        setEmailReadyCount(emailReadyRes.count ?? 0);
+        setEmailReadyCount((verifiedEmailRes.count ?? 0) + (publicWebEmailRes.count ?? 0));
         setReachableCount(reachableRes.count ?? 0);
         setMessagesSent(sentRes.count ?? 0);
 

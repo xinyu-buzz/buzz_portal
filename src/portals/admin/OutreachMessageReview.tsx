@@ -8,6 +8,7 @@ type PilotInfo = {
   city: string | null;
   state: string | null;
   email: string | null;
+  outreach_status: string | null;
   email_confidence: string | null;
   email_source_type: string | null;
   deliverability_status: string | null;
@@ -53,7 +54,7 @@ export const OutreachMessageReview: FC = () => {
     let query = supabaseClient
       .from("outreach_messages")
       .select(
-        "*, outreach_faa_pilots(first_name, last_name, city, state, email, email_confidence, email_source_type, deliverability_status, consent_status, suppression_reason, preferred_outreach_channel, enrichment_summary)"
+        "*, outreach_faa_pilots(first_name, last_name, city, state, email, outreach_status, email_confidence, email_source_type, deliverability_status, consent_status, suppression_reason, preferred_outreach_channel, enrichment_summary)"
       )
       .order("created_at", { ascending: false });
 
