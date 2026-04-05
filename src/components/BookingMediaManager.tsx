@@ -162,6 +162,8 @@ export const BookingMediaManager = ({
     if (insertError) {
       console.error(insertError);
       setError(insertError.message);
+      // Clean up the orphaned storage file since the DB record failed
+      await supabaseClient.storage.from("booking-media").remove([path]);
     } else {
       await refresh();
     }
@@ -195,17 +197,8 @@ export const BookingMediaManager = ({
     setDeletingId(file.id);
     setError(null);
 
-    const { error: storageError } = await supabaseClient.storage
-      .from("booking-media")
-      .remove([file.storage_path]);
-
-    if (storageError) {
-      console.error(storageError);
-      setError(storageError.message);
-      setDeletingId(null);
-      return;
-    }
-
+    // Delete DB row first — a dangling storage file is less harmful
+    // than a DB row pointing to a deleted file.
     const { error: deleteError } = await supabaseClient
       .from("booking_media_files")
       .delete()
@@ -214,10 +207,19 @@ export const BookingMediaManager = ({
     if (deleteError) {
       console.error(deleteError);
       setError(deleteError.message);
-    } else {
-      await refresh();
+      setDeletingId(null);
+      return;
     }
 
+    const { error: storageError } = await supabaseClient.storage
+      .from("booking-media")
+      .remove([file.storage_path]);
+
+    if (storageError) {
+      console.error("Storage cleanup failed (DB row already removed):", storageError);
+    }
+
+    await refresh();
     setDeletingId(null);
   };
 

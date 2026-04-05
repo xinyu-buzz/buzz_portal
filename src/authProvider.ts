@@ -4,6 +4,14 @@ import { supabaseClient } from "./utility";
 const isBuzzEmail = (email?: string | null) =>
   typeof email === "string" && email.toLowerCase().endsWith("@buzzbuzzin.com");
 
+const VALID_PORTAL_ROLES = ["admin", "owner", "pilot", "editor", "client"] as const;
+
+const mapProfileUserTypeToRole = (userType?: string | null) => {
+  if (userType === "pilot") return "pilot";
+  if (userType === "customer") return "client";
+  return null;
+};
+
 const authProvider: AuthProvider = {
   login: async ({ email, password, providerName }) => {
     // sign in with oauth
@@ -230,9 +238,28 @@ const authProvider: AuthProvider = {
       // (e.g. pilots or clients using personal email addresses).
       // The buzzbuzzin.com restriction only applies to users with no portal role.
       if (!isBuzzEmail(userEmail)) {
-        const storedRole = localStorage.getItem("buzz_portal_role");
-        if (!storedRole || !["admin", "owner", "pilot", "editor", "client"].includes(storedRole)) {
+        // Validate role against the database — never trust localStorage alone.
+        const userId = session.user.id;
+
+        // Check employee_profiles first (admin/owner/editor roles)
+        const { data: emp } = await supabaseClient
+          .from("employee_profiles")
+          .select("role")
+          .eq("email", userEmail?.toLowerCase() || "")
+          .maybeSingle();
+
+        // Then check profiles for pilot/client roles
+        const { data: profile } = await supabaseClient
+          .from("profiles")
+          .select("user_type")
+          .eq("id", userId)
+          .maybeSingle();
+
+        const dbRole = emp?.role || mapProfileUserTypeToRole(profile?.user_type);
+
+        if (!dbRole || !VALID_PORTAL_ROLES.includes(dbRole)) {
           await supabaseClient.auth.signOut();
+          localStorage.removeItem("buzz_portal_role");
           return {
             authenticated: false,
             error: {
@@ -243,6 +270,9 @@ const authProvider: AuthProvider = {
             redirectTo: "/login",
           };
         }
+
+        // Keep localStorage in sync for UI routing, but DB is the source of truth
+        localStorage.setItem("buzz_portal_role", dbRole);
       }
     } catch (error: any) {
       return {

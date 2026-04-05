@@ -11,7 +11,7 @@ vi.mock("../../utility/storageHelpers", () => ({
 import { restoreStorageFiles, permanentlyDeleteStorageFiles } from "../../utility/storageHelpers";
 
 // ── supabase chainable builder ──────────────────────────────────────
-function createChainableBuilder(resolveValue: { data: any; error: any }) {
+function createChainableBuilder(resolveValue: any) {
   const builder: any = {
     _resolved: resolveValue,
     select: vi.fn().mockImplementation(() => builder),
@@ -106,6 +106,11 @@ function setupTableMocks(
       return createChainableBuilder({ data: null, error: { message: opts.errorMsg } });
     }
     const data = tableDataMap[table] ?? [];
+
+    if (table === "deleted_storage_files") {
+      return createChainableBuilder({ data: null, count: data.length, error: null });
+    }
+
     return createChainableBuilder({ data, error: null });
   });
 }
@@ -581,6 +586,79 @@ describe("RecycleBin", () => {
       await waitFor(() => {
         expect(screen.getByText("Delete failed")).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("cleanup expired", () => {
+    it("continues deleting other expired items when one delete fails", async () => {
+      const deleteAttempts: string[] = [];
+      let courseCalls = 0;
+      let unitCalls = 0;
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "training_courses") {
+          courseCalls += 1;
+          if (courseCalls === 1) {
+            return createChainableBuilder({
+              data: [makeCourse("c-1", "Expired Course", 31, defaultProfile)],
+              error: null,
+            });
+          }
+          if (courseCalls === 2) {
+            const builder = createChainableBuilder({
+              data: null,
+              error: { message: "Course delete failed" },
+            });
+            builder.delete = vi.fn().mockImplementation(() => {
+              deleteAttempts.push("course");
+              return builder;
+            });
+            return builder;
+          }
+          return createChainableBuilder({ data: [], error: null });
+        }
+
+        if (table === "course_units") {
+          unitCalls += 1;
+          if (unitCalls === 1) {
+            return createChainableBuilder({
+              data: [makeUnit("u-1", "Expired Unit", 35, defaultProfile)],
+              error: null,
+            });
+          }
+          if (unitCalls === 2) {
+            const builder = createChainableBuilder({ data: null, error: null });
+            builder.delete = vi.fn().mockImplementation(() => {
+              deleteAttempts.push("unit");
+              return builder;
+            });
+            return builder;
+          }
+          return createChainableBuilder({ data: [], error: null });
+        }
+
+        if (table === "deleted_storage_files") {
+          return createChainableBuilder({ data: null, count: 0, error: null });
+        }
+
+        return createChainableBuilder({ data: [], error: null });
+      });
+
+      render(<RecycleBin />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Expired Course")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText(/Clean Up Expired \(2\)/));
+
+      await waitFor(() => {
+        expect(deleteAttempts).toEqual(expect.arrayContaining(["course", "unit"]));
+      });
+
+      expect(
+        screen.getByText("Failed to permanently delete 1 expired item: Expired Course")
+      ).toBeInTheDocument();
     });
   });
 

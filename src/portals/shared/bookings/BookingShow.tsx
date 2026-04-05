@@ -323,7 +323,8 @@ export const BookingShow = ({ basePath, role }: BookingShowProps) => {
     const { error } = await supabaseClient
       .from("booking_editors")
       .delete()
-      .eq("booking_id", bookingId);
+      .eq("booking_id", bookingId)
+      .in("editor_id", selectedEditors);
 
     if (error) {
       console.error(error);

@@ -55,7 +55,7 @@ export const RecycleBin = () => {
             : "Unknown";
 
           // Check for storage files
-          const { data: storageFiles } = await supabaseClient
+          const { count: storageCount } = await supabaseClient
             .from("deleted_storage_files")
             .select("id", { count: "exact", head: true })
             .eq("entity_id", course.id);
@@ -73,7 +73,7 @@ export const RecycleBin = () => {
             deleted_by: course.deleted_by,
             deleted_by_name: deletedByName,
             days_remaining: daysRemaining,
-            has_storage_files: !!(storageFiles as any),
+            has_storage_files: (storageCount ?? 0) > 0,
           });
         }
       }
@@ -145,7 +145,7 @@ export const RecycleBin = () => {
             ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Unknown"
             : "Unknown";
 
-          const { data: storageFiles } = await supabaseClient
+          const { count: unitStorageCount } = await supabaseClient
             .from("deleted_storage_files")
             .select("id", { count: "exact", head: true })
             .eq("entity_id", unit.id);
@@ -164,7 +164,7 @@ export const RecycleBin = () => {
             deleted_by_name: deletedByName,
             parent_name: (unit as any).training_courses?.title,
             days_remaining: daysRemaining,
-            has_storage_files: !!(storageFiles as any),
+            has_storage_files: (unitStorageCount ?? 0) > 0,
           });
         }
       }
@@ -193,7 +193,7 @@ export const RecycleBin = () => {
             ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Unknown"
             : "Unknown";
 
-          const { data: storageFiles } = await supabaseClient
+          const { count: testStorageCount } = await supabaseClient
             .from("deleted_storage_files")
             .select("id", { count: "exact", head: true })
             .eq("entity_id", test.id);
@@ -212,7 +212,7 @@ export const RecycleBin = () => {
             deleted_by_name: deletedByName,
             parent_name: (test as any).training_courses?.title,
             days_remaining: daysRemaining,
-            has_storage_files: !!(storageFiles as any),
+            has_storage_files: (testStorageCount ?? 0) > 0,
           });
         }
       }
@@ -317,6 +317,32 @@ export const RecycleBin = () => {
     setProcessing(null);
   };
 
+  // Core delete logic without UI confirmation — used by both single delete and bulk cleanup
+  const permanentlyDeleteItem = async (item: DeletedItem) => {
+    const tableName =
+      item.type === "course"
+        ? "training_courses"
+        : item.type === "section"
+        ? "course_sections"
+        : item.type === "unit"
+        ? "course_units"
+        : item.type === "test"
+        ? "course_tests"
+        : "test_questions";
+
+    // Permanently delete storage files
+    if (item.has_storage_files) {
+      await permanentlyDeleteStorageFiles(item.id);
+    }
+
+    // Hard delete from database.
+    // Authorization is enforced by Supabase RLS policies — the client-side
+    // confirmation dialog is for UX only.
+    const { error: deleteError } = await supabaseClient.from(tableName).delete().eq("id", item.id);
+
+    if (deleteError) throw deleteError;
+  };
+
   const handlePermanentDelete = async (item: DeletedItem) => {
     if (
       !confirm(
@@ -329,29 +355,7 @@ export const RecycleBin = () => {
     setError(null);
 
     try {
-      const tableName =
-        item.type === "course"
-          ? "training_courses"
-          : item.type === "section"
-          ? "course_sections"
-          : item.type === "unit"
-          ? "course_units"
-          : item.type === "test"
-          ? "course_tests"
-          : "test_questions";
-
-      // Permanently delete storage files
-      if (item.has_storage_files) {
-        await permanentlyDeleteStorageFiles(item.id);
-      }
-
-      // Hard delete from database.
-      // Authorization is enforced by Supabase RLS policies — the client-side
-      // confirmation dialog is for UX only.
-      const { error: deleteError } = await supabaseClient.from(tableName).delete().eq("id", item.id);
-
-      if (deleteError) throw deleteError;
-
+      await permanentlyDeleteItem(item);
       await loadDeletedItems();
     } catch (err: any) {
       console.error("Error permanently deleting item:", err);
@@ -369,12 +373,24 @@ export const RecycleBin = () => {
 
     try {
       const expiredItems = items.filter((item) => item.days_remaining <= 0);
+      const failedItems: string[] = [];
 
       for (const item of expiredItems) {
-        await handlePermanentDelete(item);
+        try {
+          await permanentlyDeleteItem(item);
+        } catch (err) {
+          console.error(`Error cleaning up expired item "${item.title}":`, err);
+          failedItems.push(item.title);
+        }
       }
 
       await loadDeletedItems();
+
+      if (failedItems.length > 0) {
+        setError(
+          `Failed to permanently delete ${failedItems.length} expired item${failedItems.length === 1 ? "" : "s"}: ${failedItems.join(", ")}`
+        );
+      }
     } catch (err: any) {
       console.error("Error cleaning up expired items:", err);
       setError(err.message);

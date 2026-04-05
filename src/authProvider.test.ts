@@ -28,6 +28,14 @@ vi.mock("./utility", () => ({
 
 import authProvider from "./authProvider";
 
+const createDbQuery = (data: unknown) => ({
+  select: vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({ data }),
+    }),
+  }),
+});
+
 describe("authProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -213,31 +221,62 @@ describe("authProvider", () => {
       expect(result.redirectTo).toBe("/login");
     });
 
-    it("allows non-buzz email with valid stored portal role", async () => {
-      localStorage.setItem("buzz_portal_role", "pilot");
+    it("allows non-buzz email with pilot role from the database", async () => {
       mockGetSession.mockResolvedValue({
         data: {
           session: {
-            user: { email: "user@gmail.com" },
+            user: { id: "pilot-1", email: "user@gmail.com" },
           },
         },
+      });
+      mockDbFrom.mockImplementation((table: string) => {
+        if (table === "employee_profiles") return createDbQuery(null);
+        if (table === "profiles") return createDbQuery({ user_type: "pilot" });
+        return createDbQuery(null);
       });
 
       const result = await authProvider.check();
 
       expect(result.authenticated).toBe(true);
       expect(mockSignOut).not.toHaveBeenCalled();
+      expect(localStorage.getItem("buzz_portal_role")).toBe("pilot");
     });
 
-    it("rejects non-buzz email without stored portal role", async () => {
+    it("allows non-buzz email with client role from the database", async () => {
       mockGetSession.mockResolvedValue({
         data: {
           session: {
-            user: { email: "user@gmail.com" },
+            user: { id: "client-1", email: "client@gmail.com" },
+          },
+        },
+      });
+      mockDbFrom.mockImplementation((table: string) => {
+        if (table === "employee_profiles") return createDbQuery(null);
+        if (table === "profiles") return createDbQuery({ user_type: "customer" });
+        return createDbQuery(null);
+      });
+
+      const result = await authProvider.check();
+
+      expect(result.authenticated).toBe(true);
+      expect(mockSignOut).not.toHaveBeenCalled();
+      expect(localStorage.getItem("buzz_portal_role")).toBe("client");
+    });
+
+    it("rejects non-buzz email without an eligible database role", async () => {
+      mockGetSession.mockResolvedValue({
+        data: {
+          session: {
+            user: { id: "user-1", email: "user@gmail.com" },
           },
         },
       });
       mockSignOut.mockResolvedValue({ error: null });
+      mockDbFrom.mockImplementation((table: string) => {
+        if (table === "employee_profiles") return createDbQuery(null);
+        if (table === "profiles") return createDbQuery(null);
+        return createDbQuery(null);
+      });
 
       const result = await authProvider.check();
 

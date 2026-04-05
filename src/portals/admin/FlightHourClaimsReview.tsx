@@ -159,43 +159,67 @@ export const FlightHourClaimsReview = () => {
         throw new Error("This claim has already been reviewed. Please refresh and try again.");
       }
 
-      // 2. Update pilot_stats ONLY after claim ownership is confirmed
-      const { data: statsData, error: statsError } = await supabaseClient
-        .from("pilot_stats")
-        .select("*")
-        .eq("pilot_id", selectedClaim.pilot_id)
-        .maybeSingle();
-
-      if (statsError) throw statsError;
-
-      if (statsData) {
-        const newHours = (statsData.total_flight_hours || 0) + selectedClaim.claimed_hours;
-        const newBookings = (statsData.completed_bookings || 0) + selectedClaim.claimed_flights;
-        const newTier = calculateTier(newHours);
-
-        const { error: updateStatsError } = await supabaseClient
+      // 2. Update pilot_stats ONLY after claim ownership is confirmed.
+      //    If stats update fails, rollback the claim to "pending" to avoid
+      //    an approved claim with no stats credit.
+      try {
+        const { data: statsData, error: statsError } = await supabaseClient
           .from("pilot_stats")
-          .update({
-            total_flight_hours: newHours,
-            completed_bookings: newBookings,
-            tier: newTier,
-          })
-          .eq("pilot_id", selectedClaim.pilot_id);
+          .select("*")
+          .eq("pilot_id", selectedClaim.pilot_id)
+          .maybeSingle();
 
-        if (updateStatsError) throw updateStatsError;
-      } else {
-        const newTier = calculateTier(selectedClaim.claimed_hours);
+        if (statsError) throw statsError;
 
-        const { error: insertStatsError } = await supabaseClient
-          .from("pilot_stats")
-          .insert({
-            pilot_id: selectedClaim.pilot_id,
-            total_flight_hours: selectedClaim.claimed_hours,
-            completed_bookings: selectedClaim.claimed_flights,
-            tier: newTier,
-          });
+        if (statsData) {
+          const newHours = (statsData.total_flight_hours || 0) + selectedClaim.claimed_hours;
+          const newBookings = (statsData.completed_bookings || 0) + selectedClaim.claimed_flights;
+          const newTier = calculateTier(newHours);
 
-        if (insertStatsError) throw insertStatsError;
+          const { error: updateStatsError } = await supabaseClient
+            .from("pilot_stats")
+            .update({
+              total_flight_hours: newHours,
+              completed_bookings: newBookings,
+              tier: newTier,
+            })
+            .eq("pilot_id", selectedClaim.pilot_id);
+
+          if (updateStatsError) throw updateStatsError;
+        } else {
+          const newTier = calculateTier(selectedClaim.claimed_hours);
+
+          const { error: insertStatsError } = await supabaseClient
+            .from("pilot_stats")
+            .insert({
+              pilot_id: selectedClaim.pilot_id,
+              total_flight_hours: selectedClaim.claimed_hours,
+              completed_bookings: selectedClaim.claimed_flights,
+              tier: newTier,
+            });
+
+          if (insertStatsError) throw insertStatsError;
+        }
+      } catch (statsErr: any) {
+        // Rollback: revert claim status to pending so it can be retried.
+        console.error("Stats update failed, rolling back claim status:", statsErr);
+        const { data: rollbackData, error: rollbackError } = await supabaseClient
+          .from("flight_hour_claims")
+          .update({ status: "pending", reviewed_at: null, reviewed_by: null, reviewer_notes: null })
+          .eq("id", selectedClaim.id)
+          .eq("status", "approved")
+          .eq("reviewed_by", userId)
+          .select("id");
+
+        if (rollbackError || !rollbackData || rollbackData.length === 0) {
+          const rollbackMessage =
+            rollbackError?.message || "No approved claim row was reverted.";
+          throw new Error(
+            `Failed to update pilot stats, and rollback did not complete. Claim may still be approved: ${statsErr.message}. Rollback error: ${rollbackMessage}`
+          );
+        }
+
+        throw new Error(`Failed to update pilot stats (claim rolled back to pending): ${statsErr.message}`);
       }
 
       closeReviewModal();

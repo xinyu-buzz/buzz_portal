@@ -290,7 +290,7 @@ export const FlightPlanList = () => {
                 )}
                 {!pdfLoading && signedPdfUrl && (
                   <iframe
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(signedPdfUrl)}&embedded=true`}
+                    src={signedPdfUrl}
                     title="Flight Plan PDF"
                     style={{
                       width: "100%",
@@ -402,7 +402,7 @@ export const FlightPlanList = () => {
                 <p>
                   <strong>Location:</strong> {selectedPlan.location}
                 </p>
-                {selectedPlan.latitude && selectedPlan.longitude && (
+                {selectedPlan.latitude != null && selectedPlan.longitude != null && (
                   <p>
                     <strong>Coordinates:</strong> {selectedPlan.latitude}, {selectedPlan.longitude}
                   </p>
