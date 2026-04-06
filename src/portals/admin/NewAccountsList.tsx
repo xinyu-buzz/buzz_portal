@@ -9,6 +9,7 @@ type ProfileRow = {
   first_name: string | null;
   last_name: string | null;
   call_sign?: string | null;
+  is_verified: boolean;
 };
 
 export const NewAccountsList = () => {
@@ -28,7 +29,7 @@ export const NewAccountsList = () => {
       setLoading(true);
       const query = supabaseClient
         .from("profiles")
-        .select("id,email,user_type,created_at,first_name,last_name,call_sign")
+        .select("id,email,user_type,created_at,first_name,last_name,call_sign,is_verified")
         .order("created_at", { ascending: false })
         .limit(200);
 
@@ -169,6 +170,7 @@ export const NewAccountsList = () => {
               <th>Email</th>
               <th>Name</th>
               <th>User Type</th>
+              <th>Verification</th>
               <th>Created</th>
             </tr>
           </thead>
@@ -182,12 +184,13 @@ export const NewAccountsList = () => {
                     "—"}
                 </td>
                 <td>{row.user_type}</td>
+                <td>{row.is_verified ? "✓ Verified" : "✗ Not Verified"}</td>
                 <td>{new Date(row.created_at).toLocaleString()}</td>
               </tr>
             ))}
             {!rows.length && (
               <tr>
-                <td colSpan={4} style={{ textAlign: "center" }}>
+                <td colSpan={5} style={{ textAlign: "center" }}>
                   No accounts in this window.
                 </td>
               </tr>
