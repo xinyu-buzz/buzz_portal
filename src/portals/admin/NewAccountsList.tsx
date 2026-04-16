@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseClient } from "../../utility";
 
+// government_ids has UNIQUE(user_id) so PostgREST returns it as a single object
+// (not an array). We still accept both shapes defensively in case the relationship
+// metadata isn't detected.
+type GovernmentIdEmbed = { verification_status: string } | null | { verification_status: string }[];
+
 type ProfileRow = {
   id: string;
   email: string | null;
@@ -9,8 +14,14 @@ type ProfileRow = {
   first_name: string | null;
   last_name: string | null;
   call_sign?: string | null;
-  is_verified: boolean;
+  government_ids: GovernmentIdEmbed;
 };
+
+function isVerified(embed: GovernmentIdEmbed): boolean {
+  if (!embed) return false;
+  const row = Array.isArray(embed) ? embed[0] : embed;
+  return row?.verification_status === "verified";
+}
 
 export const NewAccountsList = () => {
   const [rows, setRows] = useState<ProfileRow[]>([]);
@@ -27,9 +38,16 @@ export const NewAccountsList = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      // Pull the authoritative verification status from government_ids via
+      // embedded select. Left join so profiles without a government_ids row
+      // still come through (they just render "Not Verified"). profiles.is_verified
+      // is the legacy column and is NOT the source of truth anymore — only
+      // government_ids.verification_status (written by stripe-webhook) is.
       const query = supabaseClient
         .from("profiles")
-        .select("id,email,user_type,created_at,first_name,last_name,call_sign,is_verified")
+        .select(
+          "id,email,user_type,created_at,first_name,last_name,call_sign,government_ids(verification_status)"
+        )
         .order("created_at", { ascending: false })
         .limit(200);
 
@@ -184,7 +202,7 @@ export const NewAccountsList = () => {
                     "—"}
                 </td>
                 <td>{row.user_type}</td>
-                <td>{row.is_verified ? "✓ Verified" : "✗ Not Verified"}</td>
+                <td>{isVerified(row.government_ids) ? "✓ Verified" : "✗ Not Verified"}</td>
                 <td>{new Date(row.created_at).toLocaleString()}</td>
               </tr>
             ))}
