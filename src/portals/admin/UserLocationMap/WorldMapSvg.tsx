@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { projectToSvg, getColorForCount } from "./geoUtils";
-import type { GeoJson, TooltipData, DrillDownCountry } from "./types";
+import type { GeoJson, TooltipData } from "./types";
 import { DRILLDOWN_COUNTRIES } from "./types";
 
 type Props = {

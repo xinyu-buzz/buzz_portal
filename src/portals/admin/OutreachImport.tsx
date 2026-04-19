@@ -234,7 +234,7 @@ export const OutreachImport: FC = () => {
       const dataRows = csvRows.slice(1);
       let totalImported = 0;
       let totalDuplicates = 0;
-      let chunkErrors: string[] = [];
+      const chunkErrors: string[] = [];
 
       for (let i = 0; i < dataRows.length; i += CHUNK_SIZE) {
         const chunkRows = dataRows.slice(i, i + CHUNK_SIZE);
