@@ -101,15 +101,18 @@ export const PilotAccounts = () => {
     setError(null);
 
     try {
-      const [rolesResult, statsResult, profilesResult] = await Promise.all([
+      const [rolesResult, statsResult, versionResult] = await Promise.all([
         supabaseClient.from("pilot_special_roles").select("*"),
         supabaseClient.from("pilot_stats").select("pilot_id, tier"),
-        supabaseClient.from("profiles").select("id, last_location_update"),
+        supabaseClient
+          .from("app_version_tracking")
+          .select("user_id, last_seen_at")
+          .eq("platform", "ios"),
       ]);
 
       if (rolesResult.error) throw rolesResult.error;
       if (statsResult.error) throw statsResult.error;
-      if (profilesResult.error) throw profilesResult.error;
+      if (versionResult.error) throw versionResult.error;
 
       setAllPilots((rolesResult.data || []) as PilotSpecialRole[]);
 
@@ -120,8 +123,8 @@ export const PilotAccounts = () => {
       setTierMap(map);
 
       const useMap: Record<string, string | null> = {};
-      for (const row of profilesResult.data || []) {
-        useMap[row.id] = row.last_location_update ?? null;
+      for (const row of versionResult.data || []) {
+        useMap[row.user_id] = row.last_seen_at ?? null;
       }
       setLastUseMap(useMap);
     } catch (err: any) {
@@ -154,8 +157,7 @@ export const PilotAccounts = () => {
       );
     }
 
-    // Sort by last app use (last_location_update) descending; pilots with no
-    // recorded activity fall to the bottom.
+    // Sort by last app use descending; pilots with no iOS session fall to the bottom.
     return [...results].sort((a, b) => {
       const aIso = lastUseMap[a.pilot_id];
       const bIso = lastUseMap[b.pilot_id];
