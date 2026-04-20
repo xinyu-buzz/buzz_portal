@@ -90,6 +90,7 @@ export const PilotAccounts = () => {
   const [submitting, setSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [tierMap, setTierMap] = useState<Record<string, number>>({});
+  const [lastUseMap, setLastUseMap] = useState<Record<string, string | null>>({});
 
   useEscapeKey(() => {
     if (showEditModal) closeEditModal();
@@ -100,13 +101,15 @@ export const PilotAccounts = () => {
     setError(null);
 
     try {
-      const [rolesResult, statsResult] = await Promise.all([
+      const [rolesResult, statsResult, profilesResult] = await Promise.all([
         supabaseClient.from("pilot_special_roles").select("*"),
         supabaseClient.from("pilot_stats").select("pilot_id, tier"),
+        supabaseClient.from("profiles").select("id, last_location_update"),
       ]);
 
       if (rolesResult.error) throw rolesResult.error;
       if (statsResult.error) throw statsResult.error;
+      if (profilesResult.error) throw profilesResult.error;
 
       setAllPilots((rolesResult.data || []) as PilotSpecialRole[]);
 
@@ -115,6 +118,12 @@ export const PilotAccounts = () => {
         map[row.pilot_id] = row.tier;
       }
       setTierMap(map);
+
+      const useMap: Record<string, string | null> = {};
+      for (const row of profilesResult.data || []) {
+        useMap[row.id] = row.last_location_update ?? null;
+      }
+      setLastUseMap(useMap);
     } catch (err: any) {
       console.error("Failed to load pilot accounts", err);
       setError(err.message || "Failed to load pilot accounts");
@@ -145,8 +154,16 @@ export const PilotAccounts = () => {
       );
     }
 
-    return results;
-  }, [allPilots, activeRole, searchQuery]);
+    // Sort by last app use (last_location_update) descending; pilots with no
+    // recorded activity fall to the bottom.
+    return [...results].sort((a, b) => {
+      const aIso = lastUseMap[a.pilot_id];
+      const bIso = lastUseMap[b.pilot_id];
+      const aTime = aIso ? new Date(aIso).getTime() : 0;
+      const bTime = bIso ? new Date(bIso).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [allPilots, activeRole, searchQuery, lastUseMap]);
 
   const openEditModal = () => {
     setShowEditModal(true);
