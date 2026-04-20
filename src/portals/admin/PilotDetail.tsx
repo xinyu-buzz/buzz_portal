@@ -85,6 +85,7 @@ export const PilotDetail = () => {
   const [tier, setTier] = useState<number | null>(null);
   const [lastSignIn, setLastSignIn] = useState<string | null>(null);
   const [iosVersion, setIosVersion] = useState<string | null>(null);
+  const [lastSeenAt, setLastSeenAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -159,8 +160,10 @@ export const PilotDetail = () => {
           versionRes.error.message,
         );
         setIosVersion(null);
+        setLastSeenAt(null);
       } else {
         setIosVersion((versionRes.data?.app_version as string) ?? null);
+        setLastSeenAt((versionRes.data?.last_seen_at as string) ?? null);
       }
     } catch (err: any) {
       console.error("Failed to load pilot detail", err);
@@ -333,7 +336,7 @@ export const PilotDetail = () => {
               />
               <ActivityRow
                 label="Last app use"
-                iso={profile.last_location_update}
+                iso={lastSeenAt}
                 hint="Updated on app launch or foreground"
               />
               <ActivityRow
