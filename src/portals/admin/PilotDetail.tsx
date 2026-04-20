@@ -84,6 +84,7 @@ export const PilotDetail = () => {
   const [roles, setRoles] = useState<SpecialRoles | null>(null);
   const [tier, setTier] = useState<number | null>(null);
   const [lastSignIn, setLastSignIn] = useState<string | null>(null);
+  const [iosVersion, setIosVersion] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,30 +95,39 @@ export const PilotDetail = () => {
     setError(null);
 
     try {
-      const [profileRes, rolesRes, statsRes, signInRes] = await Promise.all([
-        supabaseClient
-          .from("profiles")
-          .select(
-            "id, first_name, last_name, call_sign, email, phone, user_type, selected_region, profile_picture_url, last_location_lat, last_location_lng, last_location_update, created_at",
-          )
-          .eq("id", pilotId)
-          .maybeSingle(),
-        supabaseClient
-          .from("pilot_special_roles")
-          .select(
-            "flight_reviewer, roc_a_examiner, dual_citizen_pilot, faa, tc",
-          )
-          .eq("pilot_id", pilotId)
-          .maybeSingle(),
-        supabaseClient
-          .from("pilot_stats")
-          .select("tier")
-          .eq("pilot_id", pilotId)
-          .maybeSingle(),
-        supabaseClient.rpc("admin_get_pilot_last_sign_in", {
-          p_pilot_id: pilotId,
-        }),
-      ]);
+      const [profileRes, rolesRes, statsRes, signInRes, versionRes] =
+        await Promise.all([
+          supabaseClient
+            .from("profiles")
+            .select(
+              "id, first_name, last_name, call_sign, email, phone, user_type, selected_region, profile_picture_url, last_location_lat, last_location_lng, last_location_update, created_at",
+            )
+            .eq("id", pilotId)
+            .maybeSingle(),
+          supabaseClient
+            .from("pilot_special_roles")
+            .select(
+              "flight_reviewer, roc_a_examiner, dual_citizen_pilot, faa, tc",
+            )
+            .eq("pilot_id", pilotId)
+            .maybeSingle(),
+          supabaseClient
+            .from("pilot_stats")
+            .select("tier")
+            .eq("pilot_id", pilotId)
+            .maybeSingle(),
+          supabaseClient.rpc("admin_get_pilot_last_sign_in", {
+            p_pilot_id: pilotId,
+          }),
+          supabaseClient
+            .from("app_version_tracking")
+            .select("app_version, last_seen_at")
+            .eq("user_id", pilotId)
+            .eq("platform", "ios")
+            .order("last_seen_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
 
       if (profileRes.error) throw profileRes.error;
       if (!profileRes.data) throw new Error("Pilot not found.");
@@ -141,6 +151,16 @@ export const PilotDetail = () => {
         setLastSignIn(null);
       } else {
         setLastSignIn((signInRes.data as string | null) || null);
+      }
+
+      if (versionRes.error && versionRes.error.code !== "PGRST116") {
+        console.warn(
+          "Failed to load iOS version:",
+          versionRes.error.message,
+        );
+        setIosVersion(null);
+      } else {
+        setIosVersion((versionRes.data?.app_version as string) ?? null);
       }
     } catch (err: any) {
       console.error("Failed to load pilot detail", err);
@@ -188,7 +208,7 @@ export const PilotDetail = () => {
           >
             &#8592; Back to Pilot Accounts
           </Link>
-          <h1 style={{ marginTop: 8 }}>Pilot Detail</h1>
+          <h1 style={{ marginTop: 8 }}>Pilot Details</h1>
         </div>
         <button className="primary-btn" onClick={load} disabled={loading}>
           Refresh
@@ -319,6 +339,11 @@ export const PilotDetail = () => {
               <ActivityRow
                 label="Account created"
                 iso={profile.created_at}
+              />
+              <InfoRow
+                label="iOS version"
+                value={iosVersion ?? "—"}
+                hint={iosVersion ? "Last reported by the iOS app" : "No iOS session recorded"}
               />
             </div>
 
@@ -467,6 +492,37 @@ const ActivityRow = ({
         </div>
       )}
     </div>
+  </div>
+);
+
+const InfoRow = ({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 12,
+      padding: "10px 0",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+    }}
+  >
+    <div>
+      <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
+      {hint && (
+        <div style={{ fontSize: 12, color: "#6d7689", marginTop: 2 }}>
+          {hint}
+        </div>
+      )}
+    </div>
+    <div style={{ fontSize: 14, color: "#d9dde4" }}>{value}</div>
   </div>
 );
 
