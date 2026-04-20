@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabaseClient } from "../../utility";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useIsOwner } from "../../hooks/useIsOwner";
 
 type PilotSpecialRole = {
   pilot_id: string;
@@ -71,6 +73,8 @@ const ROLE_KEYS: { key: keyof Pick<EditForm, "flight_reviewer" | "roc_a_examiner
 ];
 
 export const PilotAccounts = () => {
+  const navigate = useNavigate();
+  const { isOwner } = useIsOwner();
   const [allPilots, setAllPilots] = useState<PilotSpecialRole[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,26 +234,6 @@ export const PilotAccounts = () => {
       faa: existing?.faa ?? false,
       tc: existing?.tc ?? false,
       tier: currentTier,
-    });
-  };
-
-  const openEditForPilot = (pilot: PilotSpecialRole) => {
-    setShowEditModal(true);
-    setEditSearch("");
-    setSearchResults([]);
-    setEditError(null);
-    setEditForm({
-      pilot_id: pilot.pilot_id,
-      first_name: pilot.first_name || "",
-      last_name: pilot.last_name || "",
-      call_sign: pilot.call_sign || "",
-      region: pilot.region || "",
-      flight_reviewer: pilot.flight_reviewer,
-      roc_a_examiner: pilot.roc_a_examiner,
-      dual_citizen_pilot: pilot.dual_citizen_pilot,
-      faa: pilot.faa,
-      tc: pilot.tc,
-      tier: tierMap[pilot.pilot_id] ?? 0,
     });
   };
 
@@ -513,7 +497,16 @@ export const PilotAccounts = () => {
                     .join(" ") || "Unknown";
 
                   return (
-                    <tr key={pilot.pilot_id} onClick={() => openEditForPilot(pilot)} style={{ cursor: "pointer" }}>
+                    <tr
+                      key={pilot.pilot_id}
+                      onClick={
+                        isOwner
+                          ? () => navigate(`/admin/pilot-accounts/${pilot.pilot_id}`)
+                          : undefined
+                      }
+                      style={{ cursor: isOwner ? "pointer" : "default" }}
+                      title={isOwner ? "View pilot detail" : undefined}
+                    >
                       <td>{name}</td>
                       <td>{pilot.call_sign || "-"}</td>
                       <td>{pilot.region || "-"}</td>

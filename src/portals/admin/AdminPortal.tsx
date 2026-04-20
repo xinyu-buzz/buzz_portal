@@ -20,6 +20,7 @@ import { AcademyTraffic } from "./AcademyTraffic";
 import { ExpressPromotions } from "./ExpressPromotions";
 import { PilotManagement } from "./PilotManagement";
 import { PilotAccounts } from "./PilotAccounts";
+import { PilotDetail } from "./PilotDetail";
 import { LicenseApprovalReview } from "./LicenseApprovalReview";
 import { TicketManagement } from "./TicketManagement";
 import { FlightHourClaimsReview } from "./FlightHourClaimsReview";
@@ -130,6 +131,7 @@ export const AdminPortal = () => {
         <Route path="academy-test-results" element={<AcademyTestResults />} />
         <Route path="pilot-management" element={<PilotManagement />} />
         <Route path="pilot-accounts" element={<PilotAccounts />} />
+        <Route path="pilot-accounts/:pilotId" element={<PilotDetail />} />
         <Route path="express-promotions" element={<ExpressPromotions />} />
         <Route path="flight-reviewer-applications" element={<LicenseApprovalReview roleType="flight_reviewer" />} />
         <Route path="roc-a-examiner-applications" element={<LicenseApprovalReview roleType="roc_a_examiner" />} />
