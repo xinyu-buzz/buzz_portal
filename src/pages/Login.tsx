@@ -9,6 +9,27 @@ import {
 
 const roles = ["admin", "pilot", "editor", "client"] as const;
 
+const SOFT_ERROR_MESSAGE =
+  "We're having trouble signing you in. Please check your connection and try again later.";
+
+const friendlySignInError = (
+  err: { message?: string; code?: string; status?: number } | null | undefined
+) => {
+  if (!err) return "Unable to sign in";
+  const code = err.code?.toLowerCase() ?? "";
+  const msg = err.message?.toLowerCase() ?? "";
+  const isBanOrDisabled =
+    code === "user_banned" ||
+    code === "email_provider_disabled" ||
+    code === "signup_disabled" ||
+    msg.includes("banned") ||
+    msg.includes("email logins are disabled") ||
+    msg.includes("email provider") ||
+    msg.includes("signups not allowed");
+  if (isBanOrDisabled) return SOFT_ERROR_MESSAGE;
+  return err.message || "Unable to sign in";
+};
+
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,7 +74,7 @@ export const LoginPage = () => {
       });
 
     if (signInError || !data?.user) {
-      setError(signInError?.message || "Unable to sign in");
+      setError(friendlySignInError(signInError));
       setLoading(false);
       return;
     }
